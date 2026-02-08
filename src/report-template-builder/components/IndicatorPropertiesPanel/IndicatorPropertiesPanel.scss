@@ -1,0 +1,33 @@
+.tileHeader {
+  margin-bottom: 0.75rem;
+}
+
+.tileTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.note {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-left: 4px solid var(--cds-support-info, #0f62fe);
+  background: var(--cds-layer-accent-01, #edf5ff);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.mappingActions {
+  margin-top: 0.75rem;
+}
+
+.placeholder {
+  padding: 1rem 0;
+  opacity: 0.8;
+}

@@ -1,0 +1,55 @@
+.cardLink {
+  text-decoration: none;
+}
+.tile {
+  padding: 1rem;
+  min-height: 5rem;
+  display: block;
+}
+.title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.description {
+  font-size: 0.875rem;
+}
+
+.panel {
+  padding: 1rem;
+  border-radius: 12px; // adjust to match your design
+}
+
+.panelTitle {
+  margin: 0 0 0.75rem 0;
+}
+
+.panelHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.subtleText {
+  margin: 0 0 1rem 0;
+  opacity: 0.8;
+}
+
+.mappingGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.dimensionsGrid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.treeWrapper {
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.openmrs.org/routes.schema.json",
+  "pages": [
+    {
+      "component": "root",
+      "route": "report-template-builder",
+      "online": true,
+      "offline": false,
+      "order": 1
+    }
+  ],
+  "extensions": [
+    {
+      "name": "system-administration-report-template-builder-card-link",
+      "slot": "system-admin-page-card-link-slot",
+      "component": "reportTemplateBuilderAdminLink",
+      "online": true,
+      "offline": false
+    }
+  ]
+}
