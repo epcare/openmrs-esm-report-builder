@@ -64,7 +64,7 @@ Design the **human-readable structure** of a report.
 
 ---
 
-### 3. Report Template Builder
+### 3. Report Builder
 - Hierarchical indicator structure
 - Disaggregation-aware configuration
 - Live JSON preview

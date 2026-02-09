@@ -1,9 +1,9 @@
 {
-  "name": "@ugandaemr/esm-report-template-builder",
+  "name": "@ugandaemr/esm-report-builder",
   "version": "0.1.0",
   "license": "MPL-2.0",
-  "description": "Report JSON template builder for OpenMRS 3 (O3)",
-  "browser": "dist/openmrs-esm-report-template-builder.js",
+  "description": "OpenMRS ESM Report Builder",
+  "browser": "dist/openmrs-esm-report-builder.js",
   "main": "src/index.ts",
   "source": true,
   "scripts": {
@@ -64,7 +64,7 @@
     "rootDir": "src",
     "config": {
       "paths": {
-        "@ugandaemr/esm-report-template-builder": ["src"]
+        "@ugandaemr/esm-report-builder": ["src"]
       }
     }
   }

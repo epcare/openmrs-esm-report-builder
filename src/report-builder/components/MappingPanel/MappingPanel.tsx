@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dropdown, TextInput, Tile } from '@carbon/react';
-import styles from '../../report-template-builder.scss';
+import styles from '../../report-builder.scss';
 
 export type MappingOption = { id: string; text: string };
 

@@ -7,7 +7,7 @@ config.overrides.resolve = {
   extensions: ['.tsx', '.ts', '.jsx', '.js', '.scss', '.json'],
   alias: {
     '@openmrs/esm-framework': '@openmrs/esm-framework/src/internal',
-    '@report-template-builder$': path.resolve(__dirname, 'src/report-template-builder/'),
+    '@report-builder$': path.resolve(__dirname, 'src/report-builder/'),
   },
 };
 

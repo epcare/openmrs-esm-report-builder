@@ -8,7 +8,7 @@ import { ArrowRight } from '@carbon/icons-react';
  * Renders a link card on the System Administration page.
  * Uses the same approach as openmrs-esm-form-builder.
  */
-const ReportTemplateBuilderAdminCardLink: React.FC = () => {
+const ReportBuilderAdminCardLink: React.FC = () => {
   const { t } = useTranslation();
 
   return (
@@ -18,14 +18,14 @@ const ReportTemplateBuilderAdminCardLink: React.FC = () => {
           className="admin-card"
           role="link"
           tabIndex={0}
-          onClick={() => navigate({ to: `${window.spaBase}/report-template-builder` })}
+          onClick={() => navigate({ to: `${window.spaBase}/report-builder` })}
         >
           <div className="admin-card__content">
             <div>
-              <h4 className="admin-card__title">{t('reportTemplateBuilder', 'Report template builder')}</h4>
+              <h4 className="admin-card__title">{t('reportBuilder', 'Report template builder')}</h4>
               <p className="admin-card__description">
                 {t(
-                  'openReportTemplateBuilder',
+                  'openReportBuilder',
                   'Create report JSON templates and map fields to indicator codes.',
                 )}
               </p>
@@ -38,4 +38,4 @@ const ReportTemplateBuilderAdminCardLink: React.FC = () => {
   );
 };
 
-export default ReportTemplateBuilderAdminCardLink;
+export default ReportBuilderAdminCardLink;

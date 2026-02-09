@@ -1,0 +1,144 @@
+@use '@carbon/layout' as layout;
+@use '@carbon/type' as type;
+
+.header {
+  background: var(--cds-layer-01, #ffffff);
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+  padding: layout.$spacing-06 layout.$spacing-06;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: layout.$spacing-07;
+}
+
+.left {
+  display: flex;
+  align-items: flex-start;
+  gap: layout.$spacing-06;
+  min-width: 0;
+}
+
+.illustrationWrap {
+  flex: 0 0 auto;
+}
+
+.pageLabels {
+  display: flex;
+  flex-direction: column;
+  gap: layout.$spacing-03;
+  min-width: 0;
+}
+
+.appName {
+  @include type.type-style('body-compact-02');
+  color: var(--cds-text-secondary, #525252);
+}
+
+.pageTitle {
+  @include type.type-style('heading-05');
+  color: var(--cds-text-primary, #161616);
+  line-height: 1.15;
+}
+
+.metaLine {
+  @include type.type-style('body-compact-02');
+  color: var(--cds-text-secondary, #525252);
+  display: flex;
+  align-items: center;
+  gap: layout.$spacing-03;
+}
+
+.metaItem {
+  white-space: nowrap;
+}
+
+.metaDot {
+  opacity: 0.7;
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: layout.$spacing-05;
+}
+
+.rightTop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: layout.$spacing-03;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: layout.$spacing-03;
+}
+
+.userName {
+  @include type.type-style('body-compact-02');
+  color: var(--cds-text-primary, #161616);
+}
+
+.userIcon {
+  color: var(--cds-text-secondary, #525252);
+}
+
+.contextRow {
+  @include type.type-style('body-compact-02');
+  color: var(--cds-text-secondary, #525252);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: layout.$spacing-03;
+}
+
+.value {
+  margin-left: layout.$spacing-02;
+  white-space: nowrap;
+}
+
+.chevron {
+  opacity: 0.7;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+
+.illustration {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+}
+
+.sheetBack,
+.sheetMid,
+.sheetFront {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: #a7d6d4; /* example */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ✅ overlap should trail LEFT */
+.sheetBack {
+  transform: translateX(-8px) translateY(2px);
+  opacity: 0.6;
+}
+
+.sheetMid {
+  transform: translateX(-4px) translateY(1px);
+  opacity: 0.8;
+}
+
+.sheetFront {
+  transform: translateX(0) translateY(0);
+  opacity: 1;
+}

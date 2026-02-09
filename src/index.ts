@@ -1,15 +1,15 @@
 import { defineConfigSchema, getAsyncLifecycle } from '@openmrs/esm-framework';
 import { configSchema } from './config-schema';
 
-const moduleName = '@ugandaemr/esm-report-template-builder';
+const moduleName = '@ugandaemr/esm-report-builder';
 
 const options = {
-  featureName: 'report-template-builder',
+  featureName: 'report-builder',
   moduleName,
 };
 
-export const reportTemplateBuilderAdminLink = getAsyncLifecycle(
-  () => import('./report-template-builder/admin-card-link.extension'),
+export const reportBuilderAdminLink = getAsyncLifecycle(
+  () => import('./report-builder/admin-card-link.extension'),
   options,
 );
 

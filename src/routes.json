@@ -3,7 +3,7 @@
   "pages": [
     {
       "component": "root",
-      "route": "report-template-builder",
+      "route": "report-builder",
       "online": true,
       "offline": false,
       "order": 1
@@ -11,9 +11,9 @@
   ],
   "extensions": [
     {
-      "name": "system-administration-report-template-builder-card-link",
+      "name": "system-administration-report-builder-card-link",
       "slot": "system-admin-page-card-link-slot",
-      "component": "reportTemplateBuilderAdminLink",
+      "component": "reportBuilderAdminLink",
       "online": true,
       "offline": false
     }

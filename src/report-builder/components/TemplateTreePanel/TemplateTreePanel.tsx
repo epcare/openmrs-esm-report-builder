@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tile, TreeView } from '@carbon/react';
-import styles from '../../report-template-builder.scss';
+import styles from '../../report-builder.scss';
 import { type IndicatorNode } from '../../sample-template';
 import { renderTree } from './treeHelpers';
 

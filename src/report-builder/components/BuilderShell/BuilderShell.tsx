@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from '../../report-template-builder.scss';
+import styles from '../../report-builder.scss';
 
 type BuilderShellProps = {
   header: React.ReactNode;

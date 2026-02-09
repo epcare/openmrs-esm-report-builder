@@ -4,12 +4,22 @@
   display: flex;
   flex-direction: column;
 }
+.page {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ✅ New: space after header */
+.content {
+  margin-top: 1rem; /* or 1.5rem if you want more air */
+}
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 3rem;
   margin-bottom: 1rem;
 }
 
