@@ -2,7 +2,8 @@ import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import ReportsDashboard from './report-builder/components/reports-dashboard/reports-dashboard.component';
-import ReportBuilder from './report-builder/report-builder.component';
+import ReportBuilder from './report-builder/components/report-builder/report-builder';
+
 
 const RootComponent: React.FC = () => {
     return (

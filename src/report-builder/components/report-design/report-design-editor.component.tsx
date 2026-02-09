@@ -2,20 +2,19 @@ import React from 'react';
 import {InlineNotification} from '@carbon/react';
 import {useTranslation} from 'react-i18next';
 
-import styles from './report-builder.scss';
+import styles from './report-design-editor.scss';
 
-import {buildDefaultTemplate, type IndicatorNode, type TemplateModel} from './sample-template';
-import {toJsonTemplate, fromJsonTemplate} from './template-utils';
+import {buildDefaultTemplate, type IndicatorNode, type TemplateModel} from '../../sample-template';
+import {toJsonTemplate, fromJsonTemplate} from '../../template-utils';
 
-import Header from './components/header/header.component';
-import BuilderHeaderActions from './components/header/builder-header-actions.component';
+import BuilderHeaderActions from '../header/builder-header-actions.component';
 
 import TemplateStructurePanel, {
     type SelectedNode
-} from './components/template-structure-panel/template-structure-panel.component';
-import JsonPreviewPanel from './components/JsonPreviewPanel/JsonPreviewPanel';
-import IndicatorPropertiesPanel from './components/IndicatorPropertiesPanel/IndicatorPropertiesPanel';
-import MappingPreviewPanel from './components/mapping-preview-panel/mapping-preview-panel.component';
+} from '../template-structure-panel/template-structure-panel.component';
+import JsonPreviewPanel from '../json-preview-panel/JsonPreviewPanel';
+import IndicatorPropertiesPanel from '../indicator-properties-panel/IndicatorPropertiesPanel';
+import MappingPreviewPanel from '../mapping-preview-panel/mapping-preview-panel.component';
 
 type Selected = SelectedNode;
 
@@ -45,7 +44,7 @@ const mappingCategoryOptions = ['Age <5, Male', 'Age <5, Female', '5-14, Male', 
 }));
 const mappingAttrOptions = ['AttrCombo123', 'AttrCombo456', 'AttrCombo789'].map((v) => ({id: v, text: v}));
 
-const ReportBuilder: React.FC = () => {
+const ReportDesignEditor: React.FC = () => {
     const {t} = useTranslation();
 
     // ✅ Draft model (Template Structure + Properties edits)
@@ -158,16 +157,10 @@ const ReportBuilder: React.FC = () => {
                     onCloseButtonClick={() => setInfo(null)}
                 />
             ) : null}
-            <Header
-                title={t('schemaEditor', 'Schema editor')}
-                subtitle={t('editingTemplate', 'Editing report template')}
-                status={{label: t('draft', 'Draft'), kind: 'warning'}}
-                actions={<BuilderHeaderActions onSave={() => {
-                }} onPreview={() => {
-                }} onExport={() => {
-                }}/>}
-            />
 
+            <div className={styles.content}>
+                <BuilderHeaderActions onSave={() => {}} onPreview={() => {}} onExport={() => {}}/>
+            </div>
             <div className={styles.content}>
                 <div className={styles.grid}>
                     {/* Left column */}
@@ -223,4 +216,4 @@ const ReportBuilder: React.FC = () => {
     );
 };
 
-export default ReportBuilder;
+export default ReportDesignEditor;

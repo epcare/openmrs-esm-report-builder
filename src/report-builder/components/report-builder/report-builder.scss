@@ -1,0 +1,49 @@
+.content {
+  margin-top: 1rem;
+}
+
+.designWorkspace {
+  padding-top: 1rem;
+}
+
+.workspaceTitle {
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+}
+
+.workspaceHint {
+  margin: 0 0 1rem 0;
+  opacity: 0.75;
+}
+
+.designGrid {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 1rem;
+}
+
+.designLeft,
+.designRight {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.panel {
+  background: var(--cds-layer-01, #fff);
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.panelTitle {
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+}
+
+.panelHint {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 0.875rem;
+}
