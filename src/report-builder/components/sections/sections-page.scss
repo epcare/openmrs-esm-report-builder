@@ -1,0 +1,77 @@
+.page {
+  width: 100%;
+}
+
+.sectionsPage {
+  width: 100%;
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+  background: var(--cds-layer, #ffffff);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.surface {
+  margin: 0 1.5rem 1.5rem;
+  background: var(--cds-layer, #ffffff);
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.toolbarRow {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+}
+
+.footerRow {
+  padding: 0.75rem;
+  border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+  background: var(--cds-layer-accent, #f4f4f4);
+}
+
+.footerText {
+  opacity: 0.85;
+}
+
+.rowIconWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rowIndexTag {
+  margin-left: 0.25rem;
+}
+
+.nameCell {
+  display: flex;
+  align-items: center;
+}
+
+.nameText {
+  font-weight: 600;
+}
+
+.countCell {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+}

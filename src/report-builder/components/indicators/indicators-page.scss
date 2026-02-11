@@ -1,0 +1,115 @@
+.indicatorsPage {
+  width: 100%;
+  padding: 0; /* let O3 page chrome handle padding */
+  box-sizing: border-box;
+}
+
+/* Header row like "Manage Reports" */
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+  background: var(--cds-layer, #ffffff);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+/* Actions on the right */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Tabs area should feel like it belongs to the page, full-width */
+:global(.cds--tabs) {
+  padding: 0 1.5rem;
+  background: var(--cds-layer, #ffffff);
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+}
+
+/* Remove extra padding Carbon sometimes adds */
+:global(.cds--tab-content) {
+  padding: 0;
+}
+
+/* Tab panel wrapper: make it full-width like list pages */
+.panel {
+  padding: 1rem 1.5rem 1.5rem;
+  background: var(--cds-background, #f4f4f4);
+}
+
+/* Create a white "content surface" like Manage Reports list area */
+.panel :global(.cds--stack) {
+  background: var(--cds-layer, #ffffff);
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+}
+
+/* Search should span wide (Manage Reports style) */
+.panel :global(.cds--search) {
+  width: 100%;
+  max-width: none;
+}
+
+/* DataTable should span full width */
+.panel :global(.cds--data-table-container) {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* Ensure the table itself takes the width */
+.panel :global(.cds--data-table) {
+  width: 100%;
+}
+
+/* Make rows feel clickable */
+.panel :global(.cds--data-table tbody tr) {
+  cursor: pointer;
+}
+
+/* Hover feedback */
+.panel :global(.cds--data-table tbody tr:hover) {
+  background-color: var(--cds-layer-hover, #f4f4f4);
+}
+
+/* Keep the table header background subtle */
+.panel :global(.cds--data-table thead th) {
+  background: var(--cds-layer-accent, #f4f4f4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .headerActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  :global(.cds--tabs) {
+    padding: 0 1rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .headerRow {
+    padding: 1rem;
+  }
+}
