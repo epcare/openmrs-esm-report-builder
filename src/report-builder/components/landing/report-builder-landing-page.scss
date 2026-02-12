@@ -1,202 +1,131 @@
-.rbLanding {
+.page {
   width: 100%;
-}
-
-.rbLandingContainer {
-  width: 80%;
-  max-width: 1600px; /* cap for very wide screens */
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1.5rem 0 2rem;
 }
 
-.rbLandingHero {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+/* HERO */
+.hero {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 1.5rem;
+  align-items: center;
+
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  background: linear-gradient(90deg, #eef4ff 0%, #ffffff 55%, #ffffff 100%);
 }
 
-.rbLandingTitle {
+.heroArt {
+  height: 150px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 30% 30%, #dbe7ff 0%, #eef4ff 55%, #ffffff 100%);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  display: grid;
+  place-items: center;
+}
+
+.heroArtInner {
+  width: 112px;
+  height: 112px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.heroTitle {
+  margin: 0;
   font-size: 1.75rem;
   font-weight: 600;
-  margin: 0;
+  letter-spacing: 0.1px;
 }
 
-.rbLandingSubtitle {
-  margin-top: 0.35rem;
-  opacity: 0.8;
+.heroSubtitle {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  opacity: 0.85;
+  max-width: 54ch;
 }
 
-.rbLandingGrid {
+/* CARDS GRID */
+.cardsGrid {
+  margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: 1.25fr 1.6fr 1fr;
-  gap: 1rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
 }
 
-.rbLandingGridBottom {
-  margin-top: 1rem;
-  padding-bottom: 1rem;
-}
-
-/* Cards */
-.rbCard {
+.card {
+  border-radius: 12px;
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   background: #fff;
-  border-radius: 0.75rem;
-  border: 1px solid #ffffff; /* white border */
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
 
-.rbCardHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.9rem 1rem;
-  color: #fff;
-  font-weight: 600;
-}
+  padding: 1.25rem 1.25rem 1.25rem;
+  min-height: 340px;
 
-.rbCardHeaderBlue {
-  background: linear-gradient(90deg, #1f5ea8 0%, #2f74c9 100%);
-}
-
-.rbCardHeaderGreen {
-  background: linear-gradient(90deg, #2c7a4b 0%, #3d8b59 100%);
-}
-
-.rbCardHeaderGold {
-  background: linear-gradient(90deg, #c79a1b 0%, #d7ad33 100%);
-}
-
-.rbCardBody {
-  padding: 1rem;
-}
-
-.rbCardSection {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.rbCardSectionTitle {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.rbCardSectionHint {
-  opacity: 0.8;
-  margin-top: 0.2rem;
-}
-
-/* Divider */
-.rbDivider {
-  height: 1px;
-  background: var(--cds-border-subtle, #e0e0e0);
-  margin: 0.9rem 0;
-}
-
-/* Actions */
-.rbActions {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
-.rbAction {
-  width: 100%;
-  text-align: left;
-  background: #fff;
-  border: 1px solid var(--cds-border-subtle, #e0e0e0);
-  border-radius: 0.6rem;
-  padding: 0.85rem 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
+.cardIllustration {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f2f6ff 0%, #ffffff 100%);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
-.rbAction:hover {
-  background: rgba(0, 0, 0, 0.02);
+.illCircle {
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
 }
 
-.rbActionLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.rbActionLabel {
+.cardTitle {
+  margin: 1rem 0 0;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
-/* Lists */
-.rbListSectionTitle {
-  font-weight: 600;
+.cardBody {
+  margin: 0.65rem 0 0;
+  line-height: 1.5;
   opacity: 0.85;
-  margin-bottom: 0.25rem;
+  max-width: 46ch;
 }
 
-.rbListSubTitle {
-  font-weight: 600;
-  opacity: 0.9;
-  margin-top: 0.5rem;
-  margin-bottom: 0.25rem;
+.cardActions {
+  margin-top: auto;
+  padding-top: 1.25rem;
 }
 
-.rbListItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+.cardButton {
+  width: 100%;
 }
 
-.rbListLeft {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-
-.rbListName {
-  font-weight: 600;
-}
-
-.rbListMeta {
-  font-size: 0.85rem;
-  opacity: 0.8;
-  margin-top: 0.15rem;
-}
-
-.rbFooterActions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 0.25rem;
-}
-
-.rbActionsRight {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.rbMt12 {
-  margin-top: 0.75rem;
-}
-
-/* Responsive tweaks */
-@media (max-width: 1200px) {
-  .rbLandingContainer {
-    width: 90%;
-  }
-}
-
-@media (max-width: 768px) {
-  .rbLandingContainer {
-    width: 100%;
-    padding: 0.75rem;
+/* RESPONSIVE */
+@media (max-width: 1050px) {
+  .hero {
+    grid-template-columns: 1fr;
   }
 
-  .rbLandingGrid {
+  .heroArt {
+    height: 180px;
+  }
+
+  .cardsGrid {
     grid-template-columns: 1fr;
   }
 }

@@ -94,7 +94,7 @@ const SectionsPage: React.FC = () => {
     return (
         <div className={styles.page}>
             <Header
-                title={t('reportBuilder', 'Report builder')}
+                title={t('reportSection', 'Manage Report Sections')}
                 subtitle={t('sectionsSubtitle', 'Draft • Define sections and reuse them in reports')}
                 status={{label: t('draft', 'Draft'), kind: 'warning'}}
             />

@@ -1,102 +1,103 @@
 import React from 'react';
-import { Document, ChartColumn, Report, Play } from '@carbon/icons-react';
+import { Button, Tile } from '@carbon/react';
+import { Add, ChartColumn, Play, Report } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
-import Header from '../header/header.component';
 import styles from './report-builder-landing-page.scss';
-
-import LandingSectionCard from './landing-section-card.component';
-import LandingActionList from './landing-action-list.component';
-import LandingActionItem from './landing-action-item.component';
-import LandingActivityList from './landing-activity-list.component';
-import LandingFooterGrid from './landing-footer-grid.component';
+import Header from '../header/header.component';
 
 const ReportBuilderLandingPage: React.FC = () => {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
 
-    const recentIndicators = [
-        { name: 'Malaria Cases (Base Indicator)', when: '2 hours ago' },
-        { name: 'ART Patients by Age Group (Final Indicator)', when: 'Edited 1 day ago' },
-    ];
+  return (
+      <div className={styles.page}>
+        {/* HERO (matches screenshot layout) */}
+        <Header
+            title={t('welcomeReporting', 'Welcome  Report Builder')}
+            subtitle={t('welcomeReportingHint', 'Manage health data reports, define indicators, and run reports with ease.')}
+        />
 
-    const savedReports = ['HMIS 105', 'Monthly OPD Summary', 'ART Program Summary'];
-
-    return (
-        <div className={styles.rbLanding}>
-            <Header
-                title={t('reportBuilderLanding', 'Reporting & Indicators')}
-                subtitle={t('manageReports', 'Build reusable indicators. Assemble reports. Run with live data.')}
-            />
-
-            <div className={styles.rbLandingContainer}>
-                <div className={styles.rbLandingGrid}>
-                    {/* ✅ Indicators – WIRED */}
-                    <LandingSectionCard title="Indicators" tone="blue" headerIcon={<ChartColumn />}>
-                        <div className={styles.rbCardSection}>
-                            <ChartColumn size={28} />
-                            <div>
-                                <p className={styles.rbCardSectionTitle}>Indicators</p>
-                                <div className={styles.rbCardSectionHint}>Build and manage indicator logic.</div>
-                            </div>
-                        </div>
-
-                        <div className={styles.rbDivider} />
-
-                        <LandingActionList>
-                            <LandingActionItem icon={<Document />} label="Create Base Indicator" to="/indicators?create=base" />
-                            <LandingActionItem icon={<Document />} label="Create Composite Base Indicator" to="/indicators?create=composite" />
-                            <LandingActionItem icon={<Document />} label="View Base Indicators" to="/indicators" />
-                        </LandingActionList>
-                    </LandingSectionCard>
-
-                    {/* ✅ Reports – now includes Sections actions */}
-                    <LandingSectionCard title="Reports" tone="green" headerIcon={<Report />}>
-                        <div className={styles.rbCardSection}>
-                            <Report size={28} />
-                            <div>
-                                <p className={styles.rbCardSectionTitle}>Reports</p>
-                                <div className={styles.rbCardSectionHint}>Assemble indicators into reports.</div>
-                            </div>
-                        </div>
-
-                        <div className={styles.rbDivider} />
-
-                        <LandingActionList>
-                            {/* Reports */}
-                            <LandingActionItem icon={<Document />} label="Create Report" to="/new" />
-                            <LandingActionItem icon={<Document />} label="View Reports" to="/reports" />
-
-                            {/* Sections (NEW) */}
-                            <LandingActionItem icon={<Document />} label="Create Section" to="/sections?create=1" />
-                            <LandingActionItem icon={<Document />} label="View Sections" to="/sections" />
-                        </LandingActionList>
-                    </LandingSectionCard>
-
-                    {/* Run Reports (still placeholder) */}
-                    <LandingSectionCard title="Run Reports" tone="gold" headerIcon={<Play />}>
-                        <div className={styles.rbCardSection}>
-                            <Play size={28} />
-                            <div>
-                                <p className={styles.rbCardSectionTitle}>Run Reports</p>
-                                <div className={styles.rbCardSectionHint}>Apply time &amp; location and view results.</div>
-                            </div>
-                        </div>
-
-                        <div className={styles.rbDivider} />
-
-                        <LandingActivityList recentIndicators={recentIndicators} savedReports={savedReports} />
-                    </LandingSectionCard>
-                </div>
-
-                <LandingFooterGrid
-                    onNavigate={(path) => {
-                        // eslint-disable-next-line no-console
-                        console.log('Navigate to:', path);
-                    }}
-                />
+        {/* CARDS */}
+        <div className={styles.cardsGrid}>
+          <Tile className={styles.card}>
+            <div className={styles.cardIllustration} aria-hidden>
+              <div className={styles.illCircle}>
+                <Report size={56} />
+              </div>
             </div>
+
+            <h3 className={styles.cardTitle}>{t('createReports', 'Create Reports')}</h3>
+            <p className={styles.cardBody}>
+              {t('createReportsHint', 'Define and configure health data reports tailored to your needs.')}
+            </p>
+
+            <div className={styles.cardActions}>
+              <Button
+                  kind="primary"
+                  size="lg"
+                  renderIcon={Add}
+                  className={styles.cardButton}
+                  onClick={() => navigate('/new')}
+              >
+                {t('getStarted', 'Get started')}
+              </Button>
+            </div>
+          </Tile>
+
+          <Tile className={styles.card}>
+            <div className={styles.cardIllustration} aria-hidden>
+              <div className={styles.illCircle}>
+                <ChartColumn size={56} />
+              </div>
+            </div>
+
+            <h3 className={styles.cardTitle}>{t('manageIndicators', 'Manage Indicators')}</h3>
+            <p className={styles.cardBody}>
+              {t('manageIndicatorsHint', 'Create, edit, and organize indicators to measure key health metrics.')}
+            </p>
+
+            <div className={styles.cardActions}>
+              <Button
+                  kind="primary"
+                  size="lg"
+                  renderIcon={ChartColumn}
+                  className={styles.cardButton}
+                  onClick={() => navigate('/indicators')}
+              >
+                {t('viewIndicators', 'View indicators')}
+              </Button>
+            </div>
+          </Tile>
+
+          <Tile className={styles.card}>
+            <div className={styles.cardIllustration} aria-hidden>
+              <div className={styles.illCircle}>
+                <Play size={56} />
+              </div>
+            </div>
+
+            <h3 className={styles.cardTitle}>{t('runReports', 'Run Reports')}</h3>
+            <p className={styles.cardBody}>
+              {t('runReportsHint', 'Choose a report and run it for specific time periods and locations.')}
+            </p>
+
+            <div className={styles.cardActions}>
+              <Button
+                  kind="primary"
+                  size="lg"
+                  renderIcon={Play}
+                  className={styles.cardButton}
+                  onClick={() => navigate('/run')}
+              >
+                {t('runNow', 'Run now')}
+              </Button>
+            </div>
+          </Tile>
         </div>
-    );
+      </div>
+  );
 };
 
 export default ReportBuilderLandingPage;

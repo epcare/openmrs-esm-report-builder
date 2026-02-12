@@ -84,8 +84,8 @@ const IndicatorsPage: React.FC = () => {
     return (
         <div className={styles.page}>
             <Header
-                title={t('reportBuilder', 'Report builder')}
-                subtitle={t('buildReport', 'Define reports and generate templates')}
+                title={t('reportIndicator', 'Manage Report Indicators')}
+                subtitle={t('buildReportIndicator', 'Manage report indicators and create report indicators.')}
                 status={{ label: t('draft', 'Draft'), kind: 'warning' }}
             />
 

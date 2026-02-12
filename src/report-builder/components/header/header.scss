@@ -1,6 +1,12 @@
 @use '@carbon/layout' as layout;
 @use '@carbon/type' as type;
 
+.page {
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem 0 2rem;
+}
+
 .header {
   background: var(--cds-layer-01, #ffffff);
   border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);

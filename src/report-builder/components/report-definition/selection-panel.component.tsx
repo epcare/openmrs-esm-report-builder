@@ -1,9 +1,9 @@
 import React from 'react';
-import { Button, Checkbox, Search, Tab, TabList, TabPanel, TabPanels, Tabs, Tag } from '@carbon/react';
-import { Add, Folder } from '@carbon/icons-react';
+import {Button, Checkbox, Search, Tab, TabList, TabPanel, TabPanels, Tabs, Tag} from '@carbon/react';
+import {Add, Folder} from '@carbon/icons-react';
 
 import ReportPanelShell from './report-panel-shell.component';
-import type { Indicator, Section } from './report-definition.types';
+import type {Indicator, Section} from './report-definition.types';
 
 type Props = {
     activeTab: 'sections' | 'finalIndicators';
@@ -37,20 +37,21 @@ const SelectionPanel: React.FC<Props> = ({
     return (
         <ReportPanelShell
             title={
-                <Tabs selectedIndex={selectedIndex} onChange={({ selectedIndex }) => onTabChange(selectedIndex === 0 ? 'sections' : 'finalIndicators')}>
+                <Tabs selectedIndex={selectedIndex}
+                      onChange={({selectedIndex}) => onTabChange(selectedIndex === 0 ? 'sections' : 'finalIndicators')}>
                     <TabList aria-label="select tabs">
                         <Tab>Select Sections</Tab>
                         <Tab>Select Final Indicators</Tab>
                     </TabList>
                     <TabPanels>
-                        <TabPanel />
-                        <TabPanel />
+                        <TabPanel/>
+                        <TabPanel/>
                     </TabPanels>
                 </Tabs>
             }
             bottom={
                 <>
-                    <span />
+                    <span/>
                     <Button size="sm" kind="primary" renderIcon={Add} onClick={onAddSections}>
                         Add Sections
                     </Button>
@@ -66,7 +67,11 @@ const SelectionPanel: React.FC<Props> = ({
             />
 
             {activeTab === 'sections' ? (
-                <div style={{ border: '1px solid var(--cds-border-subtle, #e0e0e0)', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{
+                    border: '1px solid var(--cds-border-subtle, #e0e0e0)',
+                    borderRadius: 10,
+                    overflow: 'hidden'
+                }}>
                     {sections.map((s) => (
                         <div
                             key={s.id}
@@ -81,10 +86,15 @@ const SelectionPanel: React.FC<Props> = ({
                                 cursor: 'pointer',
                             }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                                    <Folder size={16} />
-                                    <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', gap: '0.75rem'}}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0}}>
+                                    <Folder size={16}/>
+                                    <div style={{
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
                                         {s.name}
                                     </div>
                                 </div>
@@ -92,12 +102,16 @@ const SelectionPanel: React.FC<Props> = ({
                                     {s.indicators.length}
                                 </Tag>
                             </div>
-                            {s.description ? <div style={{ opacity: 0.8, marginTop: 4 }}>{s.description}</div> : null}
+                            {s.description ? <div style={{opacity: 0.8, marginTop: 4}}>{s.description}</div> : null}
                         </div>
                     ))}
                 </div>
             ) : (
-                <div style={{ border: '1px solid var(--cds-border-subtle, #e0e0e0)', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{
+                    border: '1px solid var(--cds-border-subtle, #e0e0e0)',
+                    borderRadius: 10,
+                    overflow: 'hidden'
+                }}>
                     {finalIndicators.map((i) => {
                         const checked = selectedSection?.indicators.some((x) => x.id === i.id) ?? false;
 
@@ -112,18 +126,23 @@ const SelectionPanel: React.FC<Props> = ({
                                     gap: '0.75rem',
                                 }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0}}>
                                     <Checkbox
                                         id={`mid-final-${i.id}`}
                                         checked={checked}
                                         labelText=""
                                         onChange={() => onToggleFinalIndicator(i)}
                                     />
-                                    <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <div style={{minWidth: 0}}>
+                                        <div style={{
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }}>
                                             {i.name}
                                         </div>
-                                        <div style={{ opacity: 0.75, fontSize: '0.875rem' }}>{i.code}</div>
+                                        <div style={{opacity: 0.75, fontSize: '0.875rem'}}>{i.code}</div>
                                     </div>
                                 </div>
 
