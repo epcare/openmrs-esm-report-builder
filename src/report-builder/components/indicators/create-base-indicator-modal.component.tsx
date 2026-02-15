@@ -1,29 +1,18 @@
 import React from 'react';
-import {
-    Modal,
-    Select,
-    SelectItem,
-    TextArea,
-    TextInput,
-    RadioButtonGroup,
-    RadioButton,
-    Stack,
-} from '@carbon/react';
+import { Modal, Stack } from '@carbon/react';
 
-export type CreateBaseIndicatorPayload = {
-    code: string; // ✅ NEW
-    theme: string;
-    indicatorName: string;
-    description: string;
-    condition: string;
-    pregnancyStatus: string;
-    countBy: 'Patients' | 'Encounters';
-};
+import BaseIndicatorBasicFields from './base-indicator-basic-fields.component';
+import BaseIndicatorThemeUnitFields from './base-indicator-theme-unit-fields.component';
+import DiagnosisFiltersForm from './diagnosis-filters-form.component';
+import SqlPreview from './sql-preview.component';
+
+import type { CreateBaseIndicatorPayload, DataTheme, DiagnosisBaseConfig, CountingUnit } from './types/indicator-types';
+import { buildDiagnosisBaseSql } from './types/sql-builders';
 
 type Props = {
-    open: boolean;
-    onClose: () => void;
-    onSubmit: (data: CreateBaseIndicatorPayload) => void;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreateBaseIndicatorPayload) => void;
 };
 
 const toCode = (name: string) =>
@@ -33,106 +22,107 @@ const toCode = (name: string) =>
         .replace(/^_+|_+$/g, '')
         .slice(0, 20);
 
-const CreateBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
-    const [state, setState] = React.useState<CreateBaseIndicatorPayload>({
-        code: '',
-        theme: 'Diagnosis Data',
-        indicatorName: '',
-        description: '',
-        condition: 'Malaria',
-        pregnancyStatus: 'Pregnant',
-        countBy: 'Patients',
-    });
+/**
+ * ✅ Base indicator should NOT carry ageCategoryCode.
+ * Age categories belong to FINAL indicator creation (disaggregation).
+ *
+ * ✅ Diagnosis selection must be self-contained:
+ * we keep the full selectedConcepts objects so selection survives search reset.
+ */
+const defaultDiagnosis: DiagnosisBaseConfig = {
+  selectedConcepts: [],
 
-    const submit = () => {
-        const code = state.code.trim() ? state.code.trim().toUpperCase() : toCode(state.indicatorName);
-        onSubmit({ ...state, code });
+  // derived (kept for convenience + existing builder)
+  conceptIds: [],
+  conceptUuids: [],
+  conceptLabels: [],
+  icd10Codes: [],
+  icd11Codes: [],
+
+  certainty: 'PROVISIONAL',
+  dxRanksCsv: '1,2',
+  requireNonNullBirthdate: true,
+  requireNonNullGender: true,
+  onlyNotVoided: true,
+};
+
+const CreateBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
+  const [code, setCode] = React.useState('MAL_CASES');
+  const [name, setName] = React.useState('Malaria Cases');
+  const [theme, setTheme] = React.useState<DataTheme>('DIAGNOSIS');
+  const [unit, setUnit] = React.useState<CountingUnit>('Patients');
+
+  const [diag, setDiag] = React.useState<DiagnosisBaseConfig>(defaultDiagnosis);
+
+  // Reset diagnosis selection each time modal opens (keeps other inputs)
+  React.useEffect(() => {
+    if (!open) return;
+
+    setDiag((p) => ({
+      ...p,
+      selectedConcepts: [],
+      conceptIds: [],
+      conceptUuids: [],
+      conceptLabels: [],
+      icd10Codes: [],
+      icd11Codes: [],
+    }));
+  }, [open]);
+
+  const sqlPreview = React.useMemo(() => {
+    if (theme === 'DIAGNOSIS') return buildDiagnosisBaseSql(diag);
+    return '-- SQL preview for this data theme will be added next.';
+  }, [theme, diag]);
+
+  const canSubmit =
+      code.trim().length > 0 &&
+      name.trim().length > 0 &&
+      (theme !== 'DIAGNOSIS' || diag.conceptIds.length > 0);
+
+  const submit = () => {
+    if (!canSubmit) return;
+
+    const finalCode = code.trim() ? code.trim().toUpperCase() : toCode(name);
+
+    const payload: CreateBaseIndicatorPayload = {
+      code: finalCode,
+      name: name.trim(),
+      theme,
+      unit,
+      diagnosis: theme === 'DIAGNOSIS' ? diag : undefined,
+      sqlTemplate: sqlPreview,
     };
 
-    return (
-        <Modal
-            open={open}
-            modalHeading="Create Base Indicator"
-            primaryButtonText="Next"
-            secondaryButtonText="Cancel"
-            onRequestClose={onClose}
-            onRequestSubmit={submit}
-        >
-            <Stack gap={5}>
-                <Select
-                    id="theme"
-                    labelText="Theme"
-                    value={state.theme}
-                    onChange={(e) => setState((p) => ({ ...p, theme: (e.target as HTMLSelectElement).value }))}
-                >
-                    {['Diagnosis Data', 'Observations', 'Medications', 'Laboratory'].map((x) => (
-                        <SelectItem key={x} value={x} text={x} />
-                    ))}
-                </Select>
+    onSubmit(payload);
+  };
 
-                {/* ✅ NEW: Code */}
-                <TextInput
-                    id="code"
-                    labelText="Code"
-                    helperText="Short unique code used in reports (e.g. MAL_PREG)"
-                    value={state.code}
-                    onChange={(e) => setState((p) => ({ ...p, code: (e.target as HTMLInputElement).value }))}
-                    placeholder="e.g. MAL_PREG"
-                />
+  return (
+      <Modal
+          open={open}
+          modalHeading="Create Base Indicator"
+          primaryButtonText="Save Indicator"
+          secondaryButtonText="Cancel"
+          onRequestClose={onClose}
+          onRequestSubmit={submit}
+          primaryButtonDisabled={!canSubmit}
+      >
+        <Stack gap={5}>
+          <BaseIndicatorBasicFields code={code} name={name} onChangeCode={setCode} onChangeName={setName} />
 
-                <TextInput
-                    id="name"
-                    labelText="Indicator"
-                    value={state.indicatorName}
-                    onChange={(e) => setState((p) => ({ ...p, indicatorName: (e.target as HTMLInputElement).value }))}
-                />
+          <BaseIndicatorThemeUnitFields
+              theme={theme}
+              unit={unit}
+              onChangeTheme={setTheme}
+              onChangeUnit={setUnit}
+          />
 
-                <TextArea
-                    id="desc"
-                    labelText="Description"
-                    value={state.description}
-                    onChange={(e) => setState((p) => ({ ...p, description: (e.target as HTMLTextAreaElement).value }))}
-                />
+          {theme === 'DIAGNOSIS' ? <DiagnosisFiltersForm value={diag} onChange={setDiag} /> : null}
 
-                <div>
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Criteria</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <Select
-                            id="condition"
-                            labelText="Condition"
-                            value={state.condition}
-                            onChange={(e) => setState((p) => ({ ...p, condition: (e.target as HTMLSelectElement).value }))}
-                        >
-                            {['Malaria', 'HIV', 'TB'].map((x) => (
-                                <SelectItem key={x} value={x} text={x} />
-                            ))}
-                        </Select>
-
-                        <Select
-                            id="preg"
-                            labelText="Pregnancy Status"
-                            value={state.pregnancyStatus}
-                            onChange={(e) => setState((p) => ({ ...p, pregnancyStatus: (e.target as HTMLSelectElement).value }))}
-                        >
-                            {['Pregnant', 'Not pregnant'].map((x) => (
-                                <SelectItem key={x} value={x} text={x} />
-                            ))}
-                        </Select>
-                    </div>
-                </div>
-
-                <RadioButtonGroup
-                    legendText="Count By"
-                    name="countBy"
-                    valueSelected={state.countBy}
-                    onChange={(val) => setState((p) => ({ ...p, countBy: val as any }))}
-                >
-                    <RadioButton id="cb-patients" labelText="Patients" value="Patients" />
-                    <RadioButton id="cb-encounters" labelText="Encounters" value="Encounters" />
-                </RadioButtonGroup>
-            </Stack>
-        </Modal>
-    );
+          <SqlPreview value={sqlPreview} />
+        </Stack>
+      </Modal>
+  );
 };
 
 export default CreateBaseIndicatorModal;
+export type { CreateBaseIndicatorPayload };

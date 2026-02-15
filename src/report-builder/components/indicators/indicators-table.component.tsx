@@ -1,19 +1,11 @@
 import React from 'react';
-import {
-    DataTable,
-    Table,
-    TableHead,
-    TableRow,
-    TableHeader,
-    TableBody,
-    TableCell,
-} from '@carbon/react';
+import { DataTable, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@carbon/react';
 
 import IndicatorStatusTag from './indicator-status-tag.component';
 
 export type IndicatorRow = {
     id: string;
-    code: string; // ✅ NEW
+    code: string;
     name: string;
     theme: string;
     unit: 'Patients' | 'Encounters';
@@ -26,7 +18,7 @@ type Props = {
 };
 
 const headers = [
-    { key: 'code', header: 'Code' }, // ✅ NEW
+    { key: 'code', header: 'Code' },
     { key: 'name', header: 'Name' },
     { key: 'theme', header: 'Theme' },
     { key: 'unit', header: 'Counting Unit' },
@@ -36,7 +28,7 @@ const headers = [
 const IndicatorsTable: React.FC<Props> = ({ rows, onOpen }) => {
     return (
         <DataTable rows={rows} headers={headers} size="lg" useZebraStyles>
-            {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+            {({ rows: tableRows, headers, getHeaderProps, getRowProps, getTableProps }) => (
                 <Table {...getTableProps()}>
                     <TableHead>
                         <TableRow>
@@ -49,22 +41,24 @@ const IndicatorsTable: React.FC<Props> = ({ rows, onOpen }) => {
                     </TableHead>
 
                     <TableBody>
-                        {rows.map((row) => (
+                        {tableRows.map((row) => (
                             <TableRow
                                 key={row.id}
                                 {...getRowProps({ row })}
-                                onClick={() => onOpen(row.id)}
+                                onClick={() => onOpen(String(row.id))}
                                 style={{ cursor: 'pointer' }}
                             >
                                 {row.cells.map((cell) => {
+                                    // cell.info.header is the column key (e.g. "status"), not the display text
                                     if (cell.info.header === 'status') {
                                         return (
                                             <TableCell key={cell.id}>
-                                                <IndicatorStatusTag status={cell.value as any} />
+                                                <IndicatorStatusTag status={cell.value as IndicatorRow['status']} />
                                             </TableCell>
                                         );
                                     }
-                                    return <TableCell key={cell.id}>{cell.value as any}</TableCell>;
+
+                                    return <TableCell key={cell.id}>{String(cell.value ?? '')}</TableCell>;
                                 })}
                             </TableRow>
                         ))}

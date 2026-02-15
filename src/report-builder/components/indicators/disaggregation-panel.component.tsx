@@ -11,6 +11,15 @@ type Props = {
     onChange: (next: DisaggregationState) => void;
 };
 
+function readChecked(arg1: any, arg2?: any): boolean {
+    // Carbon Checkbox `onChange` differs by version:
+    // - sometimes (checked, id, event)
+    // - sometimes (event, { checked, id })
+    if (typeof arg1 === 'boolean') return arg1;
+    if (arg2 && typeof arg2.checked === 'boolean') return arg2.checked;
+    return Boolean(arg1?.target?.checked);
+}
+
 const DisaggregationPanel: React.FC<Props> = ({ value, onChange }) => {
     const set = (patch: Partial<DisaggregationState>) => onChange({ ...value, ...patch });
 
@@ -22,23 +31,22 @@ const DisaggregationPanel: React.FC<Props> = ({ value, onChange }) => {
                 id="gender-enabled"
                 labelText="Gender"
                 checked={value.gender.enabled}
-                onChange={(_, data) => set({ gender: { ...value.gender, enabled: data.checked } })}
+                onChange={(a, b) => set({ gender: { ...value.gender, enabled: readChecked(a, b) } })}
             />
-
             <div style={{ display: 'flex', gap: '1rem', paddingLeft: '1.5rem', marginBottom: '0.75rem' }}>
                 <Checkbox
                     id="male"
                     labelText="Male"
                     disabled={!value.gender.enabled}
                     checked={value.gender.male}
-                    onChange={(_, data) => set({ gender: { ...value.gender, male: data.checked } })}
+                    onChange={(a, b) => set({ gender: { ...value.gender, male: readChecked(a, b) } })}
                 />
                 <Checkbox
                     id="female"
                     labelText="Female"
                     disabled={!value.gender.enabled}
                     checked={value.gender.female}
-                    onChange={(_, data) => set({ gender: { ...value.gender, female: data.checked } })}
+                    onChange={(a, b) => set({ gender: { ...value.gender, female: readChecked(a, b) } })}
                 />
             </div>
 
@@ -46,37 +54,36 @@ const DisaggregationPanel: React.FC<Props> = ({ value, onChange }) => {
                 id="age-enabled"
                 labelText="Age Groups"
                 checked={value.ageGroups.enabled}
-                onChange={(_, data) => set({ ageGroups: { ...value.ageGroups, enabled: data.checked } })}
+                onChange={(a, b) => set({ ageGroups: { ...value.ageGroups, enabled: readChecked(a, b) } })}
             />
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', paddingLeft: '1.5rem' }}>
                 <Checkbox
                     id="g0_4"
                     labelText="0-4"
                     disabled={!value.ageGroups.enabled}
                     checked={value.ageGroups.g0_4}
-                    onChange={(_, data) => set({ ageGroups: { ...value.ageGroups, g0_4: data.checked } })}
+                    onChange={(a, b) => set({ ageGroups: { ...value.ageGroups, g0_4: readChecked(a, b) } })}
                 />
                 <Checkbox
                     id="g5_14"
                     labelText="5-14"
                     disabled={!value.ageGroups.enabled}
                     checked={value.ageGroups.g5_14}
-                    onChange={(_, data) => set({ ageGroups: { ...value.ageGroups, g5_14: data.checked } })}
+                    onChange={(a, b) => set({ ageGroups: { ...value.ageGroups, g5_14: readChecked(a, b) } })}
                 />
                 <Checkbox
                     id="g15_24"
                     labelText="15-24"
                     disabled={!value.ageGroups.enabled}
                     checked={value.ageGroups.g15_24}
-                    onChange={(_, data) => set({ ageGroups: { ...value.ageGroups, g15_24: data.checked } })}
+                    onChange={(a, b) => set({ ageGroups: { ...value.ageGroups, g15_24: readChecked(a, b) } })}
                 />
                 <Checkbox
                     id="g25plus"
                     labelText="25+"
                     disabled={!value.ageGroups.enabled}
                     checked={value.ageGroups.g25plus}
-                    onChange={(_, data) => set({ ageGroups: { ...value.ageGroups, g25plus: data.checked } })}
+                    onChange={(a, b) => set({ ageGroups: { ...value.ageGroups, g25plus: readChecked(a, b) } })}
                 />
             </div>
         </div>

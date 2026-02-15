@@ -27,6 +27,7 @@ const ReportBuilderRoutes: React.FC = () => {
 
                 {/* Indicators / sections */}
                 <Route path="/indicators" element={<IndicatorsPage />} />
+
                 <Route path="/sections" element={<SectionsPage />} />
 
                 {/* Run */}
