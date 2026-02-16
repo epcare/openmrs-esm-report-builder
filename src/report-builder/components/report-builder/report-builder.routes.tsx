@@ -10,6 +10,7 @@ import ReportBuilder from './report-builder';
 import IndicatorsPage from '../indicators/indicators-page.component';
 import SectionsPage from '../sections/sections-page.component';
 import RunReportsPage from '../run-reports/run-reports-page.component';
+import DataThemesPage from '../themes/data-themes-page.component';
 
 const ReportBuilderRoutes: React.FC = () => {
     return (
@@ -29,6 +30,8 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/indicators" element={<IndicatorsPage />} />
 
                 <Route path="/sections" element={<SectionsPage />} />
+
+                <Route path="/themes" element={<DataThemesPage />} />
 
                 {/* Run */}
                 <Route path="/run" element={<RunReportsPage />} />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
-import { Home, Report, ChartColumn, Layers, Play } from '@carbon/icons-react';
+import { Home, Report, ChartColumn, Layers, Play, DataBase } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
 
@@ -9,26 +9,20 @@ const ReportBuilderShell: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const isActive = (path: string) => location.pathname.endsWith(path);
+    // safer than endsWith('/') (because many routes end with '/')
+    const isActive = (path: string) =>
+        location.pathname === path || location.pathname.startsWith(`${path}/`);
 
     return (
         <div className={styles.shell}>
             <aside className={styles.leftNav}>
                 <SideNav expanded isPersistent={false} aria-label="Report Builder navigation">
                     <SideNavItems>
-                        <SideNavLink
-                            renderIcon={Home}
-                            isActive={isActive('/')}
-                            onClick={() => navigate('/')}
-                        >
+                        <SideNavLink renderIcon={Home} isActive={isActive('/')} onClick={() => navigate('/')}>
                             Home
                         </SideNavLink>
 
-                        <SideNavLink
-                            renderIcon={Report}
-                            isActive={isActive('/reports')}
-                            onClick={() => navigate('/reports')}
-                        >
+                        <SideNavLink renderIcon={Report} isActive={isActive('/reports')} onClick={() => navigate('/reports')}>
                             Reports
                         </SideNavLink>
 
@@ -40,19 +34,16 @@ const ReportBuilderShell: React.FC = () => {
                             Indicators
                         </SideNavLink>
 
-                        <SideNavLink
-                            renderIcon={Layers}
-                            isActive={isActive('/sections')}
-                            onClick={() => navigate('/sections')}
-                        >
+                        <SideNavLink renderIcon={Layers} isActive={isActive('/sections')} onClick={() => navigate('/sections')}>
                             Sections
                         </SideNavLink>
 
-                        <SideNavLink
-                            renderIcon={Play}
-                            isActive={isActive('/run')}
-                            onClick={() => navigate('/run')}
-                        >
+                        {/* ✅ NEW: Data Themes */}
+                        <SideNavLink renderIcon={DataBase} isActive={isActive('/themes')} onClick={() => navigate('/themes')}>
+                            Data Themes
+                        </SideNavLink>
+
+                        <SideNavLink renderIcon={Play} isActive={isActive('/run')} onClick={() => navigate('/run')}>
                             Run Reports
                         </SideNavLink>
                     </SideNavItems>
