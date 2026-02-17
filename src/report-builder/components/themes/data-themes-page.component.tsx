@@ -1,37 +1,52 @@
 import React from 'react';
-import { Button, Search, Stack, InlineLoading } from '@carbon/react';
+import { Button, Search, Stack } from '@carbon/react';
 import { Add } from '@carbon/icons-react';
-import { useTranslation } from 'react-i18next';
 
 import DataThemesTable from './data-themes-table.component';
 import DataThemeModal from './data-theme-modal.component';
 
-import { useDataThemes } from '../../hooks/theme/useDataThemes';
 import type { DataTheme, DataThemeRow } from '../../types/theme/data-theme.types';
-import { createTheme, deleteTheme, updateTheme } from '../../services/theme/data-theme.api';
-import Header from '../header/header.component';
+import { listThemes, createTheme, updateTheme, deleteTheme } from '../../services/theme/data-theme.api';
 
 export default function DataThemesPage() {
-    const { t } = useTranslation();
     const [q, setQ] = React.useState('');
-    const { themes, loading, error, reload } = useDataThemes(q);
+    const [rows, setRows] = React.useState<DataThemeRow[]>([]);
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
 
     const [open, setOpen] = React.useState(false);
     const [mode, setMode] = React.useState<'create' | 'edit'>('create');
     const [editing, setEditing] = React.useState<DataTheme | null>(null);
 
-    const rows: DataThemeRow[] = React.useMemo(() => {
-        return (themes ?? [])
-            .filter((t) => t.uuid)
-            .map((t) => ({
-                uuid: t.uuid!,
-                name: t.name,
-                code: t.code,
-                domain: t.domain,
-                description: t.description,
-                retired: t.retired,
-            }));
-    }, [themes]);
+    const load = React.useCallback(
+        (signal?: AbortSignal) => {
+            setLoading(true);
+            setError(null);
+
+            return listThemes(q, signal)
+                .then((data) => {
+                    const next: DataThemeRow[] = (data ?? []).map((t) => ({
+                        uuid: t.uuid ?? '',
+                        name: t.name ?? '',
+                        code: t.code ?? '',
+                        domain: t.domain,
+                        description: t.description,
+                        retired: t.retired,
+                    }));
+
+                    setRows(next.filter((r) => Boolean(r.uuid)));
+                })
+                .catch((e) => setError(e?.message ?? 'Failed to load themes'))
+                .finally(() => setLoading(false));
+        },
+        [q],
+    );
+
+    React.useEffect(() => {
+        const ac = new AbortController();
+        load(ac.signal);
+        return () => ac.abort();
+    }, [load]);
 
     const onCreate = () => {
         setMode('create');
@@ -39,58 +54,81 @@ export default function DataThemesPage() {
         setOpen(true);
     };
 
-    const onEdit = (uuid: string) => {
-        const found = themes.find((t) => t.uuid === uuid) ?? null;
+    const onEdit = async (uuid: string) => {
+        const r = rows.find((x) => x.uuid === uuid);
+
         setMode('edit');
-        setEditing(found);
+        setEditing(
+            r
+                ? ({
+                    uuid: r.uuid,
+                    name: r.name,
+                    code: r.code,
+                    domain: r.domain,
+                    description: r.description,
+                    configJson: '{}',
+                    retired: r.retired,
+                } as DataTheme)
+                : null,
+        );
+
         setOpen(true);
     };
 
     const onDelete = async (uuid: string) => {
-        // keep simple for now (later: Carbon InlineNotification + confirm)
-        // eslint-disable-next-line no-alert
-        const ok = window.confirm('Delete this theme?');
-        if (!ok) return;
-
-        await deleteTheme(uuid, true);
-        await reload();
+        await deleteTheme(uuid, false);
+        const ac = new AbortController();
+        await load(ac.signal);
     };
 
     const onSave = async (payload: DataTheme) => {
-        if (mode === 'create') await createTheme(payload);
-        else if (payload.uuid) await updateTheme(payload.uuid, payload);
+        if (mode === 'create') {
+            await createTheme(payload);
+        } else {
+            if (!payload.uuid) throw new Error('Missing uuid for update');
+            await updateTheme(payload.uuid, payload);
+        }
 
         setOpen(false);
-        setEditing(null);
-        await reload();
+        const ac = new AbortController();
+        await load(ac.signal);
     };
 
     return (
-        <div style={{ padding: '1rem' }}>
-            <Header
-                title={t('dataTheme', 'Data Themes')}
-                subtitle={t('dataThemeSubTiltle', 'Define reusable “theme configs” that power the Indicator Builder.')}
-            />
-            <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
+        <Stack gap={5}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '1rem' }}>
                 <div>
-
+                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>Data Themes</div>
+                    <div style={{ opacity: 0.85 }}>
+                        Define reusable data sources (mamba_* tables/views) for indicators and reporting.
+                    </div>
                 </div>
 
-                <Button kind="primary" size="sm" renderIcon={Add} onClick={onCreate}>
+                <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
                     Create Theme
                 </Button>
             </div>
 
-            <Stack gap={4}>
-                <Search size="lg" labelText="Search" placeholder="Search themes" value={q} onChange={(e) => setQ((e.target as HTMLInputElement).value)} />
+            <Search
+                size="lg"
+                labelText="Search"
+                placeholder="Search themes…"
+                value={q}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
+            />
 
-                {loading ? <InlineLoading description="Loading themes…" /> : null}
-                {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
+            {loading ? <div>Loading…</div> : null}
+            {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                <DataThemesTable rows={rows} onEdit={onEdit} onDelete={onDelete} />
-            </Stack>
+            <DataThemesTable rows={rows} onEdit={onEdit} onDelete={onDelete} />
 
-            <DataThemeModal open={open} mode={mode} initial={editing} onClose={() => setOpen(false)} onSave={onSave} />
-        </div>
+            <DataThemeModal
+                open={open}
+                mode={mode}
+                initial={editing}
+                onClose={() => setOpen(false)}
+                onSave={onSave}
+            />
+        </Stack>
     );
 }

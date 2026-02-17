@@ -1,42 +1,112 @@
 import React from 'react';
-import { Select, SelectItem, InlineLoading } from '@carbon/react';
-import { useMambaTables } from '../../../hooks/theme/useMambaTables';
-import { useMambaTableMeta } from '../../../hooks/theme/useMambaTableMeta';
+import { ComboBox, Select, SelectItem, InlineLoading } from '@carbon/react';
+
 import type { DataThemeConfig } from '../../../types/theme/data-theme.types';
+import { getSchemaTables, type SchemaTable } from '../../../services/theme/mamba-schema.api';
+import { getMambaTableMeta, type TableColumn } from '../../../services/theme/mamba-table-meta.api';
 
 type Props = {
+    open: boolean;
     config: DataThemeConfig;
     onChange: (next: DataThemeConfig) => void;
-    open: boolean; // ✅ only load when modal is open
 };
 
-export default function DataThemeSourceSection({ config, onChange, open }: Props) {
-    const { tables, loading: loadingTables, error: tablesError } = useMambaTables(open);
+function getTableName(t: SchemaTable): string {
+    // supports { name }, { table }, { tableName }, or string-ish payloads (defensive)
+    if (typeof (t as any) === 'string') return String(t);
+    return (t as any)?.name ?? (t as any)?.table ?? (t as any)?.tableName ?? '';
+}
 
-    const shouldLoadCols = open && Boolean(config.sourceTable);
-    const { columns, loading: loadingCols, error: colsError } = useMambaTableMeta(config.sourceTable, shouldLoadCols);
+export default function DataThemeSourceSection({ open, config, onChange }: Props) {
+    // tables state
+    const [tables, setTables] = React.useState<SchemaTable[]>([]);
+    const [loadingTables, setLoadingTables] = React.useState(false);
+    const [tablesError, setTablesError] = React.useState<string | null>(null);
 
-    const colNames = (columns ?? []).map((c) => c.name);
+    // columns state
+    const [columns, setColumns] = React.useState<TableColumn[]>([]);
+    const [loadingCols, setLoadingCols] = React.useState(false);
+    const [colsError, setColsError] = React.useState<string | null>(null);
 
-    // ✅ tolerate tables being string[] OR {name:string}[]
-    const tableNames = React.useMemo(() => {
-        const raw: any[] = (tables as any) ?? [];
-        return raw
-            .map((t) => (typeof t === 'string' ? t : t?.name))
-            .filter(Boolean) as string[];
-    }, [tables]);
+    // Load schema tables only when modal is open
+    React.useEffect(() => {
+        if (!open) {
+            setTables([]);
+            setLoadingTables(false);
+            setTablesError(null);
+            return;
+        }
+
+        const ac = new AbortController();
+        setLoadingTables(true);
+        setTablesError(null);
+
+        getSchemaTables(ac.signal)
+            .then((data) => setTables(data ?? []))
+            .catch((e) => {
+                if (e?.name !== 'AbortError') setTablesError(e?.message ?? 'Failed to load tables');
+            })
+            .finally(() => setLoadingTables(false));
+
+        return () => ac.abort();
+    }, [open]);
+
+    // Load columns only when modal is open AND a table is selected
+    React.useEffect(() => {
+        if (!open) {
+            setColumns([]);
+            setLoadingCols(false);
+            setColsError(null);
+            return;
+        }
+
+        const table = config?.sourceTable;
+        if (!table) {
+            setColumns([]);
+            setLoadingCols(false);
+            setColsError(null);
+            return;
+        }
+
+        const ac = new AbortController();
+        setLoadingCols(true);
+        setColsError(null);
+
+        getMambaTableMeta(table, ac.signal)
+            .then((data) => setColumns(data ?? []))
+            .catch((e) => {
+                if (e?.name !== 'AbortError') setColsError(e?.message ?? 'Failed to load columns');
+            })
+            .finally(() => setLoadingCols(false));
+
+        return () => ac.abort();
+    }, [open, config?.sourceTable]);
+
+    const colNames = React.useMemo(
+        () => (columns ?? []).map((c) => c?.name).filter(Boolean) as string[],
+        [columns],
+    );
+
+    const tableNames = React.useMemo(() => (tables ?? []).map(getTableName).filter(Boolean), [tables]);
+
+    const canPickTable = open && !loadingTables && !tablesError;
+    const canPickCols = open && Boolean(config.sourceTable) && !loadingCols && !colsError;
 
     return (
         <div>
             <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Source</div>
 
-            <Select
+            {/* ✅ Searchable table selector */}
+            <ComboBox
                 id="theme-source-table"
-                labelText="Source table/view"
-                value={config.sourceTable || ''}
-                disabled={!open}
-                onChange={(e) => {
-                    const nextTable = (e.target as HTMLSelectElement).value;
+                titleText="Source table/view"
+                items={tableNames}
+                selectedItem={config.sourceTable || null}
+                disabled={!canPickTable}
+                placeholder={loadingTables ? 'Loading…' : tablesError ? 'Failed to load tables' : 'Type to search tables…'}
+                onChange={(e: any) => {
+                    const nextTable = e?.selectedItem ?? '';
+
                     onChange({
                         ...config,
                         sourceTable: nextTable,
@@ -45,12 +115,8 @@ export default function DataThemeSourceSection({ config, onChange, open }: Props
                         locationColumn: '',
                         fields: config.fields ?? [],
                     });
-                }}>
-                <SelectItem value="" text={loadingTables ? 'Loading…' : 'Select a table'} />
-                {tableNames.map((t) => (
-                    <SelectItem key={t} value={t} text={t} />
-                ))}
-            </Select>
+                }}
+            />
 
             <div style={{ marginTop: '0.5rem' }}>
                 {loadingTables ? <InlineLoading description="Loading tables…" /> : null}
@@ -59,15 +125,22 @@ export default function DataThemeSourceSection({ config, onChange, open }: Props
                 ) : null}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '0.75rem',
+                    marginTop: '0.75rem',
+                }}
+            >
                 <Select
                     id="theme-patient-id-col"
                     labelText="patient_id column"
                     value={config.patientIdColumn || ''}
+                    disabled={!canPickCols}
                     onChange={(e) => onChange({ ...config, patientIdColumn: (e.target as HTMLSelectElement).value })}
-                    disabled={!shouldLoadCols}
                 >
-                    <SelectItem value="" text={loadingCols ? 'Loading…' : 'Select'} />
+                    <SelectItem value="" disabled text={loadingCols ? 'Loading…' : 'Select'} />
                     {colNames.map((c) => (
                         <SelectItem key={c} value={c} text={c} />
                     ))}
@@ -77,10 +150,10 @@ export default function DataThemeSourceSection({ config, onChange, open }: Props
                     id="theme-date-col"
                     labelText="date column"
                     value={config.dateColumn || ''}
+                    disabled={!canPickCols}
                     onChange={(e) => onChange({ ...config, dateColumn: (e.target as HTMLSelectElement).value })}
-                    disabled={!shouldLoadCols}
                 >
-                    <SelectItem value="" text={loadingCols ? 'Loading…' : 'Select'} />
+                    <SelectItem value="" disabled text={loadingCols ? 'Loading…' : 'Select'} />
                     {colNames.map((c) => (
                         <SelectItem key={c} value={c} text={c} />
                     ))}
@@ -90,10 +163,10 @@ export default function DataThemeSourceSection({ config, onChange, open }: Props
                     id="theme-location-col"
                     labelText="location column (optional)"
                     value={config.locationColumn || ''}
+                    disabled={!canPickCols}
                     onChange={(e) => onChange({ ...config, locationColumn: (e.target as HTMLSelectElement).value })}
-                    disabled={!shouldLoadCols}
                 >
-                    <SelectItem value="" text={loadingCols ? 'Loading…' : 'Select'} />
+                    <SelectItem value="" disabled text={loadingCols ? 'Loading…' : 'Select'} />
                     {colNames.map((c) => (
                         <SelectItem key={c} value={c} text={c} />
                     ))}
@@ -102,7 +175,9 @@ export default function DataThemeSourceSection({ config, onChange, open }: Props
 
             <div style={{ marginTop: '0.5rem' }}>
                 {loadingCols ? <InlineLoading description="Loading columns…" /> : null}
-                {!loadingCols && colsError ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{colsError}</div> : null}
+                {!loadingCols && colsError ? (
+                    <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{colsError}</div>
+                ) : null}
             </div>
         </div>
     );
