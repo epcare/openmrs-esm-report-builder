@@ -6,15 +6,40 @@ export type TableColumn = {
   nullable?: boolean;
 };
 
-type MetaResponse = {
-  table: string;
-  columns: TableColumn[];
-} | { results: TableColumn[] } | TableColumn[];
+type RawColumn = {
+  columnName?: string;
+  dataType?: string;
+  name?: string;      // in case backend changes later
+  type?: string;
+  nullable?: boolean;
+};
 
-export async function getMambaTableMeta(table: string, signal?: AbortSignal): Promise<TableColumn[]> {
-  const data = await omrsGet<MetaResponse>(`/mambatablemeta/${encodeURIComponent(table)}`, signal);
+type RawMetaResponse =
+    | { results?: RawColumn[] }
+    | { columns?: RawColumn[] }
+    | RawColumn[];
 
-  if (Array.isArray(data)) return data;
+function normalizeColumns(input: RawColumn[] = []): TableColumn[] {
+  return input
+      .map((c) => ({
+        name: c.name ?? c.columnName ?? '',
+        type: c.type ?? c.dataType,
+        nullable: c.nullable,
+      }))
+      .filter((c) => c.name.length > 0);
+}
+
+export async function getMambaTableMeta(
+    table: string,
+    signal?: AbortSignal
+): Promise<TableColumn[]> {
+  const data = await omrsGet<RawMetaResponse>(
+      `/mambatablecolumn?table=${encodeURIComponent(table)}`,
+      signal
+  );
+
+  if (Array.isArray(data)) return normalizeColumns(data);
+
   const anyData = data as any;
-  return anyData?.columns ?? anyData?.results ?? [];
+  return normalizeColumns(anyData?.columns ?? anyData?.results ?? []);
 }
