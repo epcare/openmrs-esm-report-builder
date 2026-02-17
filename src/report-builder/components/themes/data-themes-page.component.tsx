@@ -1,7 +1,9 @@
 import React from 'react';
 import { Button, Search, Stack } from '@carbon/react';
 import { Add } from '@carbon/icons-react';
+import { useTranslation } from 'react-i18next';
 
+import Header from '../header/header.component';
 import DataThemesTable from './data-themes-table.component';
 import DataThemeModal from './data-theme-modal.component';
 
@@ -10,6 +12,8 @@ import { listThemes, createTheme, updateTheme, deleteTheme } from '../../service
 
 export default function DataThemesPage() {
     const [q, setQ] = React.useState('');
+
+    const { t } = useTranslation();
     const [rows, setRows] = React.useState<DataThemeRow[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -96,12 +100,12 @@ export default function DataThemesPage() {
 
     return (
         <Stack gap={5}>
+            <Header
+                title={t('dataTheme', 'Data Themes')}
+                subtitle={t('dataThemeSubTitle', ' Define reusable data sources (mamba_* tables/views) for indicators and reporting.')}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '1rem' }}>
                 <div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>Data Themes</div>
-                    <div style={{ opacity: 0.85 }}>
-                        Define reusable data sources (mamba_* tables/views) for indicators and reporting.
-                    </div>
                 </div>
 
                 <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
