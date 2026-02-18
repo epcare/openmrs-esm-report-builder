@@ -3,17 +3,16 @@ import { Button, Search, Stack } from '@carbon/react';
 import { Add } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import Header from '../header/header.component';
 import DataThemesTable from './data-themes-table.component';
 import DataThemeModal from './data-theme-modal.component';
+import Header from '../header/header.component';
 
 import type { DataTheme, DataThemeRow } from '../../types/theme/data-theme.types';
-import { listThemes, createTheme, updateTheme, deleteTheme } from '../../services/theme/data-theme.api';
+import { listThemes, createTheme, updateTheme, deleteTheme, getTheme } from '../../services/theme/data-theme.api';
 
 export default function DataThemesPage() {
-    const [q, setQ] = React.useState('');
-
     const { t } = useTranslation();
+    const [q, setQ] = React.useState('');
     const [rows, setRows] = React.useState<DataThemeRow[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -37,7 +36,6 @@ export default function DataThemesPage() {
                         description: t.description,
                         retired: t.retired,
                     }));
-
                     setRows(next.filter((r) => Boolean(r.uuid)));
                 })
                 .catch((e) => setError(e?.message ?? 'Failed to load themes'))
@@ -59,24 +57,20 @@ export default function DataThemesPage() {
     };
 
     const onEdit = async (uuid: string) => {
-        const r = rows.find((x) => x.uuid === uuid);
+        try {
+            setMode('edit');
+            setError(null);
+            setLoading(true);
 
-        setMode('edit');
-        setEditing(
-            r
-                ? ({
-                    uuid: r.uuid,
-                    name: r.name,
-                    code: r.code,
-                    domain: r.domain,
-                    description: r.description,
-                    configJson: '{}',
-                    retired: r.retired,
-                } as DataTheme)
-                : null,
-        );
-
-        setOpen(true);
+            // ✅ fetch full record so modal can pre-populate Source/Fields/Metadata
+            const full = await getTheme(uuid);
+            setEditing(full);
+            setOpen(true);
+        } catch (e: any) {
+            setError(e?.message ?? 'Failed to load theme for editing');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const onDelete = async (uuid: string) => {
