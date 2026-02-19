@@ -1,52 +1,56 @@
-// indicator-types.ts
+import type { DataThemeConfig, ThemeCondition } from './data-theme-config.types';
 
-export type DataTheme = 'DIAGNOSIS' | 'OBSERVATIONS' | 'ENCOUNTERS';
-export type CountingUnit = 'Patients' | 'Encounters';
+/**
+ * What the indicator builder saves/uses.
+ * Keep it flexible because you already have a backend model.
+ */
 
-export type SelectedConcept = {
-  id: number;
-  uuid: string;
-  display: string;
+export type IndicatorKind = 'BASE' | 'FINAL';
 
-  icd10Code?: string;
-  icd11Code?: string;
+export type IndicatorConditionValue =
+    | string
+    | number
+    | Array<string | number>
+    | { start?: string; end?: string }
+    | null;
 
-  conceptClass?: string;
-  datatype?: string;
-};
-
-export type DiagnosisBaseConfig = {
-  /**
-   * ✅ Self-contained selection (survives search reset)
-   * This is the source of truth for what the user picked.
-   */
-  selectedConcepts: SelectedConcept[];
+export type IndicatorCondition = {
+  key: string; // matches ThemeCondition.key
+  operator?: ThemeCondition['operator'];
+  valueType?: ThemeCondition['valueType'];
 
   /**
-   * ✅ Derived fields (handy for SQL + UI, can be recomputed from selectedConcepts)
+   * Actual chosen value(s).
+   * - concept search returns ids/uuids depending on your handler config
    */
-  conceptIds: number[];    // used in SQL: a.diagnosis_coded IN (...)
-  conceptUuids: string[];  // for display/tracking
-  conceptLabels: string[]; // for display/inferred name
-
-  icd10Codes: string[]; // decision support
-  icd11Codes: string[]; // decision support
-
-  certainty: 'PROVISIONAL' | 'CONFIRMED';
-  dxRanksCsv: string;
-
-  requireNonNullBirthdate: boolean;
-  requireNonNullGender: boolean;
-  onlyNotVoided: boolean;
+  value: IndicatorConditionValue;
 };
 
-export type CreateBaseIndicatorPayload = {
-  code: string;
+export type BaseIndicatorDraft = {
+  uuid?: string;
   name: string;
-  theme: DataTheme;
-  unit: CountingUnit;
+  description?: string;
+  code?: string;
 
-  diagnosis?: DiagnosisBaseConfig;
+  kind: IndicatorKind;
 
-  sqlTemplate: string;
+  /**
+   * The selected data theme
+   */
+  themeUuid: string;
+
+  /**
+   * Optional snapshot of theme config at save time (good for debugging / auditing)
+   */
+  themeConfig?: DataThemeConfig;
+
+  /**
+   * User-picked conditions (values), keys should match theme config conditions
+   */
+  conditions?: IndicatorCondition[];
+
+  /**
+   * Optional SQL preview used by UI
+   */
+  sqlPreview?: string;
 };

@@ -1,3 +1,4 @@
+/*
 import React from 'react';
 import { Select, SelectItem, TextInput } from '@carbon/react';
 
@@ -97,4 +98,4 @@ export default function DiagnosisFiltersForm({ value, onChange }: Props) {
             </div>
         </>
     );
-}
+}*/

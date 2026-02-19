@@ -17,6 +17,7 @@ export type ThemeField = {
 
 export type ConditionHandler =
     | 'CONCEPT_SEARCH'
+    | 'QUESTION_ANSWER_CONCEPT_SEARCH'
     | 'TEXT'
     | 'NUMBER'
     | 'DATE_RANGE'

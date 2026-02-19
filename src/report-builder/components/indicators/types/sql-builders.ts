@@ -1,3 +1,4 @@
+/*
 import type { DiagnosisBaseConfig } from './indicator-types';
 
 function normalizeCsvToSqlInList(csv: string) {
@@ -39,4 +40,4 @@ WHERE a.date_created >= ':startDate'
   ${cfg.requireNonNullBirthdate ? 'AND mdp.birthdate IS NOT NULL' : ''}
   ${cfg.requireNonNullGender ? 'AND mdp.gender IS NOT NULL' : ''}
 ;`.trim();
-}
+}*/

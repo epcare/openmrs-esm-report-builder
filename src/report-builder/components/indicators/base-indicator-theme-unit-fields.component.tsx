@@ -1,3 +1,4 @@
+/*
 import React from 'react';
 import { Select, SelectItem, TextInput } from '@carbon/react';
 
@@ -25,7 +26,7 @@ export default function BaseIndicatorThemeUnitFields({ theme, unit, onChangeThem
         <SelectItem value="ENCOUNTERS" text="Encounters (coming soon)" />
       </Select>
 
-      {/* keeping this as TextInput allows future custom units, but we still type it as Patients/Encounters for now */}
+      {/!* keeping this as TextInput allows future custom units, but we still type it as Patients/Encounters for now *!/}
       <TextInput
         id="base-unit"
         labelText="Unit"
@@ -35,3 +36,4 @@ export default function BaseIndicatorThemeUnitFields({ theme, unit, onChangeThem
     </div>
   );
 }
+*/

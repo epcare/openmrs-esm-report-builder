@@ -64,19 +64,29 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
  * 1) configJson string parses to { ...configFields }
  * 2) configJson string parses to { configJson: { ...configFields } }
  *
- * Also migrates legacy `conditionColumns` -> `conditions[]` when present.
+ * Also migrates legacy `conditionColumns` -> `conditions[]` when present AND conditions[] missing/empty.
  */
 function parseConfig(raw: string | undefined | null): DataThemeConfig {
     const parsed = safeParseJson<any>(raw, defaultConfig);
 
-    const cfg =
+    const base =
         parsed && typeof parsed === 'object' && parsed.configJson && typeof parsed.configJson === 'object'
-            ? { ...defaultConfig, ...parsed.configJson }
-            : { ...defaultConfig, ...parsed };
+            ? parsed.configJson
+            : parsed;
+
+    const cfg: any = { ...defaultConfig, ...(base ?? {}) };
+
+    // normalize arrays defensively
+    if (!Array.isArray(cfg.fields)) cfg.fields = [];
+    if (!Array.isArray(cfg.conditions)) cfg.conditions = [];
 
     // MIGRATION: old themes might have conditionColumns map
     // Example: { "concept_id": "diagnosis_coded" }
-    if (!Array.isArray(cfg.conditions) && cfg.conditionColumns && typeof cfg.conditionColumns === 'object') {
+    // Only migrate if conditions[] is missing/empty (do NOT overwrite real conditions).
+    const hasLegacyMap = cfg.conditionColumns && typeof cfg.conditionColumns === 'object';
+    const hasNoConditions = !Array.isArray(cfg.conditions) || cfg.conditions.length === 0;
+
+    if (hasLegacyMap && hasNoConditions) {
         const entries = Object.entries(cfg.conditionColumns as Record<string, string>);
         cfg.conditions = entries.map(([key, column]) => {
             const looksLikeConcept = key.toLowerCase().includes('concept');
@@ -86,11 +96,12 @@ function parseConfig(raw: string | undefined | null): DataThemeConfig {
                 handler: looksLikeConcept ? 'CONCEPT_SEARCH' : 'TEXT',
                 column,
                 operator: looksLikeConcept ? 'IN' : 'EQUALS',
-                valueType: looksLikeConcept ? 'conceptUuid' : 'string',
+                valueType: looksLikeConcept ? 'conceptId' : 'string',
             };
         });
     }
 
+    // final guard
     if (!Array.isArray(cfg.conditions)) cfg.conditions = [];
     if (!Array.isArray(cfg.fields)) cfg.fields = [];
 
@@ -276,7 +287,9 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
             <Stack gap={6}>
                 {loadingTables ? <InlineLoading description="Loading schema tables…" /> : null}
                 {!loadingTables && tablesError ? (
-                    <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>Failed to load schema tables: {tablesError}</div>
+                    <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>
+                        Failed to load schema tables: {tablesError}
+                    </div>
                 ) : null}
 
                 {schemaReady ? (
@@ -319,11 +332,11 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
                                 </>
                             ) : null}
 
-                            {active === 'fields' ? <DataThemeFieldsEditorSection config={config} onChange={setConfig} open={open} /> : null}
+                            {active === 'fields' ? (<DataThemeFieldsEditorSection config={config} onChange={setConfig} open={open} />) : null}
 
                             {active === 'conditions' ? (<DataThemeConditionsSection open={open} config={config} onChange={setConfig} columns={columns} loadingCols={loadingCols}/>) : null}
 
-                            {active === 'metadata' ? <DataThemeMetadataSection value={meta} onChange={setMeta} open={open} /> : null}
+                            {active === 'metadata' ? (<DataThemeMetadataSection value={meta} onChange={setMeta} open={open} />) : null}
 
                             {active === 'preview' ? (
                                 <>

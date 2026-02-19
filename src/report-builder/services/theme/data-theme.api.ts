@@ -55,3 +55,34 @@ export async function deleteTheme(
 
     await omrsDelete<void>(`${RESOURCE}/${encodeURIComponent(uuid)}?${qs}`, signal);
 }
+
+export type DataThemeDto = {
+    uuid: string;
+    name: string;
+    description?: string;
+    code?: string;
+    domain?: string;
+    configJson?: string; // stringified JSON
+    metaJson?: string; // stringified JSON
+    retired?: boolean;
+};
+
+type ListResponse = { results: DataThemeDto[] } | DataThemeDto[];
+
+function normalizeList(payload: ListResponse): DataThemeDto[] {
+    if (Array.isArray(payload)) return payload;
+    return payload?.results ?? [];
+}
+
+export async function listDataThemes(q?: string, signal?: AbortSignal): Promise<DataThemeDto[]> {
+    const trimmed = q?.trim();
+    const path = trimmed
+        ? `${RESOURCE}?q=${encodeURIComponent(trimmed)}&v=default`
+        : `${RESOURCE}?v=default`;
+    const data = await omrsGet<ListResponse>(path, signal);
+    return normalizeList(data);
+}
+
+export async function getDataTheme(uuid: string, signal?: AbortSignal): Promise<DataThemeDto> {
+    return omrsGet<DataThemeDto>(`${RESOURCE}/${uuid}?v=full`, signal);
+}

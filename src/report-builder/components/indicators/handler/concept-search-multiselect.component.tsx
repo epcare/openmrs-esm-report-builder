@@ -1,8 +1,8 @@
 import React from 'react';
 import { ComboBox, InlineLoading, Tag } from '@carbon/react';
 
-import { useConceptSearch } from '../../services/concepts/useConceptSearch';
-import type { ConceptSummary } from '../../services/concepts/concept-types';
+import { useConceptSearch } from '../../../services/concepts/useConceptSearch';
+import type { ConceptSummary } from '../../../services/concepts/concept-types';
 
 export type SelectedConcept = {
     id: number;
@@ -110,7 +110,9 @@ export default function ConceptSearchMultiSelect({ id, labelText, helperText, va
     return (
         <div>
             <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>{labelText}</div>
-            {helperText ? <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.75rem' }}>{helperText}</div> : null}
+            {helperText ? (
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.75rem' }}>{helperText}</div>
+            ) : null}
 
             <ComboBox
                 id={`${id}-search`}
@@ -124,7 +126,9 @@ export default function ConceptSearchMultiSelect({ id, labelText, helperText, va
 
             <div style={{ marginTop: '0.5rem' }}>
                 {loading ? <InlineLoading description="Searching…" /> : null}
-                {!loading && error ? <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
+                {!loading && error ? (
+                    <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-error, #da1e28)' }}>{error}</div>
+                ) : null}
             </div>
 
             {value?.length ? (

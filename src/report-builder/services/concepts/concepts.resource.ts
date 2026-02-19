@@ -5,6 +5,10 @@ type ConceptSearchResponse = {
     results: ConceptSummary[];
 };
 
+type ConceptAnswersResponse = {
+    answers?: Array<{ uuid: string; display: string; id?: number; mappings?: any[]; conceptClass?: any; datatype?: any }>;
+};
+
 export async function searchConcepts(
     query: string,
     signal?: AbortSignal,
@@ -15,4 +19,14 @@ export async function searchConcepts(
     );
 
     return res.data?.results ?? [];
+}
+
+
+export async function getConceptAnswers(questionUuid: string, signal?: AbortSignal): Promise<ConceptSummary[]> {
+    const v = 'custom:(id,uuid,display,answers:(id,uuid,display,mappings:(display),conceptClass:(name),datatype:(name)))';
+
+    const res = await openmrsFetch<ConceptAnswersResponse>(`/ws/rest/v1/concept/${questionUuid}?v=${v}`, { signal });
+
+    const answers = (res?.data as any)?.answers ?? [];
+    return answers as ConceptSummary[];
 }

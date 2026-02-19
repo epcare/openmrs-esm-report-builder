@@ -22,6 +22,7 @@ export type ConceptSummary = {
     };
 
     answers?: Array<{
+        id: number;
         uuid: string;
         display: string;
     }>;
