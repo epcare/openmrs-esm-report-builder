@@ -338,25 +338,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
 
                             {active === 'metadata' ? (<DataThemeMetadataSection value={meta} onChange={setMeta} open={open} />) : null}
 
-                            {active === 'preview' ? (
-                                <>
-                                    <DataThemePreviewSection config={config} onConfigJson={setConfigJson} />
-
-                                    <div style={{ marginTop: '1rem' }}>
-                                        <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>metaJson</div>
-                                        <pre
-                                            style={{
-                                                fontSize: '0.875rem',
-                                                background: 'var(--cds-layer-01)',
-                                                padding: '0.75rem',
-                                                borderRadius: 6,
-                                                overflowX: 'auto',
-                                            }}
-                                        >
-{metaJson}
-                    </pre>
-                                    </div>
-                                </>
+                            {active === 'preview' ? (<DataThemePreviewSection config={config} metaJson={metaJson} onConfigJson={setConfigJson}/>
                             ) : null}
                         </Content>
                     </div>

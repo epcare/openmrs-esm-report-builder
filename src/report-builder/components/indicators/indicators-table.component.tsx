@@ -1,72 +1,160 @@
 import React from 'react';
-import { DataTable, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@carbon/react';
-
-import IndicatorStatusTag from './indicator-status-tag.component';
+import {
+    DataTable,
+    Table,
+    TableHead,
+    TableRow,
+    TableHeader,
+    TableBody,
+    TableCell,
+    TableContainer,
+    Tag,
+    OverflowMenu,
+    OverflowMenuItem,
+} from '@carbon/react';
 
 export type IndicatorRow = {
-    id: string;
+    id: string; // uuid
     code: string;
     name: string;
-    theme: string;
-    unit: 'Patients' | 'Encounters';
-    status: 'Draft' | 'Published';
+
+    kind: 'BASE' | 'COMPOSITE' | 'FINAL' | string;
+
+    themeName?: string;
+    themeColor?: string; // hex
+
+    status: 'Draft' | 'Published' | 'Retired' | string;
 };
 
 type Props = {
     rows: IndicatorRow[];
-    onOpen: (id: string) => void;
+    onOpen?: (id: string) => void;
+    onEdit?: (id: string) => void;
+    onRun?: (id: string) => void;
+    onDelete?: (id: string) => void;
 };
 
-const headers = [
-    { key: 'code', header: 'Code' },
-    { key: 'name', header: 'Name' },
-    { key: 'theme', header: 'Theme' },
-    { key: 'unit', header: 'Counting Unit' },
-    { key: 'status', header: 'Status' },
-];
+function statusTag(status: string) {
+    const s = (status ?? '').toLowerCase();
+    if (s.includes('publish')) return <Tag type="green">Published</Tag>;
+    if (s.includes('retire')) return <Tag type="red">Retired</Tag>;
+    return <Tag type="gray">Draft</Tag>;
+}
 
-const IndicatorsTable: React.FC<Props> = ({ rows, onOpen }) => {
+function kindTag(kind: string) {
+    const k = (kind ?? '').toUpperCase();
+    if (k === 'FINAL') return <Tag type="purple">FINAL</Tag>;
+    if (k === 'COMPOSITE') return <Tag type="teal">COMPOSITE</Tag>;
+    return <Tag type="blue">BASE</Tag>;
+}
+
+function themePill(themeName?: string, themeColor?: string) {
+    if (!themeName) return <span style={{ opacity: 0.7 }}>—</span>;
+
     return (
-        <DataTable rows={rows} headers={headers} size="lg" useZebraStyles>
-            {({ rows: tableRows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                <Table {...getTableProps()}>
-                    <TableHead>
-                        <TableRow>
-                            {headers.map((header) => (
-                                <TableHeader key={header.key} {...getHeaderProps({ header })}>
-                                    {header.header}
-                                </TableHeader>
-                            ))}
-                        </TableRow>
-                    </TableHead>
-
-                    <TableBody>
-                        {tableRows.map((row) => (
-                            <TableRow
-                                key={row.id}
-                                {...getRowProps({ row })}
-                                onClick={() => onOpen(String(row.id))}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                {row.cells.map((cell) => {
-                                    // cell.info.header is the column key (e.g. "status"), not the display text
-                                    if (cell.info.header === 'status') {
-                                        return (
-                                            <TableCell key={cell.id}>
-                                                <IndicatorStatusTag status={cell.value as IndicatorRow['status']} />
-                                            </TableCell>
-                                        );
-                                    }
-
-                                    return <TableCell key={cell.id}>{String(cell.value ?? '')}</TableCell>;
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
-        </DataTable>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <span
+          aria-hidden="true"
+          style={{
+              width: 10,
+              height: 10,
+              borderRadius: 999,
+              background: themeColor || 'var(--cds-icon-primary)',
+              display: 'inline-block',
+              border: '1px solid var(--cds-border-subtle)',
+          }}
+      />
+            <span style={{ fontWeight: 500 }}>{themeName}</span>
+        </div>
     );
-};
+}
 
-export default IndicatorsTable;
+export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete }: Props) {
+    const headers = [
+        { key: 'code', header: 'Code' },
+        { key: 'name', header: 'Name' },
+        { key: 'kind', header: 'Kind' },
+        { key: 'theme', header: 'Theme' }, // ✅ header expects "theme"
+        { key: 'status', header: 'Status' },
+        { key: 'actions', header: '' },
+    ];
+
+    // ✅ Provide "theme" for the table, but keep "themeColor" on the row object for rendering
+    const tableRows = (rows ?? []).map((r) => ({
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        kind: r.kind,
+        theme: r.themeName ?? '',        // ✅ matches header key
+        themeColor: r.themeColor ?? '',  // ✅ extra (not a column)
+        status: r.status,
+    }));
+
+    return (
+        <TableContainer title="" description="">
+            <DataTable rows={tableRows} headers={headers} isSortable>
+                {({ rows: dtRows, headers: dtHeaders, getHeaderProps, getRowProps }) => (
+                    <Table size="lg" useZebraStyles>
+                        <TableHead>
+                            <TableRow>
+                                {dtHeaders.map((h) => (
+                                    <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
+                                        {h.header}
+                                    </TableHeader>
+                                ))}
+                            </TableRow>
+                        </TableHead>
+
+                        <TableBody>
+                            {dtRows.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={dtHeaders.length} style={{ padding: '1rem', opacity: 0.75 }}>
+                                        No indicators found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : null}
+
+                            {dtRows.map((row) => {
+                                const code = String(row.cells.find((c) => c.info.header === 'code')?.value ?? '');
+                                const name = String(row.cells.find((c) => c.info.header === 'name')?.value ?? '');
+                                const kind = String(row.cells.find((c) => c.info.header === 'kind')?.value ?? '');
+                                const themeName = String(row.cells.find((c) => c.info.header === 'theme')?.value ?? '');
+                                const status = String(row.cells.find((c) => c.info.header === 'status')?.value ?? '');
+
+                                // ✅ themeColor is NOT a header cell; get it from the raw row object
+                                const themeColor = String((row as any).themeColor ?? '');
+
+                                return (
+                                    <TableRow
+                                        key={row.id}
+                                        {...getRowProps({ row })}
+                                        onClick={() => onOpen?.(row.id)}
+                                        style={{ cursor: onOpen ? 'pointer' : 'default' }}
+                                    >
+                                        <TableCell>{code || <span style={{ opacity: 0.7 }}>—</span>}</TableCell>
+
+                                        <TableCell style={{ fontWeight: 600 }}>{name}</TableCell>
+
+                                        <TableCell>{kindTag(kind)}</TableCell>
+
+                                        <TableCell>{themePill(themeName, themeColor)}</TableCell>
+
+                                        <TableCell>{statusTag(status)}</TableCell>
+
+                                        <TableCell onClick={(e) => e.stopPropagation()} style={{ width: 56 }}>
+                                            <OverflowMenu size="sm" flipped>
+                                                <OverflowMenuItem itemText="Edit" onClick={() => onEdit?.(row.id)} />
+                                                <OverflowMenuItem itemText="Run" onClick={() => onRun?.(row.id)} />
+                                                <OverflowMenuItem itemText="Delete" isDelete onClick={() => onDelete?.(row.id)} />
+                                            </OverflowMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                )}
+            </DataTable>
+        </TableContainer>
+    );
+}

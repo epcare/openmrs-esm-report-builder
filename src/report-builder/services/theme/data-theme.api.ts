@@ -16,8 +16,8 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
 export async function listThemes(q?: string, signal?: AbortSignal): Promise<DataTheme[]> {
     const trimmed = q?.trim();
     const path = trimmed
-        ? `${RESOURCE}?q=${encodeURIComponent(trimmed)}&v=default`
-        : `${RESOURCE}?v=default`;
+        ? `${RESOURCE}?q=${encodeURIComponent(trimmed)}&v=full`
+        : `${RESOURCE}?v=full`;
 
     const data = await omrsGet<RestList<DataTheme> | DataTheme[] | undefined>(path, signal);
     return unwrapRestList(data);
@@ -77,8 +77,8 @@ function normalizeList(payload: ListResponse): DataThemeDto[] {
 export async function listDataThemes(q?: string, signal?: AbortSignal): Promise<DataThemeDto[]> {
     const trimmed = q?.trim();
     const path = trimmed
-        ? `${RESOURCE}?q=${encodeURIComponent(trimmed)}&v=default`
-        : `${RESOURCE}?v=default`;
+        ? `${RESOURCE}?q=${encodeURIComponent(trimmed)}&v=full`
+        : `${RESOURCE}?v=full`;
     const data = await omrsGet<ListResponse>(path, signal);
     return normalizeList(data);
 }

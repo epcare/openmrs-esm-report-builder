@@ -1,444 +1,398 @@
 import React from 'react';
-import { Modal, Stack, InlineLoading, TextInput, TextArea, Select, SelectItem } from '@carbon/react';
+import { Modal, Stack, SideNav, SideNavItems, SideNavLink, Content } from '@carbon/react';
 
 import { listDataThemes, getDataTheme, type DataThemeDto } from '../../services/theme/data-theme.api';
-import type { DataThemeConfig, ThemeCondition } from './types/data-theme-config.types';
-import type { BaseIndicatorDraft, IndicatorCondition } from './types/indicator-types';
+import type { DataThemeConfig } from './types/data-theme-config.types';
+import type { IndicatorCondition } from './types/indicator-types';
+import type { IndicatorDto } from '../../services/indicator/indicators.api';
 
-import ConceptSearchMultiSelect, { type SelectedConcept } from './handler/concept-search-multiselect.component';
-import QuestionAnswerConceptSearch from './handler/question-answer-concept-search.component';
+import IndicatorBasicsSection from './sections/indicator-basics.section';
+import IndicatorThemeSection from './sections/indicator-theme.section';
+import IndicatorConditionsSection from './sections/indicator-conditions.section';
+import IndicatorSqlPreviewSection from './sections/indicator-sql-preview.section';
+
+import { buildSqlPreview, applyConditionClauses } from './utils/indicator-sql.utils';
+
+import { searchConcepts, toSelectedConcept } from './utils/concept-preload.utils';
+import type { SelectedConcept } from './handler/concept-search-multiselect.component';
 
 type Props = {
-  open: boolean;
-  onClose: () => void;
-  onSave: (draft: BaseIndicatorDraft) => void;
+    open: boolean;
+    mode: 'create' | 'edit';
+    initial?: IndicatorDto | null;
+
+    onClose: () => void;
+    onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
+    onUpdate: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
+    onSaved: () => void;
 };
 
-const DEMO_JOIN_TABLE = 'mamba_fact_patients_latest_patient_demographics';
+type PanelKey = 'basics' | 'theme' | 'conditions' | 'sql';
+
+type BaseIndicatorAuthoring = {
+    version: 1;
+    themeUuid: string;
+    themeConfig: DataThemeConfig;
+    conditions: IndicatorCondition[];
+    sqlPreview: string;
+};
+
+type QAUiState = { question: SelectedConcept | null; answers: SelectedConcept[]; error?: string };
 
 function safeParse<T>(raw: string | undefined | null, fallback: T): T {
-  try {
-    if (!raw) return fallback;
-    const p = JSON.parse(raw);
-    return (p ?? fallback) as T;
-  } catch {
-    return fallback;
-  }
+    try {
+        if (!raw) return fallback;
+        const p = JSON.parse(raw);
+        return (p ?? fallback) as T;
+    } catch {
+        return fallback;
+    }
 }
 
 function normalizeThemeConfig(rawConfigJson: string | undefined | null): DataThemeConfig {
-  const base = safeParse<any>(rawConfigJson, {});
-  if (base && typeof base === 'object' && base.configJson && typeof base.configJson === 'object') {
-    return base.configJson as DataThemeConfig;
-  }
-  return base as DataThemeConfig;
-}
-
-function sqlQuote(v: string) {
-  return `'${String(v).replace(/'/g, "''")}'`;
-}
-
-function buildSqlPreview(themeCfg: DataThemeConfig) {
-  const src = themeCfg.sourceTable;
-  const pid = themeCfg.patientIdColumn;
-  const dateCol = themeCfg.dateColumn;
-
-  const lines: string[] = [];
-  lines.push(`SELECT`);
-  lines.push(`  COUNT(*) AS total`);
-  lines.push(`FROM ${src} a`);
-  lines.push(`JOIN ${DEMO_JOIN_TABLE} mdp`);
-  lines.push(`  ON mdp.patient_id = a.${pid}`);
-  lines.push(`WHERE a.${dateCol} >= ':startDate'`);
-  lines.push(`  AND a.${dateCol} <  ':endDate'`);
-  lines.push(`  AND mdp.birthdate IS NOT NULL`);
-  lines.push(`  AND mdp.gender IS NOT NULL`);
-  lines.push(`;`);
-
-  return lines.join('\n');
-}
-
-/** supports encoded QA(questionCol,answerCol) stored in tc.column */
-function parseQaEncoded(col: string | undefined | null) {
-  const raw = (col ?? '').trim();
-  const m = /^QA\(([^,]+),([^)]+)\)$/.exec(raw);
-  if (!m) return null;
-  return { questionCol: m[1].trim(), answerCol: m[2].trim() };
-}
-
-function applyConditionClauses(baseSql: string, themeConditions: ThemeCondition[], picked: IndicatorCondition[]) {
-  const sqlLines = baseSql.split('\n');
-
-  const demoBirthIdx = sqlLines.findIndex((l) => l.includes('mdp.birthdate IS NOT NULL'));
-  const insertAt = demoBirthIdx > -1 ? demoBirthIdx : sqlLines.length;
-
-  const clauses: string[] = [];
-
-  for (const tc of themeConditions ?? []) {
-    const pc = picked.find((x) => x.key === tc.key);
-    if (!pc) continue;
-
-    const v = pc.value;
-    if (v === null || v === undefined) continue;
-
-    // ✅ NEW: question+answer handler
-    if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-      const qa = parseQaEncoded(tc.column);
-      if (!qa) continue;
-
-      const obj = v as any;
-      const qVal = obj?.question;
-      const aVals = obj?.answers;
-
-      // question
-      if (qVal !== null && qVal !== undefined && String(qVal).trim() !== '') {
-        const qStr = String(qVal);
-        const qIsNumeric = tc.valueType === 'conceptId' || /^[0-9]+$/.test(qStr);
-        clauses.push(`  AND a.${qa.questionCol} = ${qIsNumeric ? qStr : sqlQuote(qStr)}`);
-      }
-
-      // answers
-      if (Array.isArray(aVals) && aVals.length) {
-        const arr = aVals
-            .map((x: any) => String(x))
-            .filter((x: string) => x.trim().length > 0);
-
-        if (arr.length) {
-          const isNumericList = tc.valueType === 'conceptId' || arr.every((x: string) => /^[0-9]+$/.test(x));
-          const rendered = arr.map((x: string) => (isNumericList ? x : sqlQuote(x))).join(',');
-          clauses.push(`  AND a.${qa.answerCol} IN (${rendered})`);
-        }
-      }
-
-      continue;
+    const base = safeParse<any>(rawConfigJson, {});
+    if (base && typeof base === 'object' && base.configJson && typeof base.configJson === 'object') {
+        return base.configJson as DataThemeConfig;
     }
-
-    // Existing: array/scalar clauses
-    const op = pc.operator ?? tc.operator ?? 'IN';
-
-    if (Array.isArray(v)) {
-      const arr = v
-          .map((x) => (typeof x === 'number' ? String(x) : String(x)))
-          .filter((x) => x.trim().length > 0);
-
-      if (!arr.length) continue;
-
-      const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
-      const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
-
-      if (op === 'IN') clauses.push(`  AND a.${tc.column} IN (${rendered})`);
-      else if (op === 'NOT_IN') clauses.push(`  AND a.${tc.column} NOT IN (${rendered})`);
-      else clauses.push(`  AND a.${tc.column} ${op} (${rendered})`);
-    } else if (typeof v === 'object') {
-      // range types later
-      continue;
-    } else {
-      const sval = typeof v === 'number' ? String(v) : String(v);
-      const isNumeric = tc.valueType === 'conceptId' || /^[0-9]+$/.test(sval);
-      const rendered = isNumeric ? sval : sqlQuote(sval);
-      clauses.push(`  AND a.${tc.column} ${op} ${rendered}`);
-    }
-  }
-
-  sqlLines.splice(insertAt, 0, ...clauses);
-  return sqlLines.join('\n');
+    return base as DataThemeConfig;
 }
 
-export default function CreateBaseIndicatorModal({ open, onClose, onSave }: Props) {
-  const [name, setName] = React.useState('');
-  const [code, setCode] = React.useState('');
-  const [description, setDescription] = React.useState('');
+function buildAuthoring(themeUuid: string, themeConfig: DataThemeConfig, conditions: IndicatorCondition[], sqlPreview: string): BaseIndicatorAuthoring {
+    return { version: 1, themeUuid, themeConfig, conditions, sqlPreview };
+}
 
-  const [themes, setThemes] = React.useState<DataThemeDto[]>([]);
-  const [loadingThemes, setLoadingThemes] = React.useState(false);
-  const [themesError, setThemesError] = React.useState<string | null>(null);
+export default function CreateBaseIndicatorModal({
+                                                     open,
+                                                     mode,
+                                                     initial,
+                                                     onClose,
+                                                     onCreate,
+                                                     onUpdate,
+                                                     onSaved,
+                                                 }: Props) {
+    const isEdit = mode === 'edit';
 
-  const [themeUuid, setThemeUuid] = React.useState('');
-  const [themeConfig, setThemeConfig] = React.useState<DataThemeConfig | null>(null);
-  const [themeConfigError, setThemeConfigError] = React.useState<string | null>(null);
+    const [active, setActive] = React.useState<PanelKey>('basics');
 
-  const [pickedConditions, setPickedConditions] = React.useState<IndicatorCondition[]>([]);
+    // basics
+    const [name, setName] = React.useState('');
+    const [code, setCode] = React.useState('');
+    const [description, setDescription] = React.useState('');
 
-  // UI state for concept handlers
-  const [conceptUi, setConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
-  const [qaConceptUi, setQaConceptUi] = React.useState<Record<string, { question: SelectedConcept | null; answers: SelectedConcept[] }>>(
-      {},
-  );
+    // themes list
+    const [themes, setThemes] = React.useState<DataThemeDto[]>([]);
+    const [loadingThemes, setLoadingThemes] = React.useState(false);
+    const [themesError, setThemesError] = React.useState<string | null>(null);
 
-  const [sqlPreview, setSqlPreview] = React.useState('');
+    // theme selection + config
+    const [themeUuid, setThemeUuid] = React.useState('');
+    const [themeConfig, setThemeConfig] = React.useState<DataThemeConfig | null>(null);
+    const [themeConfigError, setThemeConfigError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
+    // picked conditions (payload)
+    const [pickedConditions, setPickedConditions] = React.useState<IndicatorCondition[]>([]);
 
-    setName('');
-    setCode('');
-    setDescription('');
-    setThemeUuid('');
-    setThemeConfig(null);
-    setThemeConfigError(null);
-    setPickedConditions([]);
-    setConceptUi({});
-    setQaConceptUi({});
-    setSqlPreview('');
+    // UI-only selections
+    const [conceptUi, setConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
+    const [qaUi, setQaUi] = React.useState<Record<string, QAUiState>>({});
 
-    const ac = new AbortController();
-    setLoadingThemes(true);
-    setThemesError(null);
-    setThemes([]);
+    // sql
+    const [sqlPreview, setSqlPreview] = React.useState('');
 
-    listDataThemes(undefined, ac.signal)
-        .then((data) => setThemes(data ?? []))
-        .catch((e) => setThemesError(e?.message ?? 'Failed to load themes'))
-        .finally(() => setLoadingThemes(false));
+    // load themes when modal opens
+    React.useEffect(() => {
+        if (!open) return;
 
-    return () => ac.abort();
-  }, [open]);
+        setActive('basics');
 
-  React.useEffect(() => {
-    if (!open) return;
+        const ac = new AbortController();
+        setLoadingThemes(true);
+        setThemesError(null);
+        setThemes([]);
 
-    if (!themeUuid) {
-      setThemeConfig(null);
-      setThemeConfigError(null);
-      setPickedConditions([]);
-      setConceptUi({});
-      setQaConceptUi({});
-      setSqlPreview('');
-      return;
-    }
+        listDataThemes(undefined, ac.signal)
+            .then((data) => setThemes(data ?? []))
+            .catch((e) => setThemesError(e?.message ?? 'Failed to load themes'))
+            .finally(() => setLoadingThemes(false));
 
-    const ac = new AbortController();
-    setThemeConfigError(null);
+        return () => ac.abort();
+    }, [open]);
 
-    getDataTheme(themeUuid, ac.signal)
-        .then((full) => {
-          const cfg = normalizeThemeConfig(full.configJson);
-          setThemeConfig(cfg);
+    // init/reset
+    React.useEffect(() => {
+        if (!open) return;
 
-          const normalized: IndicatorCondition[] = (cfg.conditions ?? []).map((c) => {
-            // defaults for known handlers
-            if (c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-              return {
-                key: c.key,
-                operator: c.operator,
-                valueType: c.valueType,
-                value: { question: null, answers: [] }, // ✅ object value
-              } as any;
+        if (isEdit && initial) {
+            setName(initial.name ?? '');
+            setCode(initial.code ?? '');
+            setDescription(initial.description ?? '');
+
+            // ✅ authoring is the source of truth for edit
+            const authoring = safeParse<BaseIndicatorAuthoring>(initial.configJson, null as any);
+
+            if (authoring?.themeUuid && authoring?.themeConfig) {
+                setThemeUuid(authoring.themeUuid);
+                setThemeConfig(authoring.themeConfig);
+                setPickedConditions(authoring.conditions ?? []);
+                setSqlPreview(authoring.sqlPreview ?? '');
+            } else {
+                setThemeUuid(initial.themeUuid ?? '');
+                setThemeConfig(null);
+                setPickedConditions([]);
+                setSqlPreview('');
             }
 
-            const defaultValue = c.operator === 'IN' || c.operator === 'NOT_IN' ? [] : '';
-            return {
-              key: c.key,
-              operator: c.operator,
-              valueType: c.valueType,
-              value: defaultValue,
-            } as IndicatorCondition;
-          });
+            setConceptUi({});
+            setQaUi({});
+        } else {
+            setName('');
+            setCode('');
+            setDescription('');
+            setThemeUuid('');
+            setThemeConfig(null);
+            setThemeConfigError(null);
+            setPickedConditions([]);
+            setConceptUi({});
+            setQaUi({});
+            setSqlPreview('');
+        }
+    }, [open, isEdit, initial]);
 
-          setPickedConditions(normalized);
+    // fetch theme config when themeUuid changes
+    React.useEffect(() => {
+        if (!open) return;
 
-          // init UI maps
-          const nextConceptUi: Record<string, SelectedConcept[]> = {};
-          const nextQaUi: Record<string, { question: SelectedConcept | null; answers: SelectedConcept[] }> = {};
+        if (!themeUuid) {
+            setThemeConfig(null);
+            setThemeConfigError(null);
+            setPickedConditions([]);
+            setConceptUi({});
+            setQaUi({});
+            setSqlPreview('');
+            return;
+        }
 
-          for (const c of cfg.conditions ?? []) {
-            if (c.handler === 'CONCEPT_SEARCH') nextConceptUi[c.key] = [];
-            if (c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') nextQaUi[c.key] = { question: null, answers: [] };
-          }
+        // if edit already has matching themeConfig, skip
+        if (themeConfig?.sourceTable && initial?.configJson) {
+            const authoring = safeParse<BaseIndicatorAuthoring>(initial.configJson, null as any);
+            if (authoring?.themeUuid === themeUuid && authoring?.themeConfig?.sourceTable === themeConfig.sourceTable) {
+                return;
+            }
+        }
 
-          setConceptUi(nextConceptUi);
-          setQaConceptUi(nextQaUi);
+        const ac = new AbortController();
+        setThemeConfigError(null);
 
-          const base = buildSqlPreview(cfg);
-          const finalSql = applyConditionClauses(base, cfg.conditions ?? [], normalized);
-          setSqlPreview(finalSql);
-        })
-        .catch((e) => setThemeConfigError(e?.message ?? 'Failed to load theme config'));
+        getDataTheme(themeUuid, ac.signal)
+            .then((full) => {
+                const cfg = normalizeThemeConfig(full.configJson);
+                setThemeConfig(cfg);
 
-    return () => ac.abort();
-  }, [open, themeUuid]);
+                // initialize picked conditions if empty
+                setPickedConditions((prev) => {
+                    if (prev?.length) return prev;
 
-  React.useEffect(() => {
-    if (!themeConfig) return;
-    const base = buildSqlPreview(themeConfig);
-    const finalSql = applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions);
-    setSqlPreview(finalSql);
-  }, [themeConfig, pickedConditions]);
+                    return (cfg.conditions ?? []).map((c) => {
+                        const defaultValue =
+                            c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH'
+                                ? ({ question: null, answers: [] } as any)
+                                : c.operator === 'IN' || c.operator === 'NOT_IN'
+                                    ? []
+                                    : '';
+                        return {
+                            key: c.key,
+                            operator: c.operator,
+                            valueType: c.valueType,
+                            value: defaultValue,
+                        } as IndicatorCondition;
+                    });
+                });
 
-  const canSave =
-      Boolean(name.trim()) &&
-      Boolean(themeUuid) &&
-      Boolean(themeConfig?.sourceTable) &&
-      Boolean(themeConfig?.patientIdColumn) &&
-      Boolean(themeConfig?.dateColumn);
+                // init UI maps
+                const nextConcept: Record<string, SelectedConcept[]> = {};
+                const nextQa: Record<string, QAUiState> = {};
 
-  const updatePicked = (key: string, patch: Partial<IndicatorCondition>) => {
-    setPickedConditions((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
-  };
+                for (const c of cfg.conditions ?? []) {
+                    if (c.handler === 'CONCEPT_SEARCH') nextConcept[c.key] = [];
+                    if (c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') nextQa[c.key] = { question: null, answers: [] };
+                }
 
-  const renderCondition = (tc: ThemeCondition) => {
-    const picked = pickedConditions.find((x) => x.key === tc.key);
+                setConceptUi((prev) => ({ ...nextConcept, ...(prev ?? {}) }));
+                setQaUi((prev) => ({ ...nextQa, ...(prev ?? {}) }));
 
-    if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-      const ui = qaConceptUi[tc.key] ?? { question: null, answers: [] };
+                const base = buildSqlPreview(cfg);
+                setSqlPreview(applyConditionClauses(base, cfg.conditions ?? [], pickedConditions?.length ? pickedConditions : []));
+            })
+            .catch((e) => setThemeConfigError(e?.message ?? 'Failed to load theme config'));
 
-      return (
-          <div key={tc.key}>
-            <QuestionAnswerConceptSearch
-                id={`cond-${tc.key}`}
-                labelText={tc.label || tc.key}
-                value={ui}
-                onChange={(nextUi) => {
-                  setQaConceptUi((prev) => ({ ...prev, [tc.key]: nextUi }));
+        return () => ac.abort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, themeUuid]);
 
-                  // payload mapping
-                  if (tc.valueType === 'conceptUuid') {
-                    updatePicked(tc.key, {
-                      value: {
-                        question: nextUi.question?.uuid ?? null,
-                        answers: (nextUi.answers ?? []).map((a) => a.uuid).filter(Boolean),
-                      },
-                    } as any);
-                  } else {
-                    // default conceptId
-                    updatePicked(tc.key, {
-                      value: {
-                        question: nextUi.question?.id ? Number(nextUi.question.id) : null,
-                        answers: (nextUi.answers ?? [])
-                            .map((a) => Number(a.id))
-                            .filter((n) => Number.isFinite(n) && n > 0),
-                      },
-                    } as any);
-                  }
-                }}
-            />
-          </div>
-      );
-    }
+    // preload concepts on edit (concept ids are stored, but UI needs full objects)
+    React.useEffect(() => {
+        if (!open || !isEdit) return;
+        if (!themeConfig?.conditions?.length) return;
+        if (!pickedConditions?.length) return;
 
-    if (tc.handler === 'CONCEPT_SEARCH') {
-      const uiSelected = conceptUi[tc.key] ?? [];
+        const ac = new AbortController();
 
-      return (
-          <div key={tc.key}>
-            <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{tc.label || tc.key}</div>
+        const run = async () => {
+            const nextConceptUi: Record<string, SelectedConcept[]> = { ...(conceptUi ?? {}) };
+            const nextQaUi: Record<string, QAUiState> = { ...(qaUi ?? {}) };
 
-            <ConceptSearchMultiSelect
-                id={`cond-${tc.key}`}
-                labelText={tc.label || 'Select concepts'}
-                value={uiSelected}
-                onChange={(nextSelected) => {
-                  setConceptUi((prev) => ({ ...prev, [tc.key]: nextSelected }));
+            for (const tc of themeConfig.conditions ?? []) {
+                const pc = pickedConditions.find((x) => x.key === tc.key);
+                if (!pc) continue;
 
-                  if (tc.valueType === 'conceptUuid') {
-                    const uuids = nextSelected.map((c) => c.uuid).filter(Boolean);
-                    updatePicked(tc.key, { value: uuids });
-                  } else {
-                    const ids = nextSelected
-                        .map((c) => Number(c.id))
-                        .filter((n) => Number.isFinite(n) && n > 0);
-                    updatePicked(tc.key, { value: ids });
-                  }
-                }}
-            />
-          </div>
-      );
-    }
+                // CONCEPT_SEARCH
+                if (tc.handler === 'CONCEPT_SEARCH') {
+                    if (Array.isArray(nextConceptUi[tc.key]) && nextConceptUi[tc.key].length > 0) continue;
+                    if (!Array.isArray(pc.value) || pc.value.length === 0) continue;
 
-    return (
-        <div key={tc.key}>
-          <TextInput
-              id={`cond-${tc.key}`}
-              labelText={tc.label || tc.key}
-              value={typeof picked?.value === 'string' ? picked.value : ''}
-              onChange={(e) => updatePicked(tc.key, { value: (e.target as HTMLInputElement).value })}
-          />
-        </div>
-    );
-  };
+                    const selected: SelectedConcept[] = [];
+                    for (const tok of pc.value.map((x) => String(x)).filter(Boolean)) {
+                        try {
+                            const found = await searchConcepts(tok, ac.signal);
+                            const exact =
+                                found.find((c: any) => String(c.id) === tok) ||
+                                found.find((c: any) => String(c.uuid) === tok) ||
+                                found[0];
+                            if (exact) selected.push(toSelectedConcept(exact));
+                        } catch {}
+                    }
+                    if (selected.length) nextConceptUi[tc.key] = selected;
+                }
 
-  const save = () => {
-    if (!canSave || !themeConfig) return;
+                // QUESTION_ANSWER_CONCEPT_SEARCH (question + answers)
+                if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
+                    const ui = nextQaUi[tc.key] ?? { question: null, answers: [] };
+                    if (ui.question || (ui.answers?.length ?? 0) > 0) continue;
 
-    const draft: BaseIndicatorDraft = {
-      name: name.trim(),
-      code: code.trim() || undefined,
-      description: description.trim() || undefined,
-      kind: 'BASE',
-      themeUuid,
-      themeConfig,
-      conditions: pickedConditions,
-      sqlPreview,
+                    const raw: any = pc.value;
+                    if (!raw || typeof raw !== 'object' || !('question' in raw) || !Array.isArray(raw.answers)) continue;
+
+                    const qTok = raw.question !== null && raw.question !== undefined ? String(raw.question) : '';
+                    const aToks = (raw.answers ?? []).map((x: any) => String(x)).filter(Boolean);
+
+                    let qSelected: SelectedConcept | null = null;
+                    const aSelected: SelectedConcept[] = [];
+
+                    if (qTok) {
+                        try {
+                            const found = await searchConcepts(qTok, ac.signal);
+                            const exact =
+                                found.find((c: any) => String(c.id) === qTok) ||
+                                found.find((c: any) => String(c.uuid) === qTok) ||
+                                found[0];
+                            if (exact) qSelected = toSelectedConcept(exact);
+                        } catch {}
+                    }
+
+                    for (const tok of aToks) {
+                        try {
+                            const found = await searchConcepts(tok, ac.signal);
+                            const exact =
+                                found.find((c: any) => String(c.id) === tok) ||
+                                found.find((c: any) => String(c.uuid) === tok) ||
+                                found[0];
+                            if (exact) aSelected.push(toSelectedConcept(exact));
+                        } catch {}
+                    }
+
+                    nextQaUi[tc.key] = { ...ui, question: qSelected, answers: aSelected };
+                }
+            }
+
+            setConceptUi(nextConceptUi);
+            setQaUi(nextQaUi);
+        };
+
+        run();
+        return () => ac.abort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, isEdit, themeConfig, pickedConditions]);
+
+    // recompute sql preview
+    React.useEffect(() => {
+        if (!themeConfig) return;
+        const base = buildSqlPreview(themeConfig);
+        setSqlPreview(applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions));
+    }, [themeConfig, pickedConditions]);
+
+    const canSave =
+        Boolean(name.trim()) &&
+        Boolean(themeUuid) &&
+        Boolean(themeConfig?.sourceTable) &&
+        Boolean(themeConfig?.patientIdColumn) &&
+        Boolean(themeConfig?.dateColumn);
+
+    const save = async () => {
+        if (!canSave || !themeConfig) return;
+
+        const authoring = buildAuthoring(themeUuid, themeConfig, pickedConditions, sqlPreview);
+
+        const payload: Partial<IndicatorDto> = {
+            name: name.trim(),
+            code: code.trim() || undefined,
+            description: description.trim() || undefined,
+            kind: 'BASE',
+            defaultValueType: 'NUMBER',
+            themeUuid,
+            configJson: JSON.stringify(authoring, null, 2),
+            sqlTemplate: sqlPreview,
+            metaJson: undefined,
+        };
+
+        if (isEdit && initial?.uuid) await onUpdate(initial.uuid, payload);
+        else await onCreate(payload);
+
+        onSaved();
     };
 
-    onSave(draft);
-  };
+    if (!open) return null;
 
-  if (!open) return null;
+    const NavLink = ({ id, label }: { id: PanelKey; label: string }) => (
+        <SideNavLink isActive={active === id} onClick={() => setActive(id)}>
+            {label}
+        </SideNavLink>
+    );
 
-  return (
-      <Modal
-          open={open}
-          modalHeading="Create Base Indicator"
-          primaryButtonText="Create"
-          secondaryButtonText="Cancel"
-          onRequestClose={onClose}
-          onRequestSubmit={save}
-          primaryButtonDisabled={!canSave}
-          size="lg"
-      >
-        <Stack gap={6}>
-          <TextInput id="indicator-name" labelText="Name" value={name} onChange={(e) => setName((e.target as HTMLInputElement).value)} />
+    return (
+        <Modal
+            open={open}
+            modalHeading={isEdit ? 'Edit Base Indicator' : 'Create Base Indicator'}
+            primaryButtonText={isEdit ? 'Save' : 'Create'}
+            secondaryButtonText="Cancel"
+            onRequestClose={onClose}
+            onRequestSubmit={save}
+            primaryButtonDisabled={!canSave}
+            size="lg"
+        >
+            <Stack gap={6}>
+                <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '1rem' }}>
+                    <div>
+                        <SideNav expanded isPersistent={false} aria-label="Indicator editor sections">
+                            <SideNavItems>
+                                <NavLink id="basics" label="Basics" />
+                                <NavLink id="theme" label="Theme" />
+                                <NavLink id="conditions" label="Conditions" />
+                                <NavLink id="sql" label="SQL Preview" />
+                            </SideNavItems>
+                        </SideNav>
+                    </div>
 
-          <TextInput id="indicator-code" labelText="Code (optional)" value={code} onChange={(e) => setCode((e.target as HTMLInputElement).value)} />
+                    <Content style={{ padding: 0 }}>
+                        {active === 'basics' ? (<IndicatorBasicsSection value={{ name, code, description }} onChange={(next) => {setName(next.name);setCode(next.code);setDescription(next.description);}}/>) : null}
 
-          <TextArea
-              id="indicator-desc"
-              labelText="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
-          />
+                        {active === 'theme' ? (<IndicatorThemeSection themes={themes} loading={loadingThemes} error={themesError} themeUuid={themeUuid} onThemeUuidChange={setThemeUuid} themeConfigError={themeConfigError}/>) : null}
 
-          <div>
-            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Data Theme</div>
+                        {active === 'conditions' ? (<IndicatorConditionsSection conditions={themeConfig?.conditions ?? []} picked={pickedConditions} onPickedChange={setPickedConditions} conceptUi={conceptUi} onConceptUiChange={setConceptUi} qaUi={qaUi} onQaUiChange={setQaUi}/>) : null}
 
-            {loadingThemes ? <InlineLoading description="Loading themes…" /> : null}
-            {!loadingThemes && themesError ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{themesError}</div> : null}
-
-            <Select id="indicator-theme" labelText="Select a theme" value={themeUuid} onChange={(e) => setThemeUuid((e.target as HTMLSelectElement).value)}>
-              <SelectItem value="" text="Select…" />
-              {(themes ?? []).map((t) => (
-                  <SelectItem key={t.uuid} value={t.uuid} text={`${t.name}${t.code ? ` (${t.code})` : ''}`} />
-              ))}
-            </Select>
-
-            {themeConfigError ? <div style={{ color: 'var(--cds-text-error, #da1e28)', marginTop: '0.5rem' }}>{themeConfigError}</div> : null}
-          </div>
-
-          {themeConfig?.conditions?.length ? (
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Conditions</div>
-                <Stack gap={5}>{themeConfig.conditions.map(renderCondition)}</Stack>
-              </div>
-          ) : null}
-
-          {sqlPreview ? (
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>SQL Preview</div>
-                <pre
-                    style={{
-                      fontSize: '0.875rem',
-                      background: 'var(--cds-layer-01)',
-                      padding: '0.75rem',
-                      borderRadius: 6,
-                      overflowX: 'auto',
-                    }}
-                >
-{sqlPreview}
-            </pre>
-              </div>
-          ) : null}
-        </Stack>
-      </Modal>
-  );
+                        {active === 'sql' ? <IndicatorSqlPreviewSection sql={sqlPreview} /> : null}
+                    </Content>
+                </div>
+            </Stack>
+        </Modal>
+    );
 }
