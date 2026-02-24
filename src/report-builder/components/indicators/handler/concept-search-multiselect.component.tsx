@@ -55,7 +55,7 @@ function getIcd10And11(concept: ConceptSummary) {
     return { icd10Code: icd10, icd11Code: icd11 };
 }
 
-function toSelectedConcept(c: ConceptSummary): SelectedConcept {
+export function toSelectedConcept(c: ConceptSummary): SelectedConcept {
     const { icd10Code, icd11Code } = getIcd10And11(c);
 
     return {

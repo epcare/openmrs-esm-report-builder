@@ -5,6 +5,7 @@ import { omrsDelete, omrsGet, omrsPost } from '../../services/openmrs-api';
 
 
 const RESOURCE = '/concept';
+const cutomConceptRepresentation = 'custom:(id,uuid,display,datatype:(uuid,name),conceptClass:(uuid,name),answers:(id,uuid,display),mappings:(display,uuid,conceptMapType:(display)))';
 
 type ConceptSearchResponse = {
     results: ConceptSummary[];
@@ -19,17 +20,25 @@ export async function searchConcepts(
     signal?: AbortSignal,
 ): Promise<ConceptSummary[]> {
     const res = await omrsGet<ConceptSearchResponse>(
-        `${RESOURCE}/?q=${encodeURIComponent(query)}&v=custom:(id,uuid,display,datatype:(uuid,name),conceptClass:(uuid,name),answers:(id,uuid,display),mappings:(display,uuid,conceptMapType:(display)))`,
+        `${RESOURCE}/?q=${encodeURIComponent(query)}&v=${cutomConceptRepresentation}`,
         signal);
 
     return res?.results ?? [];
 }
 
+export async function getConceptByUuid(uuid: string, signal?: AbortSignal): Promise<ConceptSummary> {
+    const u = String(uuid ?? '').trim();
+    if (!u) {
+        throw new Error('Concept uuid is required');
+    }
+
+    // /concept/{uuid} returns a single Concept object
+    return omrsGet<ConceptSummary>(`${RESOURCE}/${encodeURIComponent(u)}?v=${cutomConceptRepresentation}`, signal);
+}
+
 
 export async function getConceptAnswers(questionUuid: string, signal?: AbortSignal): Promise<ConceptSummary[]> {
-    const v = 'custom:(id,uuid,display,answers:(id,uuid,display,mappings:(display),conceptClass:(name),datatype:(name)))';
-
-    const res = await omrsGet<ConceptAnswersResponse>(`${RESOURCE}/${questionUuid}?v=${v}`, signal );
+    const res = await omrsGet<ConceptAnswersResponse>(`${RESOURCE}/${questionUuid}?v=${cutomConceptRepresentation}`, signal );
 
     const answers = (res as any)?.answers ?? [];
     return answers as ConceptSummary[];

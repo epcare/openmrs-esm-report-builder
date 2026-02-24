@@ -74,19 +74,18 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
         { key: 'code', header: 'Code' },
         { key: 'name', header: 'Name' },
         { key: 'kind', header: 'Kind' },
-        { key: 'theme', header: 'Theme' }, // ✅ header expects "theme"
+        { key: 'theme', header: 'Theme' },
         { key: 'status', header: 'Status' },
         { key: 'actions', header: '' },
     ];
 
-    // ✅ Provide "theme" for the table, but keep "themeColor" on the row object for rendering
     const tableRows = (rows ?? []).map((r) => ({
         id: r.id,
         code: r.code,
         name: r.name,
         kind: r.kind,
-        theme: r.themeName ?? '',        // ✅ matches header key
-        themeColor: r.themeColor ?? '',  // ✅ extra (not a column)
+        theme: r.themeName ?? '',        // matches header key
+        themeColor: r.themeColor ?? '',  // extra (not a column)
         status: r.status,
     }));
 
@@ -121,7 +120,7 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
                                 const themeName = String(row.cells.find((c) => c.info.header === 'theme')?.value ?? '');
                                 const status = String(row.cells.find((c) => c.info.header === 'status')?.value ?? '');
 
-                                // ✅ themeColor is NOT a header cell; get it from the raw row object
+                                // themeColor is not a header cell; keep it on the row object
                                 const themeColor = String((row as any).themeColor ?? '');
 
                                 return (
@@ -133,7 +132,16 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
                                     >
                                         <TableCell>{code || <span style={{ opacity: 0.7 }}>—</span>}</TableCell>
 
-                                        <TableCell style={{ fontWeight: 600 }}>{name}</TableCell>
+                                        {/* ✅ Theme color accent on the indicator itself */}
+                                        <TableCell
+                                            style={{
+                                                fontWeight: 600,
+                                                paddingLeft: '0.75rem',
+                                                borderLeft: themeColor ? `6px solid ${themeColor}` : '6px solid transparent',
+                                            }}
+                                        >
+                                            {name}
+                                        </TableCell>
 
                                         <TableCell>{kindTag(kind)}</TableCell>
 

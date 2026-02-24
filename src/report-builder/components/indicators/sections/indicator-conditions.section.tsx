@@ -8,6 +8,7 @@ import ConceptSearchMultiSelect, { type SelectedConcept } from '../handler/conce
 import QuestionAnswerConceptSearch from '../handler/question-answer-concept-search.component';
 
 type QAUiState = { question: SelectedConcept | null; answers: SelectedConcept[]; error?: string };
+type QAValue = { question: string | number | null; answers: Array<string | number> };
 
 type Props = {
     conditions: ThemeCondition[];
@@ -22,21 +23,68 @@ type Props = {
     onQaUiChange: (next: Record<string, QAUiState>) => void;
 };
 
-type QAValue = { question: string | number | null; answers: Array<string | number> };
+function normalizeNumericIds(xs: Array<any>) {
+    return xs.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0);
+}
 
-export default function IndicatorConditionsSection({conditions, picked, onPickedChange, conceptUi, onConceptUiChange, qaUi, onQaUiChange,}: Props) {
+function normalizeStrings(xs: Array<any>) {
+    return xs.map((x) => String(x)).filter(Boolean);
+}
+
+export default function IndicatorConditionsSection({
+                                                       conditions,
+                                                       picked,
+                                                       onPickedChange,
+                                                       conceptUi,
+                                                       onConceptUiChange,
+                                                       qaUi,
+                                                       onQaUiChange,
+                                                   }: Props) {
     const updatePicked = React.useCallback(
         (key: string, patch: Partial<IndicatorCondition>) => {
-            onPickedChange(picked.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+            onPickedChange((picked ?? []).map((p) => (p.key === key ? { ...p, ...patch } : p)));
         },
         [onPickedChange, picked],
     );
 
-    const renderCondition = (tc: ThemeCondition) => {
-        const current = picked.find((x) => x.key === tc.key);
+    const mergeQaUi = React.useCallback(
+        (key: string, next: Partial<QAUiState>) => {
+            onQaUiChange({
+                ...(qaUi ?? {}),
+                [key]: {
+                    ...(qaUi?.[key] ?? { question: null, answers: [] }),
+                    ...next,
+                },
+            });
+        },
+        [onQaUiChange, qaUi],
+    );
 
+    const mergeConceptUi = React.useCallback(
+        (key: string, nextSelected: SelectedConcept[]) => {
+            onConceptUiChange({
+                ...(conceptUi ?? {}),
+                [key]: nextSelected,
+            });
+        },
+        [onConceptUiChange, conceptUi],
+    );
+
+    console.log('conditions', conditions);
+    console.log('picked', picked);
+    console.log('conceptUi', conceptUi);
+    console.log('qaUi', qaUi);
+    console.log('---------------------------------------');
+    console.log("mergeConceptUi",mergeConceptUi)
+
+    const renderCondition = (tc: ThemeCondition) => {
+        const current = (picked ?? []).find((x) => x.key === tc.key);
+
+        // -----------------------------
+        // QUESTION + ANSWERS handler
+        // -----------------------------
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-            const ui = qaUi[tc.key] ?? { question: null, answers: [] };
+            const ui = qaUi?.[tc.key] ?? { question: null, answers: [] };
 
             return (
                 <div key={tc.key}>
@@ -47,22 +95,21 @@ export default function IndicatorConditionsSection({conditions, picked, onPicked
                         labelText={tc.label || 'Select question & answers'}
                         value={{ question: ui.question, answers: ui.answers }}
                         onChange={(next) => {
-                            // UI
-                            onQaUiChange({
-                                ...qaUi,
-                                [tc.key]: { ...(qaUi[tc.key] ?? { question: null, answers: [] }), question: next.question, answers: next.answers },
-                            });
+                            // UI state (clear any previous error here)
+                            mergeQaUi(tc.key, { question: next.question, answers: next.answers, error: undefined });
 
-                            // Payload
+                            // Payload state
                             const qVal =
                                 tc.valueType === 'conceptUuid'
                                     ? (next.question?.uuid ?? null)
-                                    : (next.question?.id ? Number(next.question.id) : null);
+                                    : next.question?.id
+                                        ? Number(next.question.id)
+                                        : null;
 
                             const aVals =
                                 tc.valueType === 'conceptUuid'
-                                    ? (next.answers ?? []).map((a) => a.uuid).filter(Boolean)
-                                    : (next.answers ?? []).map((a) => Number(a.id)).filter((n) => Number.isFinite(n) && n > 0);
+                                    ? normalizeStrings((next.answers ?? []).map((a) => a.uuid))
+                                    : normalizeNumericIds((next.answers ?? []).map((a) => a.id));
 
                             updatePicked(tc.key, { value: { question: qVal, answers: aVals } as QAValue as any });
                         }}
@@ -77,8 +124,12 @@ export default function IndicatorConditionsSection({conditions, picked, onPicked
             );
         }
 
+        // -----------------------------
+        // Concept multi-select handler
+        // -----------------------------
         if (tc.handler === 'CONCEPT_SEARCH') {
-            const uiSelected = conceptUi[tc.key] ?? [];
+            const uiSelected = conceptUi?.[tc.key] ?? [];
+
 
             return (
                 <div key={tc.key}>
@@ -89,15 +140,12 @@ export default function IndicatorConditionsSection({conditions, picked, onPicked
                         labelText={tc.label || 'Select concepts'}
                         value={uiSelected}
                         onChange={(nextSelected) => {
-                            onConceptUiChange({ ...conceptUi, [tc.key]: nextSelected });
+                            mergeConceptUi(tc.key, nextSelected);
 
                             if (tc.valueType === 'conceptUuid') {
-                                updatePicked(tc.key, { value: nextSelected.map((c) => c.uuid).filter(Boolean) as any });
+                                updatePicked(tc.key, { value: normalizeStrings(nextSelected.map((c) => c.uuid)) as any });
                             } else {
-                                updatePicked(
-                                    tc.key,
-                                    { value: nextSelected.map((c) => Number(c.id)).filter((n) => Number.isFinite(n) && n > 0) as any },
-                                );
+                                updatePicked(tc.key, { value: normalizeNumericIds(nextSelected.map((c) => c.id)) as any });
                             }
                         }}
                     />
@@ -105,13 +153,20 @@ export default function IndicatorConditionsSection({conditions, picked, onPicked
             );
         }
 
+        // -----------------------------
+        // default: text input handler
+        // -----------------------------
         return (
             <div key={tc.key}>
                 <TextInput
                     id={`cond-${tc.key}`}
                     labelText={tc.label || tc.key}
                     value={typeof current?.value === 'string' ? current.value : ''}
-                    onChange={(e) => updatePicked(tc.key, { value: (e.target as HTMLInputElement).value as any })}
+                    onChange={(e) =>
+                        updatePicked(tc.key, {
+                            value: (e.target as HTMLInputElement).value as any,
+                        })
+                    }
                 />
             </div>
         );
