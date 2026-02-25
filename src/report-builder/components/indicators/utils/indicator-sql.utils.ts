@@ -7,6 +7,35 @@ function sqlQuote(v: string) {
     return `'${String(v).replace(/'/g, "''")}'`;
 }
 
+function qualifyColumn(col: string) {
+    const c = String(col ?? '').trim();
+    if (!c) return c;
+    // already qualified or expression-like
+    if (c.includes('.') || c.includes('(') || c.includes(' ') || c.includes('`')) return c;
+    return `a.${c}`;
+}
+
+// Back-compat: some themes stored QA columns inside tc.column like:
+//   QA(obs_question_concept_id,obs_value_coded)
+// or  a.QA(obs_question_concept_id,obs_value_coded)
+function parseQaColumnsFromExpr(expr?: string | null) {
+    const raw = String(expr ?? '').trim();
+    if (!raw) return { questionColumn: undefined as string | undefined, answerColumn: undefined as string | undefined };
+
+    const m = raw.match(/QA\s*\((.*)\)/i);
+    if (!m) return { questionColumn: undefined, answerColumn: undefined };
+
+    const inner = (m[1] ?? '').trim();
+    if (!inner) return { questionColumn: undefined, answerColumn: undefined };
+
+    const parts = inner
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+
+    return { questionColumn: parts[0], answerColumn: parts[1] };
+}
+
 type QAValue = {
     // legacy single question
     question?: string | number | null;
@@ -66,17 +95,29 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
             const av = Array.isArray(v.answers) ? v.answers : [];
 
-            // Prefer explicit columns from theme config; avoid falling back to tc.column which may be `QA(...)`.
-            const questionColumn = (tc as any)?.columns?.question ?? (tc as any).questionColumn;
-            const answerColumn = (tc as any)?.columns?.answer ?? (tc as any).answerColumn;
+            // Prefer explicit columns from theme config.
+            let questionColumn = (tc as any)?.columns?.question ?? (tc as any).questionColumn;
+            let answerColumn = (tc as any)?.columns?.answer ?? (tc as any).answerColumn;
+
+            // Back-compat: if columns are missing but tc.column looks like QA(qCol,aCol), extract args.
+            if ((!questionColumn || !answerColumn) && (tc as any)?.column) {
+                const parsed = parseQaColumnsFromExpr((tc as any).column);
+                questionColumn = questionColumn ?? parsed.questionColumn;
+                answerColumn = answerColumn ?? parsed.answerColumn;
+            }
+
+            // Last resort: fall back to tc.column (best-effort)
+            if (!questionColumn && (tc as any)?.column) questionColumn = (tc as any).column;
+            if (!answerColumn && (tc as any)?.column) answerColumn = (tc as any).column;
 
             if (questionColumn && qVals.length) {
                 const arr = qVals.map((x) => String(x)).filter((x) => x.trim().length > 0);
                 if (arr.length) {
                     const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
                     const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
-                    if (arr.length === 1) clauses.push(`  AND a.${questionColumn} = ${isNumericList ? rendered : rendered}`);
-                    else clauses.push(`  AND a.${questionColumn} IN (${rendered})`);
+                    const col = qualifyColumn(questionColumn);
+                    if (arr.length === 1) clauses.push(`  AND ${col} = ${rendered}`);
+                    else clauses.push(`  AND ${col} IN (${rendered})`);
                 }
             }
 
@@ -85,10 +126,17 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
                 if (arr.length) {
                     const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
                     const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
+                    const col = qualifyColumn(answerColumn);
 
-                    if (op === 'IN') clauses.push(`  AND a.${answerColumn} IN (${rendered})`);
-                    else if (op === 'NOT_IN') clauses.push(`  AND a.${answerColumn} NOT IN (${rendered})`);
-                    else clauses.push(`  AND a.${answerColumn} ${op} (${rendered})`);
+                    // Multiple answers should always use IN/NOT_IN semantics.
+                    if (arr.length > 1) {
+                        if (op === 'NOT_IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
+                        else clauses.push(`  AND ${col} IN (${rendered})`);
+                    } else {
+                        if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
+                        else if (op === 'NOT_IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
+                        else clauses.push(`  AND ${col} ${op} ${rendered}`);
+                    }
                 }
             }
 

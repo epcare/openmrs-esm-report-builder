@@ -252,6 +252,7 @@ export default function CreateBaseIndicatorModal({
     const [qaUi, setQaUi] = React.useState<Record<string, QAUiState>>({});
 
     const [sqlPreview, setSqlPreview] = React.useState('');
+    const [sqlDirty, setSqlDirty] = React.useState(false);
 
     React.useEffect(() => {
         if (!open) return;
@@ -295,6 +296,7 @@ export default function CreateBaseIndicatorModal({
 
             setConceptUi(initialConceptUi ?? {});
             setQaUi(initialQaUi ?? {});
+            setSqlDirty(false);
         } else {
             setName('');
             setCode('');
@@ -306,15 +308,18 @@ export default function CreateBaseIndicatorModal({
             setConceptUi({});
             setQaUi({});
             setSqlPreview('');
+            setSqlDirty(true);
         }
     }, [open, isEdit, initial, initialConceptUi, initialQaUi]);
 
     const onThemeUuidChange = React.useCallback((uuid: string) => {
         setThemeUuid(uuid);
+        setSqlDirty(true);
     }, []);
 
     const onPickedChange = React.useCallback((next: IndicatorCondition[]) => {
         setPickedConditions(next);
+        setSqlDirty(true);
     }, []);
 
     React.useEffect(() => {
@@ -372,21 +377,13 @@ export default function CreateBaseIndicatorModal({
     }, [open, themeUuid]);
 
     React.useEffect(() => {
-        if (!themeConfig) {
-            setSqlPreview('');
-            return;
-        }
+        if (!themeConfig) return;
+
+        if (isEdit && !sqlDirty) return;
 
         const base = buildSqlPreview(themeConfig);
-
-        const next = applyConditionClauses(
-            base,
-            themeConfig.conditions ?? [],
-            pickedConditions ?? [],
-        );
-
-        setSqlPreview(next);
-    }, [themeConfig, pickedConditions]);
+        setSqlPreview(applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions));
+    }, [themeConfig, pickedConditions, isEdit, sqlDirty]);
 
     const canSave =
         Boolean(name.trim()) &&
@@ -482,10 +479,12 @@ export default function CreateBaseIndicatorModal({
                                 conceptUi={conceptUi}
                                 onConceptUiChange={(next) => {
                                     setConceptUi(next);
+                                    setSqlDirty(true);
                                 }}
                                 qaUi={qaUi}
                                 onQaUiChange={(next) => {
                                     setQaUi(next);
+                                    setSqlDirty(true);
                                 }}
                             />
                         ) : null}
