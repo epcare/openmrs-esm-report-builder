@@ -1,4 +1,5 @@
 import { omrsDelete, omrsGet, omrsPost } from '../../services/openmrs-api';
+import { decodeHtmlEntities } from '../../utils/html-entities.utils';
 
 /**
  * REST resource:
@@ -12,6 +13,19 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
     if (!data) return [];
     if (Array.isArray(data)) return data;
     return Array.isArray(data.results) ? data.results : [];
+}
+
+function normalizeIndicatorDto(ind: IndicatorDto): IndicatorDto {
+    // OpenMRS can return HTML-escaped strings; decode before UI uses them.
+    return {
+        ...ind,
+        configJson: ind.configJson ? decodeHtmlEntities(ind.configJson) : ind.configJson,
+        metaJson: ind.metaJson ? decodeHtmlEntities(ind.metaJson) : ind.metaJson,
+        sqlTemplate: ind.sqlTemplate ? decodeHtmlEntities(ind.sqlTemplate) : ind.sqlTemplate,
+        denominatorSqlTemplate: ind.denominatorSqlTemplate
+            ? decodeHtmlEntities(ind.denominatorSqlTemplate)
+            : ind.denominatorSqlTemplate,
+    };
 }
 
 export type IndicatorKind = 'BASE' | 'COMPOSITE' | 'FINAL';
@@ -82,11 +96,14 @@ export async function listIndicators(params?: ListIndicatorsParams, signal?: Abo
 
     const data = await omrsGet<RestList<IndicatorDto> | IndicatorDto[] | undefined>(`${RESOURCE}?${qs.toString()}`, signal);
 
-    return unwrapRestList(data).filter((x) => Boolean(x?.uuid));
+    return unwrapRestList(data)
+        .filter((x) => Boolean(x?.uuid))
+        .map(normalizeIndicatorDto);
 }
 
 export async function getIndicator(uuid: string, signal?: AbortSignal, v: RestRep = 'full'): Promise<IndicatorDto> {
-    return omrsGet<IndicatorDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
+    const res = await omrsGet<IndicatorDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
+    return normalizeIndicatorDto(res);
 }
 
 export async function createIndicator(payload: Partial<IndicatorDto>, signal?: AbortSignal): Promise<IndicatorDto> {

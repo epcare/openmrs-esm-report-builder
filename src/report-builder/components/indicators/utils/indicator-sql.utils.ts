@@ -36,6 +36,11 @@ function parseQaColumnsFromExpr(expr?: string | null) {
     return { questionColumn: parts[0], answerColumn: parts[1] };
 }
 
+function looksLikeQaExpression(expr?: string | null) {
+    const raw = String(expr ?? '').trim();
+    return /^([a-z]\.)?QA\s*\(/i.test(raw);
+}
+
 type QAValue = {
     // legacy single question
     question?: string | number | null;
@@ -106,9 +111,13 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
                 answerColumn = answerColumn ?? parsed.answerColumn;
             }
 
-            // Last resort: fall back to tc.column (best-effort)
-            if (!questionColumn && (tc as any)?.column) questionColumn = (tc as any).column;
-            if (!answerColumn && (tc as any)?.column) answerColumn = (tc as any).column;
+            // Last resort:
+            // - questionColumn can fall back to tc.column (best-effort)
+            // - BUT answerColumn must NOT fall back to tc.column if tc.column is a QA(...) expression,
+            //   otherwise we generate duplicate clauses on the same expression.
+            const tcCol = (tc as any)?.column as string | undefined;
+            if (!questionColumn && tcCol) questionColumn = tcCol;
+            if (!answerColumn && tcCol && !looksLikeQaExpression(tcCol)) answerColumn = tcCol;
 
             if (questionColumn && qVals.length) {
                 const arr = qVals.map((x) => String(x)).filter((x) => x.trim().length > 0);

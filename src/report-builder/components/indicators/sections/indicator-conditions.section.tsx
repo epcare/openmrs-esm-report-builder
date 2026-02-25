@@ -15,7 +15,11 @@ type Props = {
     conditions: ThemeCondition[];
 
     picked: IndicatorCondition[];
-    onPickedChange: (next: IndicatorCondition[]) => void;
+    /**
+     * We accept a React state setter signature so callers can pass setState directly
+     * and we can safely use functional updates.
+     */
+    onPickedChange: React.Dispatch<React.SetStateAction<IndicatorCondition[]>>;
 
     conceptUi: Record<string, SelectedConcept[]>;
     onConceptUiChange: (next: Record<string, SelectedConcept[]>) => void;

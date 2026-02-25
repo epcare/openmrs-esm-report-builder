@@ -317,10 +317,13 @@ export default function CreateBaseIndicatorModal({
         setSqlDirty(true);
     }, []);
 
-    const onPickedChange = React.useCallback((next: IndicatorCondition[]) => {
-        setPickedConditions(next);
-        setSqlDirty(true);
-    }, []);
+    const onPickedChange = React.useCallback(
+        (next: React.SetStateAction<IndicatorCondition[]>) => {
+            setPickedConditions(next);
+            setSqlDirty(true);
+        },
+        [],
+    );
 
     React.useEffect(() => {
         if (!open) return;
