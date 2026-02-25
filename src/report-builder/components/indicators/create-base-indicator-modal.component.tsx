@@ -1,5 +1,3 @@
-// src/report-builder/components/indicators/create-base-indicator-modal.component.tsx
-
 import React from 'react';
 import { Modal, Stack, SideNav, SideNavItems, SideNavLink, Content } from '@carbon/react';
 
@@ -14,19 +12,18 @@ import IndicatorConditionsSection from './sections/indicator-conditions.section'
 import IndicatorSqlPreviewSection from './sections/indicator-sql-preview.section';
 
 import { buildSqlPreview, applyConditionClauses } from './utils/indicator-sql.utils';
-
 import type { SelectedConcept } from './handler/concept-search-multiselect.component';
+import type { QAUiState } from './types/condition-ui.types';
 
 type PanelKey = 'basics' | 'theme' | 'conditions' | 'sql';
 
-export type QAUiState = { question: SelectedConcept | null; answers: SelectedConcept[]; error?: string };
+
 
 type Props = {
     open: boolean;
     mode: 'create' | 'edit';
     initial?: IndicatorDto | null;
 
-    // page-preloaded UI state for edit
     initialConceptUi?: Record<string, SelectedConcept[]>;
     initialQaUi?: Record<string, QAUiState>;
 
@@ -44,7 +41,7 @@ type BaseIndicatorAuthoring = {
     sqlPreview: string;
 };
 
-type QAValue = { question: string | null; answers: string[] };
+type QAValue = { questions: string[]; answers: string[] };
 
 function safeParse<T>(raw: string | undefined | null, fallback: T): T {
     try {
@@ -64,12 +61,6 @@ function normalizeThemeConfig(rawConfigJson: string | undefined | null): DataThe
     return base as DataThemeConfig;
 }
 
-/**
- * Supports multiple historical shapes of configJson:
- * - v1 flat: { themeUuid, themeConfig, conditions, sqlPreview }
- * - { base: { ... } }
- * - { authoring: { base: { ... } } }
- */
 function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicatorAuthoring | null {
     if (!ind?.configJson) return null;
 
@@ -81,7 +72,6 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
     }
     if (!parsed || typeof parsed !== 'object') return null;
 
-    // flat v1
     if (parsed.themeUuid && parsed.themeConfig) {
         return {
             version: 1,
@@ -92,7 +82,6 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
         };
     }
 
-    // { base: {...} }
     if (parsed.base?.themeUuid && parsed.base?.themeConfig) {
         return {
             version: 1,
@@ -103,7 +92,6 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
         };
     }
 
-    // { authoring: { base: {...} } }
     if (parsed.authoring?.base?.themeUuid && parsed.authoring?.base?.themeConfig) {
         const b = parsed.authoring.base;
         return {
@@ -127,9 +115,56 @@ function buildAuthoring(
     return { version: 1, themeUuid, themeConfig, conditions, sqlPreview };
 }
 
+function defaultValueForTheme(tc: ThemeCondition) {
+    if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') return { questions: [], answers: [] } as any;
+    if (tc.operator === 'IN' || tc.operator === 'NOT_IN') return [] as any;
+    return '' as any;
+}
+
 /**
- * Before saving, enforce that concept-based conditions persist UUIDs (not numeric ids),
- * using the UI maps as the source of truth (conceptUi / qaUi).
+ * ✅ Ensures pickedConditions has entries for all theme conditions.
+ * Keeps existing values.
+ */
+function normalizePickedAgainstTheme(themeConditions: ThemeCondition[], picked: IndicatorCondition[]) {
+    const byKey = new Map<string, IndicatorCondition>();
+    for (const p of picked ?? []) if (p?.key) byKey.set(p.key, p);
+
+    const next: IndicatorCondition[] = [];
+
+    for (const tc of themeConditions ?? []) {
+        if (!tc?.key) continue;
+
+        const existing = byKey.get(tc.key);
+        if (existing) {
+            next.push(existing);
+            continue;
+        }
+
+        next.push({
+            key: tc.key,
+            operator: tc.operator as any,
+            valueType: tc.valueType as any,
+            value: defaultValueForTheme(tc),
+        } as any);
+    }
+
+    // keep unknown keys to avoid data loss
+    for (const p of picked ?? []) {
+        if (!p?.key) continue;
+        if (!byKey.has(p.key)) continue;
+        // already included
+    }
+    for (const p of picked ?? []) {
+        if (!p?.key) continue;
+        const inTheme = (themeConditions ?? []).some((tc) => tc?.key === p.key);
+        if (!inTheme) next.push(p);
+    }
+
+    return next;
+}
+
+/**
+ * Before saving, enforce that concept-based conditions persist UUIDs using UI maps.
  */
 function prepareConditionsForSave(
     themeConditions: ThemeCondition[],
@@ -137,9 +172,6 @@ function prepareConditionsForSave(
     conceptUi: Record<string, SelectedConcept[]>,
     qaUi: Record<string, QAUiState>,
 ): IndicatorCondition[] {
-    const themeByKey = new Map<string, ThemeCondition>();
-    for (const tc of themeConditions ?? []) if (tc?.key) themeByKey.set(tc.key, tc);
-
     const byKey = new Map<string, IndicatorCondition>();
     for (const pc of picked ?? []) if (pc?.key) byKey.set(pc.key, pc);
 
@@ -155,38 +187,33 @@ function prepareConditionsForSave(
                 key: tc.key,
                 operator: tc.operator,
                 valueType: tc.valueType,
-                value:
-                    tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH'
-                        ? ({ question: null, answers: [] } as any)
-                        : tc.operator === 'IN' || tc.operator === 'NOT_IN'
-                            ? []
-                            : '',
+                value: defaultValueForTheme(tc),
             } as any);
 
         if (tc.handler === 'CONCEPT_SEARCH') {
             const selected = conceptUi?.[tc.key] ?? [];
             const uuids = (selected ?? []).map((c) => c.uuid).filter(Boolean);
-
             base.valueType = 'conceptUuid' as any;
             base.value = uuids as any;
         }
 
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-            const ui = qaUi?.[tc.key] ?? { question: null, answers: [] };
-            const qUuid = ui.question?.uuid ?? null;
+            const ui = qaUi?.[tc.key] ?? { questions: [], answers: [] };
+            const qUuids = (ui.questions ?? []).map((q) => q.uuid).filter(Boolean);
             const aUuids = (ui.answers ?? []).map((a) => a.uuid).filter(Boolean);
 
             base.valueType = 'conceptUuid' as any;
-            base.value = { question: qUuid, answers: aUuids } as QAValue as any;
+            base.value = { questions: qUuids, answers: aUuids } as QAValue as any;
         }
 
         next.push(base);
     }
 
-    // keep unknown keys to avoid data loss
+    // keep unknown keys
+    const themeKeys = new Set((themeConditions ?? []).map((t) => t?.key).filter(Boolean) as string[]);
     for (const pc of picked ?? []) {
         if (!pc?.key) continue;
-        if (!themeByKey.has(pc.key)) next.push(pc);
+        if (!themeKeys.has(pc.key)) next.push(pc);
     }
 
     return next;
@@ -207,38 +234,25 @@ export default function CreateBaseIndicatorModal({
 
     const [active, setActive] = React.useState<PanelKey>('basics');
 
-    // basics
     const [name, setName] = React.useState('');
     const [code, setCode] = React.useState('');
     const [description, setDescription] = React.useState('');
 
-    // themes list
     const [themes, setThemes] = React.useState<DataThemeDto[]>([]);
     const [loadingThemes, setLoadingThemes] = React.useState(false);
     const [themesError, setThemesError] = React.useState<string | null>(null);
 
-    // theme selection + config
     const [themeUuid, setThemeUuid] = React.useState('');
     const [themeConfig, setThemeConfig] = React.useState<DataThemeConfig | null>(null);
     const [themeConfigError, setThemeConfigError] = React.useState<string | null>(null);
 
-    // picked conditions (payload)
     const [pickedConditions, setPickedConditions] = React.useState<IndicatorCondition[]>([]);
 
-    // UI-only selections (fed by page in edit mode)
     const [conceptUi, setConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
     const [qaUi, setQaUi] = React.useState<Record<string, QAUiState>>({});
 
-    // sql preview
     const [sqlPreview, setSqlPreview] = React.useState('');
-    /**
-     * ✅ Key fix: prevent edit-load SQL from being overwritten by recompute effect.
-     * - On edit open: sqlDirty=false and we keep authoring.sqlPreview
-     * - Once user changes theme/conditions: sqlDirty=true and we recompute
-     */
-    const [sqlDirty, setSqlDirty] = React.useState(false);
 
-    // load themes when modal opens
     React.useEffect(() => {
         if (!open) return;
 
@@ -257,7 +271,6 @@ export default function CreateBaseIndicatorModal({
         return () => ac.abort();
     }, [open]);
 
-    // init/reset (consumes preloaded UI state from page)
     React.useEffect(() => {
         if (!open) return;
 
@@ -282,9 +295,6 @@ export default function CreateBaseIndicatorModal({
 
             setConceptUi(initialConceptUi ?? {});
             setQaUi(initialQaUi ?? {});
-
-            // ✅ IMPORTANT: on edit, preserve saved preview until user changes something
-            setSqlDirty(false);
         } else {
             setName('');
             setCode('');
@@ -296,24 +306,17 @@ export default function CreateBaseIndicatorModal({
             setConceptUi({});
             setQaUi({});
             setSqlPreview('');
-            // create mode: once theme/conditions set, we want preview to build
-            setSqlDirty(true);
         }
     }, [open, isEdit, initial, initialConceptUi, initialQaUi]);
 
-    // theme change handler (marks SQL dirty so preview recomputes)
     const onThemeUuidChange = React.useCallback((uuid: string) => {
         setThemeUuid(uuid);
-        setSqlDirty(true);
     }, []);
 
-    // picked change handler (marks SQL dirty so preview recomputes)
     const onPickedChange = React.useCallback((next: IndicatorCondition[]) => {
         setPickedConditions(next);
-        setSqlDirty(true);
     }, []);
 
-    // fetch theme config when themeUuid changes
     React.useEffect(() => {
         if (!open) return;
 
@@ -321,12 +324,10 @@ export default function CreateBaseIndicatorModal({
             setThemeConfig(null);
             setThemeConfigError(null);
             setPickedConditions([]);
-            // don’t wipe sqlPreview on edit open; only wipe if user actually cleared theme
             if (!isEdit) setSqlPreview('');
             return;
         }
 
-        // if edit already has matching themeConfig, skip
         if (themeConfig?.sourceTable && initial?.configJson) {
             const authoring = normalizeAuthoring(initial);
             if (authoring?.themeUuid === themeUuid && authoring?.themeConfig?.sourceTable === themeConfig.sourceTable) {
@@ -342,28 +343,10 @@ export default function CreateBaseIndicatorModal({
                 const cfg = normalizeThemeConfig(full.configJson);
                 setThemeConfig(cfg);
 
-                // initialize picked conditions if empty (create mode or missing saved)
-                setPickedConditions((prev) => {
-                    if (prev?.length) return prev;
+                // ✅ CRITICAL: normalize picked so ALL theme conditions exist (fixes SQL preview)
+                setPickedConditions((prev) => normalizePickedAgainstTheme(cfg.conditions ?? [], prev ?? []));
 
-                    return (cfg.conditions ?? []).map((c) => {
-                        const defaultValue =
-                            c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH'
-                                ? ({ question: null, answers: [] } as any)
-                                : c.operator === 'IN' || c.operator === 'NOT_IN'
-                                    ? []
-                                    : '';
-
-                        return {
-                            key: c.key,
-                            operator: c.operator,
-                            valueType: c.valueType,
-                            value: defaultValue,
-                        } as IndicatorCondition;
-                    });
-                });
-
-                // only initialize missing keys; do NOT overwrite page-preloaded UI maps
+                // init missing UI keys only
                 setConceptUi((prev) => {
                     const next = { ...(prev ?? {}) };
                     for (const c of cfg.conditions ?? []) {
@@ -376,7 +359,7 @@ export default function CreateBaseIndicatorModal({
                     const next = { ...(prev ?? {}) };
                     for (const c of cfg.conditions ?? []) {
                         if (c.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH' && !(c.key in next)) {
-                            next[c.key] = { question: null, answers: [] };
+                            next[c.key] = { questions: [], answers: [] };
                         }
                     }
                     return next;
@@ -388,16 +371,22 @@ export default function CreateBaseIndicatorModal({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, themeUuid]);
 
-    // ✅ recompute sql preview ONLY when it should (prevents edit overwrite)
     React.useEffect(() => {
-        if (!themeConfig) return;
-
-        // On edit open: keep stored authoring.sqlPreview until user changes something
-        if (isEdit && !sqlDirty) return;
+        if (!themeConfig) {
+            setSqlPreview('');
+            return;
+        }
 
         const base = buildSqlPreview(themeConfig);
-        setSqlPreview(applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions));
-    }, [themeConfig, pickedConditions, isEdit, sqlDirty]);
+
+        const next = applyConditionClauses(
+            base,
+            themeConfig.conditions ?? [],
+            pickedConditions ?? [],
+        );
+
+        setSqlPreview(next);
+    }, [themeConfig, pickedConditions]);
 
     const canSave =
         Boolean(name.trim()) &&
@@ -409,9 +398,7 @@ export default function CreateBaseIndicatorModal({
     const save = async () => {
         if (!canSave || !themeConfig) return;
 
-        // enforce UUID persistence for concept-based conditions
         const preparedConditions = prepareConditionsForSave(themeConfig.conditions ?? [], pickedConditions, conceptUi, qaUi);
-
         const authoring = buildAuthoring(themeUuid, themeConfig, preparedConditions, sqlPreview);
 
         const payload: Partial<IndicatorDto> = {
@@ -482,7 +469,7 @@ export default function CreateBaseIndicatorModal({
                                 loading={loadingThemes}
                                 error={themesError}
                                 themeUuid={themeUuid}
-                                onThemeUuidChange={onThemeUuidChange} // ✅ marks dirty
+                                onThemeUuidChange={onThemeUuidChange}
                                 themeConfigError={themeConfigError}
                             />
                         ) : null}
@@ -491,16 +478,14 @@ export default function CreateBaseIndicatorModal({
                             <IndicatorConditionsSection
                                 conditions={themeConfig?.conditions ?? []}
                                 picked={pickedConditions}
-                                onPickedChange={onPickedChange} // ✅ marks dirty
+                                onPickedChange={onPickedChange}
                                 conceptUi={conceptUi}
                                 onConceptUiChange={(next) => {
                                     setConceptUi(next);
-                                    setSqlDirty(true);
                                 }}
                                 qaUi={qaUi}
                                 onQaUiChange={(next) => {
                                     setQaUi(next);
-                                    setSqlDirty(true);
                                 }}
                             />
                         ) : null}

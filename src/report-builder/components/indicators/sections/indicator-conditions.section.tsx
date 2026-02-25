@@ -7,8 +7,9 @@ import type { IndicatorCondition } from '../types/indicator-types';
 import ConceptSearchMultiSelect, { type SelectedConcept } from '../handler/concept-search-multiselect.component';
 import QuestionAnswerConceptSearch from '../handler/question-answer-concept-search.component';
 
-type QAUiState = { question: SelectedConcept | null; answers: SelectedConcept[]; error?: string };
-type QAValue = { question: string | number | null; answers: Array<string | number> };
+import type { QAUiState } from '../types/condition-ui.types';
+
+type QAValue = { questions: Array<string | number>; answers: Array<string | number> };
 
 type Props = {
     conditions: ThemeCondition[];
@@ -31,6 +32,14 @@ function normalizeStrings(xs: Array<any>) {
     return xs.map((x) => String(x)).filter(Boolean);
 }
 
+function upsert(list: IndicatorCondition[], next: IndicatorCondition) {
+    const idx = (list ?? []).findIndex((p) => p.key === next.key);
+    if (idx === -1) return [...(list ?? []), next];
+    const copy = [...(list ?? [])];
+    copy[idx] = { ...copy[idx], ...next };
+    return copy;
+}
+
 export default function IndicatorConditionsSection({
                                                        conditions,
                                                        picked,
@@ -40,9 +49,23 @@ export default function IndicatorConditionsSection({
                                                        qaUi,
                                                        onQaUiChange,
                                                    }: Props) {
-    const updatePicked = React.useCallback(
-        (key: string, patch: Partial<IndicatorCondition>) => {
-            onPickedChange((picked ?? []).map((p) => (p.key === key ? { ...p, ...patch } : p)));
+    const upsertPicked = React.useCallback(
+        (tc: ThemeCondition, patch: Partial<IndicatorCondition>) => {
+            const existing =
+                (picked ?? []).find((p) => p.key === tc.key) ??
+                ({
+                    key: tc.key,
+                    operator: tc.operator,
+                    valueType: tc.valueType,
+                    value:
+                        tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH'
+                            ? ({ questions: [], answers: [] } as any)
+                            : tc.operator === 'IN' || tc.operator === 'NOT_IN'
+                                ? []
+                                : '',
+                } as IndicatorCondition);
+
+            onPickedChange(upsert(picked ?? [], { ...existing, ...patch, key: tc.key }));
         },
         [onPickedChange, picked],
     );
@@ -52,7 +75,7 @@ export default function IndicatorConditionsSection({
             onQaUiChange({
                 ...(qaUi ?? {}),
                 [key]: {
-                    ...(qaUi?.[key] ?? { question: null, answers: [] }),
+                    ...(qaUi?.[key] ?? { questions: [], answers: [] }),
                     ...next,
                 },
             });
@@ -70,21 +93,12 @@ export default function IndicatorConditionsSection({
         [onConceptUiChange, conceptUi],
     );
 
-    console.log('conditions', conditions);
-    console.log('picked', picked);
-    console.log('conceptUi', conceptUi);
-    console.log('qaUi', qaUi);
-    console.log('---------------------------------------');
-    console.log("mergeConceptUi",mergeConceptUi)
-
     const renderCondition = (tc: ThemeCondition) => {
         const current = (picked ?? []).find((x) => x.key === tc.key);
 
-        // -----------------------------
-        // QUESTION + ANSWERS handler
-        // -----------------------------
+        // QUESTION + ANSWERS
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-            const ui = qaUi?.[tc.key] ?? { question: null, answers: [] };
+            const ui = qaUi?.[tc.key] ?? { questions: [], answers: [] };
 
             return (
                 <div key={tc.key}>
@@ -92,26 +106,24 @@ export default function IndicatorConditionsSection({
 
                     <QuestionAnswerConceptSearch
                         id={`cond-${tc.key}`}
-                        labelText={tc.label || 'Select question & answers'}
-                        value={{ question: ui.question, answers: ui.answers }}
+                        labelText={tc.label || 'Select question(s) & answers'}
+                        value={{ questions: ui.questions, answers: ui.answers }}
                         onChange={(next) => {
-                            // UI state (clear any previous error here)
-                            mergeQaUi(tc.key, { question: next.question, answers: next.answers, error: undefined });
+                            // UI
+                            mergeQaUi(tc.key, { questions: next.questions, answers: next.answers, error: undefined });
 
-                            // Payload state
-                            const qVal =
+                            // Payload
+                            const qVals =
                                 tc.valueType === 'conceptUuid'
-                                    ? (next.question?.uuid ?? null)
-                                    : next.question?.id
-                                        ? Number(next.question.id)
-                                        : null;
+                                    ? normalizeStrings((next.questions ?? []).map((q) => q.uuid))
+                                    : normalizeNumericIds((next.questions ?? []).map((q) => q.id));
 
                             const aVals =
                                 tc.valueType === 'conceptUuid'
                                     ? normalizeStrings((next.answers ?? []).map((a) => a.uuid))
                                     : normalizeNumericIds((next.answers ?? []).map((a) => a.id));
 
-                            updatePicked(tc.key, { value: { question: qVal, answers: aVals } as QAValue as any });
+                            upsertPicked(tc, { value: { questions: qVals, answers: aVals } as QAValue as any });
                         }}
                     />
 
@@ -124,12 +136,9 @@ export default function IndicatorConditionsSection({
             );
         }
 
-        // -----------------------------
-        // Concept multi-select handler
-        // -----------------------------
+        // CONCEPT_SEARCH
         if (tc.handler === 'CONCEPT_SEARCH') {
             const uiSelected = conceptUi?.[tc.key] ?? [];
-
 
             return (
                 <div key={tc.key}>
@@ -143,9 +152,9 @@ export default function IndicatorConditionsSection({
                             mergeConceptUi(tc.key, nextSelected);
 
                             if (tc.valueType === 'conceptUuid') {
-                                updatePicked(tc.key, { value: normalizeStrings(nextSelected.map((c) => c.uuid)) as any });
+                                upsertPicked(tc, { value: normalizeStrings(nextSelected.map((c) => c.uuid)) as any });
                             } else {
-                                updatePicked(tc.key, { value: normalizeNumericIds(nextSelected.map((c) => c.id)) as any });
+                                upsertPicked(tc, { value: normalizeNumericIds(nextSelected.map((c) => c.id)) as any });
                             }
                         }}
                     />
@@ -153,9 +162,7 @@ export default function IndicatorConditionsSection({
             );
         }
 
-        // -----------------------------
-        // default: text input handler
-        // -----------------------------
+        // default: text input
         return (
             <div key={tc.key}>
                 <TextInput
@@ -163,7 +170,7 @@ export default function IndicatorConditionsSection({
                     labelText={tc.label || tc.key}
                     value={typeof current?.value === 'string' ? current.value : ''}
                     onChange={(e) =>
-                        updatePicked(tc.key, {
+                        upsertPicked(tc, {
                             value: (e.target as HTMLInputElement).value as any,
                         })
                     }

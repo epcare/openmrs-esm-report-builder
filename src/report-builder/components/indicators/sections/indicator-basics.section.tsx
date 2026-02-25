@@ -16,17 +16,17 @@ export default function IndicatorBasicsSection({ value, onChange }: Props) {
     return (
         <Stack gap={6}>
             <TextInput
-                id="indicator-name"
-                labelText="Name"
-                value={value.name}
-                onChange={(e) => onChange({ ...value, name: (e.target as HTMLInputElement).value })}
-            />
-
-            <TextInput
                 id="indicator-code"
                 labelText="Code (optional)"
                 value={value.code}
                 onChange={(e) => onChange({ ...value, code: (e.target as HTMLInputElement).value })}
+            />
+
+            <TextInput
+                id="indicator-name"
+                labelText="Name"
+                value={value.name}
+                onChange={(e) => onChange({ ...value, name: (e.target as HTMLInputElement).value })}
             />
 
             <TextArea

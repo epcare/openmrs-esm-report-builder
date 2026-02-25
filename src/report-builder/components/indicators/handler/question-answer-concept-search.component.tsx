@@ -8,7 +8,7 @@ import { getConceptAnswers } from '../../../services/concepts/concepts.resource'
 import type { SelectedConcept } from './concept-search-multiselect.component';
 
 type Value = {
-    question: SelectedConcept | null;
+    questions: SelectedConcept[]; // ✅ multi
     answers: SelectedConcept[];
 };
 
@@ -17,7 +17,7 @@ type Props = {
     labelText: string;
     helperText?: string;
 
-    questionLabelText?: string;
+    questionsLabelText?: string;
     answersLabelText?: string;
 
     value: Value;
@@ -90,7 +90,7 @@ export default function QuestionAnswerConceptSearch({
                                                         id,
                                                         labelText,
                                                         helperText,
-                                                        questionLabelText = 'Question concept',
+                                                        questionsLabelText = 'Question concept(s)',
                                                         answersLabelText = 'Expected answers',
                                                         value,
                                                         onChange,
@@ -99,46 +99,79 @@ export default function QuestionAnswerConceptSearch({
     const [qQuery, setQQuery] = React.useState('');
     const { loading: qLoading, results: qResults, error: qError } = useConceptSearch(qQuery);
 
-    // Answers derived from selected question
+    // Answers derived from selected questions
     const [answersOptions, setAnswersOptions] = React.useState<SelectedConcept[]>([]);
     const [aLoading, setALoading] = React.useState(false);
     const [aError, setAError] = React.useState<string | null>(null);
 
     // Used only to clear ComboBox input after picking an answer
     const [answerComboKey, setAnswerComboKey] = React.useState(0);
+    const [questionComboKey, setQuestionComboKey] = React.useState(0);
 
-    const loadAnswers = React.useCallback(
-        async (questionUuid: string, signal?: AbortSignal) => {
+    const selectedQuestions = value.questions ?? [];
+    const selectedAnswers = value.answers ?? [];
+
+    const mergeUniqueByUuid = React.useCallback((xs: SelectedConcept[]) => {
+        const m = new Map<string, SelectedConcept>();
+        for (const x of xs ?? []) {
+            if (x?.uuid) m.set(x.uuid, x);
+        }
+        return Array.from(m.values());
+    }, []);
+
+    const loadAnswersForQuestions = React.useCallback(
+        async (questionUuids: string[], signal?: AbortSignal) => {
             setALoading(true);
             setAError(null);
             setAnswersOptions([]);
 
             try {
-                const answers = await getConceptAnswers(questionUuid, signal);
-                const normalized = (answers ?? []).map(toSelectedConcept).filter((x) => Boolean(x.uuid));
+                const uniqQ = Array.from(new Set(questionUuids.filter(Boolean)));
+                if (!uniqQ.length) {
+                    setAnswersOptions([]);
+                    setAError(null);
+                    return;
+                }
 
-                if (!normalized.length) {
-                    setAError('Selected question has no configured answers. Please choose a different question.');
+                // fetch answers per question, then union
+                const answerLists = await Promise.all(
+                    uniqQ.map(async (qUuid) => {
+                        try {
+                            const answers = await getConceptAnswers(qUuid, signal);
+                            return (answers ?? []).map(toSelectedConcept).filter((x) => Boolean(x.uuid));
+                        } catch {
+                            return [];
+                        }
+                    }),
+                );
+
+                const merged = mergeUniqueByUuid(answerLists.flat());
+
+                if (!merged.length) {
+                    setAError('Selected question(s) have no configured answers. Please choose a different question.');
                     setAnswersOptions([]);
                     return;
                 }
 
-                setAnswersOptions(normalized);
-            } catch (e: any) {
-                if (e?.name === 'AbortError') return;
-                setAError(e?.message ?? 'Failed to load answers for the selected question');
-                setAnswersOptions([]);
+                setAnswersOptions(merged);
+
+                // keep currently selected answers only if still valid
+                const allowed = new Set(merged.map((x) => x.uuid));
+                const filtered = (selectedAnswers ?? []).filter((a) => a?.uuid && allowed.has(a.uuid));
+                if (filtered.length !== (selectedAnswers?.length ?? 0)) {
+                    onChange({ questions: selectedQuestions, answers: filtered });
+                }
             } finally {
                 setALoading(false);
             }
         },
-        [],
+        [mergeUniqueByUuid, onChange, selectedAnswers, selectedQuestions],
     );
 
-    // When question changes -> clear answers + load allowed answers
+    // whenever questions change, reload and union answers
     React.useEffect(() => {
-        const q = value.question;
-        if (!q?.uuid) {
+        const uuids = (selectedQuestions ?? []).map((q) => q.uuid).filter(Boolean);
+        if (!uuids.length) {
             setAnswersOptions([]);
             setAError(null);
             setALoading(false);
@@ -146,24 +179,29 @@ export default function QuestionAnswerConceptSearch({
         }
 
         const ac = new AbortController();
-        // reset selected answers when question changes
-        onChange({ question: q, answers: [] });
-
-        loadAnswers(q.uuid, ac.signal);
+        loadAnswersForQuestions(uuids, ac.signal);
         return () => ac.abort();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value.question?.uuid]);
+    }, [loadAnswersForQuestions, selectedQuestions]);
 
-    const setQuestion = (picked: ConceptSummary | null) => {
+    const addQuestion = (picked: ConceptSummary | null) => {
         if (!picked) return;
 
         const nextQ = toSelectedConcept(picked);
-        // set question now; effect will clear answers + load options
-        onChange({ question: nextQ, answers: [] });
+        const next = mergeUniqueByUuid([...(selectedQuestions ?? []), nextQ]);
+
+        onChange({ questions: next, answers: selectedAnswers });
+
+        // reset question combobox input
+        setQuestionComboKey((k) => k + 1);
     };
 
-    const clearQuestion = () => {
-        onChange({ question: null, answers: [] });
+    const removeQuestionUuid = (uuid: string) => {
+        const nextQ = (selectedQuestions ?? []).filter((q) => q.uuid !== uuid);
+        onChange({ questions: nextQ, answers: selectedAnswers });
+    };
+
+    const clearAllQuestions = () => {
+        onChange({ questions: [], answers: [] });
         setAnswersOptions([]);
         setAError(null);
         setALoading(false);
@@ -171,21 +209,19 @@ export default function QuestionAnswerConceptSearch({
 
     const addAnswer = (picked: SelectedConcept | null) => {
         if (!picked) return;
-        const next = new Map<string, SelectedConcept>();
-        for (const x of value.answers ?? []) next.set(x.uuid, x);
-        next.set(picked.uuid, picked);
 
-        onChange({ question: value.question, answers: Array.from(next.values()) });
+        const next = mergeUniqueByUuid([...(selectedAnswers ?? []), picked]);
+        onChange({ questions: selectedQuestions, answers: next });
 
         // reset answer combobox input
         setAnswerComboKey((k) => k + 1);
     };
 
     const removeAnswerUuid = (uuid: string) => {
-        onChange({ question: value.question, answers: (value.answers ?? []).filter((x) => x.uuid !== uuid) });
+        onChange({ questions: selectedQuestions, answers: (selectedAnswers ?? []).filter((x) => x.uuid !== uuid) });
     };
 
-    const canPickAnswers = Boolean(value.question?.uuid) && !aLoading && !aError;
+    const canPickAnswers = (selectedQuestions?.length ?? 0) > 0 && !aLoading && !aError;
 
     return (
         <div>
@@ -194,18 +230,19 @@ export default function QuestionAnswerConceptSearch({
                 <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.75rem' }}>{helperText}</div>
             ) : null}
 
-            {/* Question */}
+            {/* Questions */}
             <div style={{ marginBottom: '1rem' }}>
-                <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>{questionLabelText}</div>
+                <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>{questionsLabelText}</div>
 
                 <ComboBox
-                    id={`${id}-question`}
+                    key={questionComboKey}
+                    id={`${id}-questions`}
                     titleText="Search question concept"
                     items={qResults ?? []}
                     itemToString={itemToString}
                     placeholder="Type to search question…"
                     onInputChange={(text) => setQQuery(String(text ?? ''))}
-                    onChange={(e: any) => setQuestion(e?.selectedItem ?? null)}
+                    onChange={(e: any) => addQuestion(e?.selectedItem ?? null)}
                 />
 
                 <div style={{ marginTop: '0.5rem' }}>
@@ -215,40 +252,57 @@ export default function QuestionAnswerConceptSearch({
                     ) : null}
                 </div>
 
-                {value.question ? (
-                    <div style={{ marginTop: '0.75rem' }}>
-                        <Tag type="gray" filter onClose={clearQuestion} title={selectedToString(value.question)}>
-                            {value.question.display}
-                            {value.question.icd10Code ? ` • ICD-10:${value.question.icd10Code}` : ''}
-                            {value.question.icd11Code ? ` • ICD-11:${value.question.icd11Code}` : ''}
+                {selectedQuestions?.length ? (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {selectedQuestions.map((q) => (
+                            <Tag
+                                key={q.uuid}
+                                type="gray"
+                                filter
+                                onClose={() => removeQuestionUuid(q.uuid)}
+                                title={selectedToString(q)}
+                            >
+                                {q.display}
+                                {q.icd10Code ? ` • ICD-10:${q.icd10Code}` : ''}
+                                {q.icd11Code ? ` • ICD-11:${q.icd11Code}` : ''}
+                            </Tag>
+                        ))}
+
+                        <Tag type="red" filter onClose={clearAllQuestions} title="Clear all questions">
+                            Clear all
                         </Tag>
                     </div>
                 ) : null}
             </div>
 
-            {/* Answers (restricted to question answers) */}
+            {/* Answers */}
             <div>
                 <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>{answersLabelText}</div>
 
-                {value.question ? (
+                {(selectedQuestions?.length ?? 0) > 0 ? (
                     <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.75rem' }}>
-                        Pick answer concept(s) for: <b>{value.question.display}</b>
+                        Pick answer concept(s) for selected question(s).
                     </div>
                 ) : (
                     <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.75rem' }}>
-                        Select a question first to load its allowed answers.
+                        Select at least one question first to load allowed answers.
                     </div>
                 )}
 
                 {aLoading ? <InlineLoading description="Loading answers…" /> : null}
                 {!aLoading && aError ? (
-                    <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-error, #da1e28)', marginBottom: '0.75rem' }}>
+                    <div
+                        style={{
+                            fontSize: '0.875rem',
+                            color: 'var(--cds-text-error, #da1e28)',
+                            marginBottom: '0.75rem',
+                        }}
+                    >
                         {aError}
                     </div>
                 ) : null}
 
                 <ComboBox
-                    // force-reset input after each pick
                     key={answerComboKey}
                     id={`${id}-answers`}
                     titleText="Select answer"
@@ -259,9 +313,9 @@ export default function QuestionAnswerConceptSearch({
                     onChange={(e: any) => addAnswer(e?.selectedItem ?? null)}
                 />
 
-                {value.answers?.length ? (
+                {selectedAnswers?.length ? (
                     <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {value.answers.map((x) => (
+                        {selectedAnswers.map((x) => (
                             <Tag
                                 key={x.uuid}
                                 type="gray"

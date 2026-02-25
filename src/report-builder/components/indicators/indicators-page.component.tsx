@@ -9,6 +9,8 @@ import Header from '../header/header.component';
 import IndicatorsTable, { type IndicatorRow } from './indicators-table.component';
 import CreateBaseIndicatorModal from './create-base-indicator-modal.component';
 
+import type { QAUiState } from './types/condition-ui.types';
+
 import {
     listIndicators,
     getIndicator,
@@ -23,10 +25,7 @@ import { getDataTheme } from '../../services/theme/data-theme.api';
 import type { DataThemeConfig } from './types/data-theme-config.types';
 import type { IndicatorCondition } from './types/indicator-types';
 
-import {
-    hydrateConditionUiState,
-    type QAUiState,
-} from './utils/indicator-conditions-hydration.utils';
+import {hydrateConditionUiState,} from './utils/indicator-conditions-hydration.utils';
 import {SelectedConcept } from './handler/concept-search-multiselect.component';
 
 type ThemeMeta = { color?: string };

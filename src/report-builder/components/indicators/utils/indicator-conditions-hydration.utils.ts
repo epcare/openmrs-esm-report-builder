@@ -7,15 +7,7 @@ import { getConceptByUuid } from '../../../services/concepts/concepts.resource';
 import type { ConceptSummary } from '../../../services/concepts/concept-types';
 
 import { toSelectedConcept, type SelectedConcept } from '../handler/concept-search-multiselect.component';
-
-export type QAUiState = {
-    question: SelectedConcept | null;
-    answers: SelectedConcept[];
-    error?: string;
-};
-
-export type ConceptUiMap = Record<string, SelectedConcept[]>;
-export type QaUiMap = Record<string, QAUiState>;
+import type { QAUiState, ConceptUiMap, QaUiMap } from '../types/condition-ui.types';
 
 export type HydrationOptions = {
     force?: boolean;
@@ -36,9 +28,12 @@ export type HydrationResult = {
     };
 };
 
+// Stored value shape in pickedConditions for QA handler
+// (support both legacy single-question and current multi-question formats)
 type QAValue = {
-    question: string | number | null;
-    answers: Array<string | number>;
+    question?: string | number | null;
+    questions?: Array<string | number>;
+    answers?: Array<string | number>;
 };
 
 function uniq(tokens: string[]) {
@@ -56,30 +51,17 @@ function uniq(tokens: string[]) {
 
 /**
  * Hydrate ONE token into ConceptSummary (internal).
- * Supports searchConcepts() returning:
- *  - ConceptSummary[]
- *  - { results: ConceptSummary[] }
+ * We now persist UUIDs, so we call direct endpoint by UUID.
  */
-async function hydrateConceptSummaryToken(
-    token: string,
-    signal?: AbortSignal,
-): Promise<ConceptSummary | null> {
+async function hydrateConceptSummaryToken(token: string, signal?: AbortSignal): Promise<ConceptSummary | null> {
     const tok = String(token ?? '').trim();
     if (!tok) return null;
 
     try {
-        // Since we now persist UUIDs, call direct endpoint:
         const concept = await getConceptByUuid(tok, signal);
-
-        console.log("getConceptByUuid", concept);
-
-        // Basic safety check
-        if (!concept?.uuid)
-            return null;
-
+        if (!concept?.uuid) return null;
         return concept;
     } catch {
-        // If UUID not found or request fails
         return null;
     }
 }
@@ -95,8 +77,7 @@ async function hydrateConceptToken(token: string, signal?: AbortSignal): Promise
 
 /**
  * Hydrate MANY tokens into SelectedConcept[].
- * ✅ Uses a for-loop, pushes results into a list (as requested).
- * ✅ Always returns SelectedConcept[].
+ * ✅ for-loop; preserves order; returns only valid concepts.
  */
 async function hydrateConceptTokens(tokens: string[], signal?: AbortSignal, dedupe = true): Promise<SelectedConcept[]> {
     const clean = dedupe ? uniq(tokens) : tokens.map((t) => String(t ?? '').trim()).filter(Boolean);
@@ -170,9 +151,13 @@ export async function hydrateConditionUiState(
             continue;
         }
 
+        // -----------------------------
         // CONCEPT_SEARCH
+        // -----------------------------
         if (tc.handler === 'CONCEPT_SEARCH') {
-            const shouldHydrate = opt.force || !Array.isArray(nextConceptUi[tc.key]) || nextConceptUi[tc.key].length === 0;
+            const shouldHydrate =
+                opt.force || !Array.isArray(nextConceptUi[tc.key]) || nextConceptUi[tc.key].length === 0;
+
             if (!shouldHydrate) continue;
 
             const raw = pc.value;
@@ -193,34 +178,46 @@ export async function hydrateConditionUiState(
             continue;
         }
 
+        // -----------------------------
         // QUESTION_ANSWER_CONCEPT_SEARCH
+        // -----------------------------
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
             const existing = nextQaUi[tc.key];
+
             const shouldHydrate =
-                opt.force || !existing || (!existing.question && (existing.answers?.length ?? 0) === 0 && !existing.error);
+                opt.force ||
+                !existing ||
+                ((existing.questions?.length ?? 0) === 0 && (existing.answers?.length ?? 0) === 0 && !existing.error);
 
             if (!shouldHydrate) continue;
 
             const raw: any = pc.value;
 
-            const qa: QAValue | null =
-                raw && typeof raw === 'object'
-                    ? {
-                        question: raw.question ?? null,
-                        answers: Array.isArray(raw.answers) ? raw.answers : [],
-                    }
-                    : null;
+            const qa: QAValue | null = raw && typeof raw === 'object' ? (raw as QAValue) : null;
 
-            const qTok = qa?.question !== null && qa?.question !== undefined ? String(qa.question).trim() : '';
-            const aToks = (qa?.answers ?? []).map((x) => String(x).trim()).filter(Boolean);
+            // ✅ support both shapes: { question } OR { questions: [] }
+            const qTokens: string[] = Array.isArray(qa?.questions)
+                ? (qa?.questions ?? []).map((x) => String(x).trim()).filter(Boolean)
+                : qa?.question !== null && qa?.question !== undefined
+                    ? [String(qa.question).trim()].filter(Boolean)
+                    : [];
 
-            const question: SelectedConcept | null = qTok ? await hydrateConceptToken(qTok, signal) : null;
-            const answers: SelectedConcept[] = aToks.length ? await hydrateConceptTokens(aToks, signal, opt.dedupe) : [];
+            const aTokens: string[] = Array.isArray(qa?.answers)
+                ? (qa?.answers ?? []).map((x) => String(x).trim()).filter(Boolean)
+                : [];
 
-            tokensHydrated += (question ? 1 : 0) + answers.length;
-            tokensMissed += (qTok && !question ? 1 : 0) + Math.max(0, aToks.length - answers.length);
+            const questions: SelectedConcept[] = qTokens.length
+                ? await hydrateConceptTokens(qTokens, signal, opt.dedupe)
+                : [];
 
-            nextQaUi[tc.key] = { question, answers };
+            const answers: SelectedConcept[] = aTokens.length
+                ? await hydrateConceptTokens(aTokens, signal, opt.dedupe)
+                : [];
+
+            tokensHydrated += questions.length + answers.length;
+            tokensMissed += Math.max(0, qTokens.length - questions.length) + Math.max(0, aTokens.length - answers.length);
+
+            nextQaUi[tc.key] = { questions, answers };
             qaConditionsHydrated += 1;
             continue;
         }
@@ -237,7 +234,7 @@ export async function hydrateConditionUiState(
                 if (!Array.isArray(nextConceptUi[tc.key])) nextConceptUi[tc.key] = [];
             }
             if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') {
-                if (!nextQaUi[tc.key]) nextQaUi[tc.key] = { question: null, answers: [] };
+                if (!nextQaUi[tc.key]) nextQaUi[tc.key] = { questions: [], answers: [] };
             }
         }
     }

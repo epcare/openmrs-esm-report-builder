@@ -7,10 +7,16 @@ function sqlQuote(v: string) {
     return `'${String(v).replace(/'/g, "''")}'`;
 }
 
-type QAValue = { question: string | number | null; answers: Array<string | number> };
+type QAValue = {
+    // legacy single question
+    question?: string | number | null;
+    // current multi-question
+    questions?: Array<string | number>;
+    answers?: Array<string | number>;
+};
 
 function isQAValue(v: any): v is QAValue {
-    return v && typeof v === 'object' && 'question' in v && 'answers' in v && Array.isArray(v.answers);
+    return v && typeof v === 'object' && ('question' in v || 'questions' in v || 'answers' in v);
 }
 
 export function buildSqlPreview(themeCfg: DataThemeConfig) {
@@ -50,21 +56,31 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
         const op = pc.operator ?? tc.operator ?? 'IN';
 
-        // QUESTION_ANSWER_CONCEPT_SEARCH => { question, answers[] }
+        // QUESTION_ANSWER_CONCEPT_SEARCH => legacy { question, answers[] } OR current { questions[], answers[] }
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH' && isQAValue(v)) {
-            const questionColumn = (tc as any).questionColumn ?? tc.column;
-            const answerColumn = (tc as any).answerColumn ?? tc.column;
+            const qVals: any[] = Array.isArray(v.questions)
+                ? v.questions
+                : v.question !== null && v.question !== undefined && String(v.question).trim() !== ''
+                    ? [v.question]
+                    : [];
 
-            const qv = v.question;
-            const av = v.answers ?? [];
+            const av = Array.isArray(v.answers) ? v.answers : [];
 
-            if (qv !== null && qv !== undefined && String(qv).trim() !== '') {
-                const qStr = String(qv);
-                const qIsNumeric = tc.valueType === 'conceptId' || /^[0-9]+$/.test(qStr);
-                clauses.push(`  AND a.${questionColumn} = ${qIsNumeric ? qStr : sqlQuote(qStr)}`);
+            // Prefer explicit columns from theme config; avoid falling back to tc.column which may be `QA(...)`.
+            const questionColumn = (tc as any)?.columns?.question ?? (tc as any).questionColumn;
+            const answerColumn = (tc as any)?.columns?.answer ?? (tc as any).answerColumn;
+
+            if (questionColumn && qVals.length) {
+                const arr = qVals.map((x) => String(x)).filter((x) => x.trim().length > 0);
+                if (arr.length) {
+                    const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
+                    const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
+                    if (arr.length === 1) clauses.push(`  AND a.${questionColumn} = ${isNumericList ? rendered : rendered}`);
+                    else clauses.push(`  AND a.${questionColumn} IN (${rendered})`);
+                }
             }
 
-            if (Array.isArray(av) && av.length) {
+            if (answerColumn && Array.isArray(av) && av.length) {
                 const arr = av.map((x) => String(x)).filter((x) => x.trim().length > 0);
                 if (arr.length) {
                     const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
