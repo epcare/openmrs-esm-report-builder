@@ -148,7 +148,7 @@ export default function CreateFinalIndicatorModal({
 
         const sql = buildFinalIndicatorSql({
             baseIndicator: baseFull,
-            ageGroupSetCode: ageCategoryCode, // builder expects category code
+            ageCategoryCode,
             genders,
         });
 
