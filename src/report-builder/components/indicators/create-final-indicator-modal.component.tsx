@@ -1,53 +1,234 @@
 import React from 'react';
-import { Modal, Select, SelectItem, Stack } from '@carbon/react';
-import DisaggregationPanel, { DisaggregationState } from './disaggregation-panel.component';
-import PreviewTable, { PreviewRow } from './preview-table.component';
+import { Modal, Stack, InlineLoading, InlineNotification } from '@carbon/react';
+
+import type { IndicatorDto } from '../../services/indicator/indicators.api';
+import { getIndicator } from '../../services/indicator/indicators.api';
+
+import type { BaseIndicatorOption } from './types/composite-indicator.types';
+import { listAgeGroupSets, type AgeGroupSetOption } from '../../services/agegroup/mamba-agegroups.api';
+
+import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';
+import FinalIndicatorPickerSection from './sections/final-indicator-picker.section';
+import FinalIndicatorDisaggregationSection from './sections/final-indicator-disaggregation.section';
+import FinalIndicatorPreviewSection from './sections/final-indicator-preview.section';
+
+import { buildFinalIndicatorSql, type FinalIndicatorAuthoringV1 } from './utils/final-indicator-sql.utils';
 
 type Props = {
     open: boolean;
+    mode?: 'create' | 'edit';
+    initial?: IndicatorDto | null;
+
+    baseIndicators: BaseIndicatorOption[];
+
     onClose: () => void;
-    onSubmit: (data: { baseIndicatorId: string; disaggregation: DisaggregationState }) => void;
+
+    onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
+    onUpdate?: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
+    onSaved: () => void;
 };
 
-const mockPreview: PreviewRow[] = [
-    { category: 'Female 15-24', count: 38 },
-    { category: 'Female 25+', count: 7 },
-];
+function safeParseJson<T = any>(input?: string | null): T | null {
+    if (!input) return null;
+    try {
+        return JSON.parse(input) as T;
+    } catch {
+        return null;
+    }
+}
 
-const CreateFinalIndicatorModal: React.FC<Props> = ({ open, onClose, onSubmit }) => {
-    const [baseIndicatorId, setBaseIndicatorId] = React.useState('pregnant-women-malaria');
-    const [disagg, setDisagg] = React.useState<DisaggregationState>({
-        gender: { enabled: true, male: false, female: true },
-        ageGroups: { enabled: true, g0_4: true, g5_14: true, g15_24: false, g25plus: true },
-    });
+const toCode = (name: string) =>
+    name
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 50);
+
+export default function CreateFinalIndicatorModal({
+                                                      open,
+                                                      mode = 'create',
+                                                      initial,
+                                                      baseIndicators,
+                                                      onClose,
+                                                      onCreate,
+                                                      onUpdate,
+                                                      onSaved,
+                                                  }: Props) {
+    const [ageSets, setAgeSets] = React.useState<AgeGroupSetOption[]>([]);
+    const [loadingSets, setLoadingSets] = React.useState(false);
+    const [setsError, setSetsError] = React.useState<string | null>(null);
+
+    const [basics, setBasics] = React.useState({ name: '', code: '', description: '' });
+
+    const [baseIndicatorId, setBaseIndicatorId] = React.useState('');
+    const [ageGroupSetCode, setAgeGroupSetCode] = React.useState('');
+    const [genders, setGenders] = React.useState<Array<'F' | 'M'>>(['F', 'M']);
+
+    const [baseFull, setBaseFull] = React.useState<IndicatorDto | null>(null);
+    const [loadingBase, setLoadingBase] = React.useState(false);
+    const [baseError, setBaseError] = React.useState<string | null>(null);
+
+    const [sqlPreview, setSqlPreview] = React.useState('');
+
+    // load age group sets when modal opens
+    React.useEffect(() => {
+        if (!open) return;
+        const ac = new AbortController();
+
+        setLoadingSets(true);
+        setSetsError(null);
+
+        listAgeGroupSets(ac.signal)
+            .then((items) => setAgeSets(items))
+            .catch((e: any) => setSetsError(e?.message ?? 'Failed to load age groups'))
+            .finally(() => setLoadingSets(false));
+
+        return () => ac.abort();
+    }, [open]);
+
+    // initialize create vs edit
+    React.useEffect(() => {
+        if (!open) return;
+
+        if (mode === 'edit' && initial?.uuid) {
+            const cfg = safeParseJson<Partial<FinalIndicatorAuthoringV1>>(initial.configJson) ?? {};
+
+            setBasics({
+                name: initial.name ?? '',
+                code: initial.code ?? '',
+                description: initial.description ?? '',
+            });
+
+            setBaseIndicatorId(String(cfg.baseIndicatorId ?? ''));
+            setAgeGroupSetCode(String(cfg.ageGroupSetCode ?? ''));
+            setGenders((cfg.genders as any) ?? ['F', 'M']);
+
+            setSqlPreview(String(cfg.sqlPreview ?? initial.sqlTemplate ?? ''));
+
+            return;
+        }
+
+        // create defaults (blank to avoid confusion)
+        setBasics({ name: '', code: '', description: '' });
+        setBaseIndicatorId('');
+        setAgeGroupSetCode('');
+        setGenders(['F', 'M']);
+        setSqlPreview('');
+        setBaseFull(null);
+        setBaseError(null);
+    }, [open, mode, initial?.uuid]);
+
+    // load full base indicator when selected
+    React.useEffect(() => {
+        if (!open) return;
+        if (!baseIndicatorId) {
+            setBaseFull(null);
+            return;
+        }
+
+        const ac = new AbortController();
+        setLoadingBase(true);
+        setBaseError(null);
+
+        getIndicator(baseIndicatorId, ac.signal, 'full')
+            .then((full) => setBaseFull(full))
+            .catch((e: any) => setBaseError(e?.message ?? 'Failed to load selected base indicator'))
+            .finally(() => setLoadingBase(false));
+
+        return () => ac.abort();
+    }, [open, baseIndicatorId]);
+
+    // compute SQL preview
+    React.useEffect(() => {
+        if (!open) return;
+
+        if (!baseFull || !ageGroupSetCode) {
+            setSqlPreview('');
+            return;
+        }
+
+        const sql = buildFinalIndicatorSql({
+            baseIndicator: baseFull,
+            ageGroupSetCode,
+            genders,
+        });
+
+        setSqlPreview(sql);
+    }, [open, baseFull, ageGroupSetCode, genders]);
+
+    const canSubmit = Boolean(basics.name.trim()) && Boolean(baseIndicatorId) && Boolean(ageGroupSetCode) && Boolean(sqlPreview.trim());
+
+    const submit = async () => {
+        if (!canSubmit || !baseFull) return;
+
+        const finalCode = basics.code.trim() ? basics.code.trim().toUpperCase() : toCode(basics.name);
+
+        const authoring: FinalIndicatorAuthoringV1 = {
+            version: 1,
+            baseIndicatorId,
+            ageGroupSetCode,
+            genders,
+            sqlPreview,
+        };
+
+        const payload: Partial<IndicatorDto> = {
+            name: basics.name.trim(),
+            code: finalCode,
+            description: basics.description.trim() || undefined,
+            kind: 'FINAL',
+            defaultValueType: 'NUMBER',
+            themeUuid: null,
+            configJson: JSON.stringify(authoring, null, 2),
+            sqlTemplate: sqlPreview,
+        };
+
+        if (mode === 'edit' && initial?.uuid) {
+            if (!onUpdate) throw new Error('onUpdate handler is required for edit mode');
+            await onUpdate(initial.uuid, payload);
+        } else {
+            await onCreate(payload);
+        }
+
+        onSaved();
+    };
+
+    const showPreview = Boolean(baseIndicatorId) && Boolean(ageGroupSetCode);
 
     return (
         <Modal
             open={open}
-            modalHeading="Create Final Indicator"
-            primaryButtonText="Save Indicator"
-            secondaryButtonText="Cancel"
             onRequestClose={onClose}
-            onRequestSubmit={() => onSubmit({ baseIndicatorId, disaggregation: disagg })}
+            modalHeading={mode === 'edit' ? 'Edit Final Indicator' : 'Create Final Indicator'}
+            primaryButtonText={mode === 'edit' ? 'Update Indicator' : 'Save Indicator'}
+            secondaryButtonText="Cancel"
+            onRequestSubmit={submit}
+            primaryButtonDisabled={!canSubmit}
+            size="lg"
         >
-            <Stack gap={5}>
-                <Select
-                    id="base-indicator"
-                    labelText="Base Indicator"
-                    value={baseIndicatorId}
-                    onChange={(e) => setBaseIndicatorId((e.target as HTMLSelectElement).value)}
-                >
-                    <SelectItem value="pregnant-women-malaria" text="Pregnant Women with Malaria" />
-                    <SelectItem value="hiv-art" text="HIV Patients on ART" />
-                </Select>
+            <Stack gap={6}>
+                {loadingSets ? <InlineLoading description="Loading age groups…" /> : null}
+                {setsError ? <InlineNotification kind="error" lowContrast title="Age groups" subtitle={setsError} /> : null}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
-                    <DisaggregationPanel value={disagg} onChange={setDisagg} />
-                    <PreviewTable rows={mockPreview} />
-                </div>
+                <FinalIndicatorBasicsSection value={basics} onChange={setBasics} />
+
+                <hr style={{ border: 0, borderTop: '1px solid var(--cds-border-subtle, #e0e0e0)' }} />
+
+                <FinalIndicatorPickerSection
+                    baseIndicators={baseIndicators}
+                    ageGroupSets={ageSets}
+                    selectedBaseId={baseIndicatorId}
+                    selectedAgeSetCode={ageGroupSetCode}
+                    onChangeBaseId={setBaseIndicatorId}
+                    onChangeAgeSetCode={setAgeGroupSetCode}
+                />
+
+                {loadingBase ? <InlineLoading description="Loading base indicator details…" /> : null}
+                {baseError ? <InlineNotification kind="error" lowContrast title="Base indicator" subtitle={baseError} /> : null}
+
+                <FinalIndicatorDisaggregationSection genders={genders} onChange={setGenders} />
+
+                <FinalIndicatorPreviewSection sql={sqlPreview} show={showPreview} />
             </Stack>
         </Modal>
     );
-};
-
-export default CreateFinalIndicatorModal;
+}

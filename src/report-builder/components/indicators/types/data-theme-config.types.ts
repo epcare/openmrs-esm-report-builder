@@ -1,51 +1,54 @@
-/**
- * This represents what is inside DataTheme.configJson
- * (it is stored as a JSON string in the backend).
- */
+// src/report-builder/types/theme/data-theme.types.ts
+
+export type MainDataDomain =
+    | 'OBSERVATIONS'
+    | 'TEST_ORDERS'
+    | 'MEDICATION_ORDERS'
+    | 'APPOINTMENTS'
+    | 'MEDICATION_DISPENSE'
+    | 'DIAGNOSIS';
 
 export type FieldType = 'string' | 'number' | 'date' | 'datetime' | 'boolean' | 'coded' | 'json';
 
 export type ThemeField = {
     key: string;
     label: string;
-    expr: string; // column name or SQL expression
+    expr: string;
     type: FieldType;
 };
 
-export type ConditionHandler = 'CONCEPT_SEARCH' | 'TEXT' | 'NUMBER' | 'DATE' | 'LOCATION' | 'QUESTION_ANSWER_CONCEPT_SEARCH';
+export type ConditionHandler =
+    | 'CONCEPT_SEARCH'
+    | 'QUESTION_ANSWER_CONCEPT_SEARCH'
+    | 'TEXT'
+    | 'NUMBER'
+    | 'DATE_RANGE'
+    | 'BOOLEAN'
+    | 'LOCATION_PICKER'
+    | 'CODED_LIST';
 
-export type ConditionOperator =
-    | 'IN'
-    | 'NOT_IN'
-    | '='
-    | '!='
-    | '>'
-    | '>='
-    | '<'
-    | '<='
-    | 'LIKE'
-    | 'BETWEEN';
+/**
+ * Theme-side operator tokens (legacy + UI-friendly).
+ * NOTE: SQL generation will normalize these to real SQL operators.
+ */
+export type ConditionOperator = 'EQUALS' | 'IN' | 'NOT_IN' | 'LIKE' | 'BETWEEN' | 'GTE' | 'LTE';
 
 export type ConditionValueType =
-    | 'conceptId'
     | 'conceptUuid'
+    | 'conceptId'
     | 'string'
     | 'number'
     | 'date'
     | 'datetime'
-    | 'locationUuid';
+    | 'boolean';
 
 export type ThemeCondition = {
-    key: string; // stable identifier (e.g. "concept_id", "condition")
-    label: string; // UI label (e.g. "Diagnosis Condition")
-    handler: ConditionHandler; // drives the UI widget
-    column: string; // the actual DB column in sourceTable
-    columns?: {
-        question: string; // the actual DB column in sourceTable
-        answer: string; // the actual DB column in sourceTable
-    };
-    operator: ConditionOperator; // e.g. IN
-    valueType: ConditionValueType; // helps indicator builder interpret values
+    key: string;
+    label: string;
+    handler: ConditionHandler;
+    column: string;
+    operator: ConditionOperator;
+    valueType: ConditionValueType;
 };
 
 export type DataThemeConfig = {
@@ -59,15 +62,27 @@ export type DataThemeConfig = {
 
     fields: ThemeField[];
 
-    /**
-     * New: conditions describe how indicator builder renders filters
-     * and which source column each filter binds to.
-     */
     conditions?: ThemeCondition[];
 
-    /**
-     * Legacy support (your earlier approach).
-     * We'll keep it optional so older themes don't break.
-     */
     conditionColumns?: Record<string, string>;
+};
+
+export type DataTheme = {
+    uuid?: string;
+    name: string;
+    description?: string;
+    code: string;
+    domain: MainDataDomain;
+    configJson: string;
+    metaJson?: string;
+    retired?: boolean;
+};
+
+export type DataThemeRow = {
+    uuid: string;
+    name: string;
+    code: string;
+    domain: MainDataDomain;
+    description?: string;
+    retired?: boolean;
 };

@@ -29,7 +29,7 @@ export type IndicatorRow = {
 type Props = {
     rows: IndicatorRow[];
     onOpen?: (id: string) => void;
-    onEdit?: (id: string, kind: IndicatorRow['kind']) => void; // ✅ include kind
+    onEdit?: (id: string, kind: IndicatorRow['kind']) => void;
     onRun?: (id: string) => void;
     onDelete?: (id: string) => void;
 };
@@ -53,17 +53,17 @@ function themePill(themeName?: string, themeColor?: string) {
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <span
-          aria-hidden="true"
-          style={{
-              width: 10,
-              height: 10,
-              borderRadius: 999,
-              background: themeColor || 'var(--cds-icon-primary)',
-              display: 'inline-block',
-              border: '1px solid var(--cds-border-subtle)',
-          }}
-      />
+            <span
+                aria-hidden="true"
+                style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 999,
+                    background: themeColor || 'var(--cds-icon-primary)',
+                    display: 'inline-block',
+                    border: '1px solid var(--cds-border-subtle)',
+                }}
+            />
             <span style={{ fontWeight: 500 }}>{themeName}</span>
         </div>
     );
@@ -84,8 +84,8 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
         code: r.code,
         name: r.name,
         kind: r.kind,
-        theme: r.themeName ?? '',        // matches header key
-        themeColor: r.themeColor ?? '',  // extra (not a column)
+        theme: r.themeName ?? '', // matches header key
+        themeColor: r.themeColor ?? '', // extra (not a column)
         status: r.status,
     }));
 
@@ -120,7 +120,6 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
                                 const themeName = String(row.cells.find((c) => c.info.header === 'theme')?.value ?? '');
                                 const status = String(row.cells.find((c) => c.info.header === 'status')?.value ?? '');
 
-                                // themeColor is not a header cell; keep it on the row object
                                 const themeColor = String((row as any).themeColor ?? '');
 
                                 return (
@@ -132,7 +131,6 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
                                     >
                                         <TableCell>{code || <span style={{ opacity: 0.7 }}>—</span>}</TableCell>
 
-                                        {/* ✅ Theme color accent on the indicator itself */}
                                         <TableCell
                                             style={{
                                                 fontWeight: 600,

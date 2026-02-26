@@ -1,3 +1,5 @@
+// src/report-builder/types/theme/data-theme.types.ts
+
 export type MainDataDomain =
     | 'OBSERVATIONS'
     | 'TEST_ORDERS'
@@ -25,7 +27,11 @@ export type ConditionHandler =
     | 'LOCATION_PICKER'
     | 'CODED_LIST';
 
-export type ConditionOperator = 'EQUALS' | 'IN' | 'LIKE' | 'BETWEEN' | 'GTE' | 'LTE';
+/**
+ * Theme-side operator tokens (legacy + UI-friendly).
+ * NOTE: SQL generation will normalize these to real SQL operators.
+ */
+export type ConditionOperator = 'EQUALS' | 'IN' | 'NOT_IN' | 'LIKE' | 'BETWEEN' | 'GTE' | 'LTE';
 
 export type ConditionValueType =
     | 'conceptUuid'
@@ -37,25 +43,11 @@ export type ConditionValueType =
     | 'boolean';
 
 export type ThemeCondition = {
-  /**
-   * Stable identifier for the condition in UI and indicator builder.
-   * Example: "concept_id"
-   */
   key: string;
-
-  /** UI label */
   label: string;
-
-  /** Which UI widget to render in indicator builder */
   handler: ConditionHandler;
-
-  /** Which column/expression should be filtered */
   column: string;
-
-  /** How the filter should be applied */
   operator: ConditionOperator;
-
-  /** What kind of value(s) the widget produces */
   valueType: ConditionValueType;
 };
 
@@ -70,15 +62,8 @@ export type DataThemeConfig = {
 
   fields: ThemeField[];
 
-  /**
-   * NEW: defines filterable conditions and which UI handler to use in indicator builder
-   */
   conditions?: ThemeCondition[];
 
-  /**
-   * Legacy support (optional): older themes may still have this.
-   * We’ll auto-convert it to `conditions` when loading.
-   */
   conditionColumns?: Record<string, string>;
 };
 

@@ -1,6 +1,8 @@
 import type { DataThemeConfig, ThemeCondition } from '../types/data-theme-config.types';
 import type { IndicatorCondition } from '../types/indicator-types';
 
+import { normalizeOperator, isInOperator } from '../../../types/condition-operators';
+
 const DEMO_JOIN_TABLE = 'mamba_fact_patients_latest_patient_demographics';
 
 function sqlQuote(v: string) {
@@ -10,19 +12,15 @@ function sqlQuote(v: string) {
 function qualifyColumn(col: string) {
     const c = String(col ?? '').trim();
     if (!c) return c;
-    // already qualified or expression-like
     if (c.includes('.') || c.includes('(') || c.includes(' ') || c.includes('`')) return c;
     return `a.${c}`;
 }
 
-// Back-compat: some themes stored QA columns inside tc.column like:
-//   QA(obs_question_concept_id,obs_value_coded)
-// or  a.QA(obs_question_concept_id,obs_value_coded)
 function parseQaColumnsFromExpr(expr?: string | null) {
     const raw = String(expr ?? '').trim();
     if (!raw) return { questionColumn: undefined as string | undefined, answerColumn: undefined as string | undefined };
 
-    const m = raw.match(/QA\s*\((.*)\)/i);
+    const m = raw.match(/QA\s*$begin:math:text$\(\.\*\)$end:math:text$/i);
     if (!m) return { questionColumn: undefined, answerColumn: undefined };
 
     const inner = (m[1] ?? '').trim();
@@ -42,15 +40,18 @@ function looksLikeQaExpression(expr?: string | null) {
 }
 
 type QAValue = {
-    // legacy single question
     question?: string | number | null;
-    // current multi-question
     questions?: Array<string | number>;
     answers?: Array<string | number>;
 };
 
 function isQAValue(v: any): v is QAValue {
     return v && typeof v === 'object' && ('question' in v || 'questions' in v || 'answers' in v);
+}
+
+function normalizeArrayValue(v: any) {
+    const arr = Array.isArray(v) ? v : [v];
+    return arr.map((x) => String(x)).filter((x) => x.trim().length > 0);
 }
 
 export function buildSqlPreview(themeCfg: DataThemeConfig) {
@@ -88,9 +89,10 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
         const v: any = pc.value;
         if (v === null || v === undefined) continue;
 
-        const op = pc.operator ?? tc.operator ?? 'IN';
+        // ✅ Normalize operator tokens from theme/UI
+        const op = normalizeOperator((pc.operator as any) ?? (tc.operator as any) ?? 'IN');
 
-        // QUESTION_ANSWER_CONCEPT_SEARCH => legacy { question, answers[] } OR current { questions[], answers[] }
+        // QUESTION_ANSWER_CONCEPT_SEARCH
         if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH' && isQAValue(v)) {
             const qVals: any[] = Array.isArray(v.questions)
                 ? v.questions
@@ -100,80 +102,82 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
             const av = Array.isArray(v.answers) ? v.answers : [];
 
-            // Prefer explicit columns from theme config.
             let questionColumn = (tc as any)?.columns?.question ?? (tc as any).questionColumn;
             let answerColumn = (tc as any)?.columns?.answer ?? (tc as any).answerColumn;
 
-            // Back-compat: if columns are missing but tc.column looks like QA(qCol,aCol), extract args.
             if ((!questionColumn || !answerColumn) && (tc as any)?.column) {
                 const parsed = parseQaColumnsFromExpr((tc as any).column);
                 questionColumn = questionColumn ?? parsed.questionColumn;
                 answerColumn = answerColumn ?? parsed.answerColumn;
             }
 
-            // Last resort:
-            // - questionColumn can fall back to tc.column (best-effort)
-            // - BUT answerColumn must NOT fall back to tc.column if tc.column is a QA(...) expression,
-            //   otherwise we generate duplicate clauses on the same expression.
             const tcCol = (tc as any)?.column as string | undefined;
             if (!questionColumn && tcCol) questionColumn = tcCol;
             if (!answerColumn && tcCol && !looksLikeQaExpression(tcCol)) answerColumn = tcCol;
 
             if (questionColumn && qVals.length) {
-                const arr = qVals.map((x) => String(x)).filter((x) => x.trim().length > 0);
+                const arr = normalizeArrayValue(qVals);
                 if (arr.length) {
                     const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
                     const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
                     const col = qualifyColumn(questionColumn);
+
+                    // For questions we keep original behavior: single => =, many => IN (...)
                     if (arr.length === 1) clauses.push(`  AND ${col} = ${rendered}`);
                     else clauses.push(`  AND ${col} IN (${rendered})`);
                 }
             }
 
             if (answerColumn && Array.isArray(av) && av.length) {
-                const arr = av.map((x) => String(x)).filter((x) => x.trim().length > 0);
+                const arr = normalizeArrayValue(av);
                 if (arr.length) {
                     const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
                     const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
                     const col = qualifyColumn(answerColumn);
 
-                    // Multiple answers should always use IN/NOT_IN semantics.
-                    if (arr.length > 1) {
-                        if (op === 'NOT_IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-                        else clauses.push(`  AND ${col} IN (${rendered})`);
-                    } else {
-                        if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
-                        else if (op === 'NOT_IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-                        else clauses.push(`  AND ${col} ${op} ${rendered}`);
-                    }
+                    // ✅ Always bracket IN/NOT IN
+                    if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
+                    else clauses.push(`  AND ${col} IN (${rendered})`);
                 }
             }
 
             continue;
         }
 
-        // normal array
+        // array values
         if (Array.isArray(v)) {
-            const arr = v.map((x) => String(x)).filter((x) => x.trim().length > 0);
+            const arr = normalizeArrayValue(v);
             if (!arr.length) continue;
 
             const isNumericList = tc.valueType === 'conceptId' || arr.every((x) => /^[0-9]+$/.test(x));
             const rendered = arr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
 
-            if (op === 'IN') clauses.push(`  AND a.${tc.column} IN (${rendered})`);
-            else if (op === 'NOT_IN') clauses.push(`  AND a.${tc.column} NOT IN (${rendered})`);
-            else clauses.push(`  AND a.${tc.column} ${op} (${rendered})`);
+            const col = qualifyColumn(tc.column);
+
+            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
+            else if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
+            else clauses.push(`  AND ${col} ${op} (${rendered})`);
 
             continue;
         }
 
-        // other object (range etc) not yet
+        // other object not supported
         if (typeof v === 'object') continue;
 
         // scalar
         const sval = String(v);
         const isNumeric = tc.valueType === 'conceptId' || /^[0-9]+$/.test(sval);
-        clauses.push(`  AND a.${tc.column} ${op} ${isNumeric ? sval : sqlQuote(sval)}`);
+        const renderedScalar = isNumeric ? sval : sqlQuote(sval);
+
+        const col = qualifyColumn(tc.column);
+
+        // ✅ IN must always have brackets, even for scalar
+        if (isInOperator(op)) {
+            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${renderedScalar})`);
+            else clauses.push(`  AND ${col} IN (${renderedScalar})`);
+        } else {
+            clauses.push(`  AND ${col} ${op} ${renderedScalar}`);
+        }
     }
 
     sqlLines.splice(insertAt, 0, ...clauses);

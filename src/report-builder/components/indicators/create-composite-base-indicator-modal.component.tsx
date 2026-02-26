@@ -18,8 +18,11 @@ import {
 
 type Props = {
     open: boolean;
+    mode?: 'create' | 'edit';
+    initial?: IndicatorDto | null;
     onClose: () => void;
     onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
+    onUpdate?: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
     onSaved: () => void;
     baseIndicators: BaseIndicatorOption[];
 };
@@ -30,11 +33,19 @@ type CompositeIndicatorAuthoring = {
     operator: CompositeOperator;
     indicatorAId: string;
     indicatorBId: string;
-    // helpful for display / debugging (safe optional)
     indicatorACode?: string;
     indicatorBCode?: string;
     sqlPreview: string;
 };
+
+function safeParseJson<T = any>(input?: string | null): T | null {
+    if (!input) return null;
+    try {
+        return JSON.parse(input) as T;
+    } catch {
+        return null;
+    }
+}
 
 const toCode = (name: string) =>
     name
@@ -43,16 +54,23 @@ const toCode = (name: string) =>
         .replace(/^_+|_+$/g, '')
         .slice(0, 50);
 
-const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onCreate, onSaved, baseIndicators }) => {
-    const firstId = baseIndicators[0]?.id ?? '';
-    const secondId = baseIndicators[1]?.id ?? baseIndicators[0]?.id ?? '';
-
-    const [name, setName] = React.useState('New composite indicator');
+const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
+                                                                open,
+                                                                mode = 'create',
+                                                                initial,
+                                                                onClose,
+                                                                onCreate,
+                                                                onUpdate,
+                                                                onSaved,
+                                                                baseIndicators,
+                                                            }) => {
+    // ✅ IMPORTANT: no defaults for create mode
+    const [name, setName] = React.useState('');
     const [code, setCode] = React.useState('');
     const [description, setDescription] = React.useState('');
 
-    const [indicatorAId, setIndicatorAId] = React.useState(firstId);
-    const [indicatorBId, setIndicatorBId] = React.useState(secondId);
+    const [indicatorAId, setIndicatorAId] = React.useState('');
+    const [indicatorBId, setIndicatorBId] = React.useState('');
     const [operator, setOperator] = React.useState<CompositeOperator>('AND');
 
     const [loadingA, setLoadingA] = React.useState(false);
@@ -63,77 +81,65 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onC
     const [indA, setIndA] = React.useState<IndicatorDto | null>(null);
     const [indB, setIndB] = React.useState<IndicatorDto | null>(null);
 
-    // reset on open
+    // reset / initialize on open
     React.useEffect(() => {
         if (!open) return;
 
-        // eslint-disable-next-line no-console
-        console.log('[composite] modal open - reset defaults', { firstId, secondId, baseCount: baseIndicators.length });
+        // EDIT: hydrate from selected composite indicator
+        if (mode === 'edit' && initial?.uuid) {
+            const cfg = safeParseJson<any>(initial.configJson) ?? {};
 
-        setName('New composite indicator');
+            setName(initial.name ?? '');
+            setCode(initial.code ?? '');
+            setDescription(initial.description ?? '');
+
+            // support both indicatorAId/indicatorBId and indicatorAUuid/indicatorBUuid
+            setIndicatorAId(String(cfg.indicatorAId ?? cfg.indicatorAUuid ?? ''));
+            setIndicatorBId(String(cfg.indicatorBId ?? cfg.indicatorBUuid ?? ''));
+            setOperator((String(cfg.operator ?? 'AND').toUpperCase() as CompositeOperator) ?? 'AND');
+
+            setErrA(null);
+            setErrB(null);
+            setIndA(null);
+            setIndB(null);
+            return;
+        }
+
+        // CREATE: start blank so users don't confuse it with edit
+        setName('');
         setCode('');
         setDescription('');
-        setIndicatorAId(firstId);
-        setIndicatorBId(secondId);
+        setIndicatorAId('');
+        setIndicatorBId('');
         setOperator('AND');
         setErrA(null);
         setErrB(null);
         setIndA(null);
         setIndB(null);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
+    }, [open, mode, initial?.uuid]);
 
     const AOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorAId) ?? null, [baseIndicators, indicatorAId]);
     const BOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorBId) ?? null, [baseIndicators, indicatorBId]);
 
     const samePick = Boolean(indicatorAId && indicatorBId && indicatorAId === indicatorBId);
 
-    // Keep simple for now; can be expanded later.
     const inferredUnit: 'Patients' | 'Encounters' = React.useMemo(() => 'Patients', []);
-
-    React.useEffect(() => {
-        if (!open) return;
-        // eslint-disable-next-line no-console
-        console.log('[composite] selection changed', {
-            indicatorAId,
-            indicatorBId,
-            operator,
-            inferredUnit,
-            samePick,
-            AOpt: AOpt ? { id: AOpt.id, code: AOpt.code } : null,
-            BOpt: BOpt ? { id: BOpt.id, code: BOpt.code } : null,
-        });
-    }, [open, indicatorAId, indicatorBId, operator, inferredUnit, samePick, AOpt, BOpt]);
 
     // load full indicators for A/B
     React.useEffect(() => {
         if (!open) return;
-        if (!indicatorAId) return;
+        if (!indicatorAId) {
+            setIndA(null);
+            return;
+        }
 
         const ac = new AbortController();
         setLoadingA(true);
         setErrA(null);
 
-        // eslint-disable-next-line no-console
-        console.log('[composite] loading indicator A', { indicatorAId });
-
         getIndicator(indicatorAId, ac.signal, 'full')
-            .then((full) => {
-                // eslint-disable-next-line no-console
-                console.log('[composite] loaded indicator A', {
-                    uuid: full?.uuid,
-                    kind: full?.kind,
-                    hasSqlTemplate: Boolean(full?.sqlTemplate?.trim()),
-                    sqlTemplateLen: full?.sqlTemplate?.length ?? 0,
-                    configJsonLen: full?.configJson?.length ?? 0,
-                });
-                setIndA(full);
-            })
-            .catch((e: any) => {
-                // eslint-disable-next-line no-console
-                console.log('[composite] failed loading indicator A', { indicatorAId, error: e });
-                setErrA(e?.message ?? 'Failed to load indicator A');
-            })
+            .then((full) => setIndA(full))
+            .catch((e: any) => setErrA(e?.message ?? 'Failed to load indicator A'))
             .finally(() => setLoadingA(false));
 
         return () => ac.abort();
@@ -141,32 +147,18 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onC
 
     React.useEffect(() => {
         if (!open) return;
-        if (!indicatorBId) return;
+        if (!indicatorBId) {
+            setIndB(null);
+            return;
+        }
 
         const ac = new AbortController();
         setLoadingB(true);
         setErrB(null);
 
-        // eslint-disable-next-line no-console
-        console.log('[composite] loading indicator B', { indicatorBId });
-
         getIndicator(indicatorBId, ac.signal, 'full')
-            .then((full) => {
-                // eslint-disable-next-line no-console
-                console.log('[composite] loaded indicator B', {
-                    uuid: full?.uuid,
-                    kind: full?.kind,
-                    hasSqlTemplate: Boolean(full?.sqlTemplate?.trim()),
-                    sqlTemplateLen: full?.sqlTemplate?.length ?? 0,
-                    configJsonLen: full?.configJson?.length ?? 0,
-                });
-                setIndB(full);
-            })
-            .catch((e: any) => {
-                // eslint-disable-next-line no-console
-                console.log('[composite] failed loading indicator B', { indicatorBId, error: e });
-                setErrB(e?.message ?? 'Failed to load indicator B');
-            })
+            .then((full) => setIndB(full))
+            .catch((e: any) => setErrB(e?.message ?? 'Failed to load indicator B'))
             .finally(() => setLoadingB(false));
 
         return () => ac.abort();
@@ -174,69 +166,28 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onC
 
     const populationSqlA = React.useMemo(() => {
         if (!indA) return '';
-
-        const { sql: countSql, source } = tryGetCountSqlFromIndicator(indA);
+        const { sql: countSql } = tryGetCountSqlFromIndicator(indA);
         const pidCol = tryGetPatientIdColumnFromConfig(indA);
-
-        // eslint-disable-next-line no-console
-        console.log('[composite] A count sql source', { source, countSqlLen: countSql.length, pidCol });
-
-        if (!countSql) {
-            // eslint-disable-next-line no-console
-            console.log('[composite] populationSqlA: missing count SQL (both sqlTemplate and configJson.sqlPreview empty)');
-            return '';
-        }
-
-        const out = countSqlToPopulationSql(countSql, pidCol, inferredUnit);
-        // eslint-disable-next-line no-console
-        console.log('[composite] populationSqlA output', { outLen: out.length, outHead: out.slice(0, 120) });
-
-        return out;
+        if (!countSql) return '';
+        return countSqlToPopulationSql(countSql, pidCol, inferredUnit);
     }, [indA, inferredUnit]);
 
     const populationSqlB = React.useMemo(() => {
         if (!indB) return '';
-
-        const { sql: countSql, source } = tryGetCountSqlFromIndicator(indB);
+        const { sql: countSql } = tryGetCountSqlFromIndicator(indB);
         const pidCol = tryGetPatientIdColumnFromConfig(indB);
-
-        // eslint-disable-next-line no-console
-        console.log('[composite] B count sql source', { source, countSqlLen: countSql.length, pidCol });
-
-        if (!countSql) {
-            // eslint-disable-next-line no-console
-            console.log('[composite] populationSqlB: missing count SQL (both sqlTemplate and configJson.sqlPreview empty)');
-            return '';
-        }
-
-        const out = countSqlToPopulationSql(countSql, pidCol, inferredUnit);
-        // eslint-disable-next-line no-console
-        console.log('[composite] populationSqlB output', { outLen: out.length, outHead: out.slice(0, 120) });
-
-        return out;
+        if (!countSql) return '';
+        return countSqlToPopulationSql(countSql, pidCol, inferredUnit);
     }, [indB, inferredUnit]);
 
     const compositeSql = React.useMemo(() => {
-        if (!populationSqlA || !populationSqlB) {
-            // eslint-disable-next-line no-console
-            console.log('[composite] compositeSql: missing population SQL', {
-                popALen: populationSqlA?.length ?? 0,
-                popBLen: populationSqlB?.length ?? 0,
-            });
-            return '';
-        }
-
-        const out = buildCompositeCountSql({
+        if (!populationSqlA || !populationSqlB) return '';
+        return buildCompositeCountSql({
             unit: inferredUnit,
             operator,
             populationSqlA,
             populationSqlB,
         });
-
-        // eslint-disable-next-line no-console
-        console.log('[composite] compositeSql computed', { operator, outLen: out.length, outHead: out.slice(0, 160) });
-
-        return out;
     }, [populationSqlA, populationSqlB, inferredUnit, operator]);
 
     const canSubmit =
@@ -273,18 +224,13 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onC
             sqlTemplate: compositeSql,
         };
 
-        // eslint-disable-next-line no-console
-        console.log('[composite] submit payload', {
-            finalCode,
-            name: name.trim(),
-            indicatorAId,
-            indicatorBId,
-            operator,
-            inferredUnit,
-            compositeSqlLen: compositeSql.length,
-        });
+        if (mode === 'edit' && initial?.uuid) {
+            if (!onUpdate) throw new Error('onUpdate handler is required for edit mode');
+            await onUpdate(initial.uuid, payload);
+        } else {
+            await onCreate(payload);
+        }
 
-        await onCreate(payload);
         onSaved();
     };
 
@@ -292,8 +238,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onC
         <Modal
             open={open}
             onRequestClose={onClose}
-            modalHeading="Create Composite Indicator"
-            primaryButtonText="Save Indicator"
+            modalHeading={mode === 'edit' ? 'Edit Composite Indicator' : 'Create Composite Indicator'}
+            primaryButtonText={mode === 'edit' ? 'Update Indicator' : 'Save Indicator'}
             secondaryButtonText="Cancel"
             onRequestSubmit={submit}
             primaryButtonDisabled={!canSubmit}
