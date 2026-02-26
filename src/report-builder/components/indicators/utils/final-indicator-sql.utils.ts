@@ -10,7 +10,15 @@ import {
 export type FinalIndicatorAuthoringV1 = {
     version: 1;
     baseIndicatorId: string;
-    ageGroupSetCode: string;
+
+    /**
+     * Backward/forward compatibility:
+     * - old key: ageGroupSetCode
+     * - new clearer key: ageCategoryCode
+     */
+    ageGroupSetCode?: string;
+    ageCategoryCode?: string;
+
     genders: Array<'F' | 'M'>;
     sqlPreview: string;
 };

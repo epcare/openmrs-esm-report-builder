@@ -1,77 +1,58 @@
 import { omrsGet } from '../openmrs-api';
 
-/**
- * Endpoint:
- *  /ws/rest/v1/reportbuilder/mambaagegroup
- *
- * We don't assume exact shape; we normalize a "category/set" list for UI.
- */
-
 type RestList<T> = { results?: T[] };
 
-function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
-    if (!data) return [];
-    if (Array.isArray(data)) return data;
-    return Array.isArray(data.results) ? data.results : [];
-}
-
-export type MambaAgeGroupRow = {
-    // common fields we might see
-    ageCategoryId?: string | number;
-    age_category_id?: string | number;
-
-    categoryCode?: string;
-    ageCategoryCode?: string;
-    age_category_code?: string;
-
-    categoryLabel?: string;
-    ageCategoryLabel?: string;
-    age_category_label?: string;
-
-    // group fields
-    label?: string;
-    name?: string;
-
-    minAgeDays?: number;
-    maxAgeDays?: number;
-    min_age_days?: number;
-    max_age_days?: number;
-
-    sortOrder?: number;
-    sort_order?: number;
-};
-
-export type AgeGroupSetOption = {
-    code: string;
+export type AgeGroupRef = {
+    id: number;
+    display: string;
+    code?: string;
     label: string;
+    minAgeDays: number;
+    maxAgeDays: number;
+    sortOrder: number;
+    active: boolean;
 };
 
-export async function listAgeGroupSets(signal?: AbortSignal): Promise<AgeGroupSetOption[]> {
-    const data = await omrsGet<RestList<MambaAgeGroupRow> | MambaAgeGroupRow[]>(
-        '/mambaagecategory?v=full',
-        signal,
-    );
+export type AgeCategoryDto = {
+    uuid: string;
+    display: string;
+    name: string;
+    description?: string;
+    code: string;
+    version?: string;
+    effectiveFrom?: string;
+    effectiveTo?: string | null;
+    active: boolean;
+    ageGroups?: AgeGroupRef[];
+    retired?: boolean;
+};
 
-    const rows = unwrapRestList(data);
+export type AgeCategoryOption = {
+    uuid: string;
+    code: string;
+    label: string; // what we show in dropdown
+    name: string;
+    description?: string;
+    ageGroups: AgeGroupRef[];
+};
 
-    // Normalize "set/category" identity
-    const map = new Map<string, string>();
+export async function listAgeCategoriesWithGroups(signal?: AbortSignal): Promise<AgeCategoryOption[]> {
+    // ✅ categories endpoint
+    const data = await omrsGet<RestList<AgeCategoryDto>>('/mambaagecategory?v=full', signal);
 
-    for (const r of rows) {
-        const code =
-            (r.ageCategoryCode ?? r.age_category_code ?? r.categoryCode ?? '').toString().trim() ||
-            // fallback: category id as code if code missing
-            (r.ageCategoryId ?? r.age_category_id ?? '').toString().trim();
+    const results = Array.isArray(data?.results) ? data.results : [];
 
-        if (!code) continue;
-
-        const label =
-            (r.ageCategoryLabel ?? r.age_category_label ?? r.categoryLabel ?? '').toString().trim() || code;
-
-        if (!map.has(code)) map.set(code, label);
-    }
-
-    return Array.from(map.entries())
-        .map(([code, label]) => ({ code, label }))
+    return results
+        .filter((c) => !c.retired)
+        .map((c) => ({
+            uuid: c.uuid,
+            code: c.code,
+            name: c.name ?? c.display ?? c.code,
+            description: c.description,
+            label: `${c.name ?? c.display ?? c.code} (${c.code})`,
+            ageGroups: Array.isArray(c.ageGroups)
+                ? c.ageGroups.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                : [],
+        }))
         .sort((a, b) => a.label.localeCompare(b.label));
 }

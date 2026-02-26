@@ -2,27 +2,28 @@ import React from 'react';
 import { ComboBox } from '@carbon/react';
 
 import type { BaseIndicatorOption } from '../types/composite-indicator.types';
-import type { AgeGroupSetOption } from '../../../services/agegroup/mamba-agegroups.api';
+import type { AgeCategoryOption } from '../../../services/agegroup/mamba-agegroups.api';
 
 type IndicatorItem = { id: string; label: string };
 
 type Props = {
     baseIndicators: BaseIndicatorOption[];
-    ageGroupSets: AgeGroupSetOption[];
+    ageCategories: AgeCategoryOption[];
+
     selectedBaseId: string;
-    selectedAgeSetCode: string;
+    selectedAgeCategoryCode: string;
 
     onChangeBaseId: (id: string) => void;
-    onChangeAgeSetCode: (code: string) => void;
+    onChangeAgeCategoryCode: (code: string) => void;
 };
 
 export default function FinalIndicatorPickerSection({
                                                         baseIndicators,
-                                                        ageGroupSets,
+                                                        ageCategories,
                                                         selectedBaseId,
-                                                        selectedAgeSetCode,
+                                                        selectedAgeCategoryCode,
                                                         onChangeBaseId,
-                                                        onChangeAgeSetCode,
+                                                        onChangeAgeCategoryCode,
                                                     }: Props) {
     const baseItems: IndicatorItem[] = React.useMemo(() => {
         return [{ id: '', label: 'Select a base indicator…' }].concat(
@@ -30,9 +31,9 @@ export default function FinalIndicatorPickerSection({
         );
     }, [baseIndicators]);
 
-    const ageSetItems = React.useMemo(() => {
-        return [{ code: '', label: 'Select an age group set…' }].concat(ageGroupSets);
-    }, [ageGroupSets]);
+    const ageItems = React.useMemo(() => {
+        return [{ code: '', label: 'Select an age category…', uuid: '', name: '', description: '', ageGroups: [] as any[] }].concat(ageCategories as any);
+    }, [ageCategories]);
 
     const selectedBase = React.useMemo(
         () => baseItems.find((x) => x.id === selectedBaseId) ?? baseItems[0],
@@ -40,8 +41,8 @@ export default function FinalIndicatorPickerSection({
     );
 
     const selectedAge = React.useMemo(
-        () => ageSetItems.find((x) => x.code === selectedAgeSetCode) ?? ageSetItems[0],
-        [ageSetItems, selectedAgeSetCode],
+        () => (ageItems as any[]).find((x) => x.code === selectedAgeCategoryCode) ?? ageItems[0],
+        [ageItems, selectedAgeCategoryCode],
     );
 
     return (
@@ -57,14 +58,35 @@ export default function FinalIndicatorPickerSection({
             />
 
             <ComboBox
-                id="final-age-set"
-                titleText="Age group set"
-                items={ageSetItems}
+                id="final-age-category"
+                titleText="Age category"
+                items={ageItems as any[]}
                 itemToString={(it) => (it ? it.label : '')}
-                selectedItem={selectedAge}
-                placeholder="Search age group sets…"
-                onChange={({ selectedItem }) => onChangeAgeSetCode(selectedItem?.code ?? '')}
+                selectedItem={selectedAge as any}
+                placeholder="Search age categories…"
+                onChange={({ selectedItem }: any) => onChangeAgeCategoryCode(selectedItem?.code ?? '')}
             />
+
+            {selectedAgeCategoryCode ? (
+                <div style={{ gridColumn: '1 / -1', fontSize: '0.875rem', opacity: 0.8 }}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Age groups in this category</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {(selectedAge?.ageGroups ?? []).map((g: any) => (
+                            <span
+                                key={g.id}
+                                style={{
+                                    padding: '0.25rem 0.5rem',
+                                    border: '1px solid var(--cds-border-subtle)',
+                                    borderRadius: '999px',
+                                    background: 'var(--cds-layer)',
+                                }}
+                            >
+                {g.label}
+              </span>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

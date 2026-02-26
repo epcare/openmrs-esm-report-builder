@@ -5,7 +5,7 @@ import type { IndicatorDto } from '../../services/indicator/indicators.api';
 import { getIndicator } from '../../services/indicator/indicators.api';
 
 import type { BaseIndicatorOption } from './types/composite-indicator.types';
-import { listAgeGroupSets, type AgeGroupSetOption } from '../../services/agegroup/mamba-agegroups.api';
+import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../services/agegroup/mamba-agegroups.api';
 
 import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';
 import FinalIndicatorPickerSection from './sections/final-indicator-picker.section';
@@ -54,14 +54,14 @@ export default function CreateFinalIndicatorModal({
                                                       onUpdate,
                                                       onSaved,
                                                   }: Props) {
-    const [ageSets, setAgeSets] = React.useState<AgeGroupSetOption[]>([]);
-    const [loadingSets, setLoadingSets] = React.useState(false);
-    const [setsError, setSetsError] = React.useState<string | null>(null);
+    const [ageCategories, setAgeCategories] = React.useState<AgeCategoryOption[]>([]);
+    const [loadingCats, setLoadingCats] = React.useState(false);
+    const [catsError, setCatsError] = React.useState<string | null>(null);
 
     const [basics, setBasics] = React.useState({ name: '', code: '', description: '' });
 
     const [baseIndicatorId, setBaseIndicatorId] = React.useState('');
-    const [ageGroupSetCode, setAgeGroupSetCode] = React.useState('');
+    const [ageCategoryCode, setAgeCategoryCode] = React.useState('');
     const [genders, setGenders] = React.useState<Array<'F' | 'M'>>(['F', 'M']);
 
     const [baseFull, setBaseFull] = React.useState<IndicatorDto | null>(null);
@@ -70,23 +70,23 @@ export default function CreateFinalIndicatorModal({
 
     const [sqlPreview, setSqlPreview] = React.useState('');
 
-    // load age group sets when modal opens
+    // load categories when modal opens
     React.useEffect(() => {
         if (!open) return;
         const ac = new AbortController();
 
-        setLoadingSets(true);
-        setSetsError(null);
+        setLoadingCats(true);
+        setCatsError(null);
 
-        listAgeGroupSets(ac.signal)
-            .then((items) => setAgeSets(items))
-            .catch((e: any) => setSetsError(e?.message ?? 'Failed to load age groups'))
-            .finally(() => setLoadingSets(false));
+        listAgeCategoriesWithGroups(ac.signal)
+            .then((items) => setAgeCategories(items))
+            .catch((e: any) => setCatsError(e?.message ?? 'Failed to load age categories'))
+            .finally(() => setLoadingCats(false));
 
         return () => ac.abort();
     }, [open]);
 
-    // initialize create vs edit
+    // init create vs edit
     React.useEffect(() => {
         if (!open) return;
 
@@ -100,25 +100,24 @@ export default function CreateFinalIndicatorModal({
             });
 
             setBaseIndicatorId(String(cfg.baseIndicatorId ?? ''));
-            setAgeGroupSetCode(String(cfg.ageGroupSetCode ?? ''));
+            setAgeCategoryCode(String(cfg.ageGroupSetCode ?? cfg.ageCategoryCode ?? '')); // tolerate both keys
             setGenders((cfg.genders as any) ?? ['F', 'M']);
 
             setSqlPreview(String(cfg.sqlPreview ?? initial.sqlTemplate ?? ''));
-
             return;
         }
 
-        // create defaults (blank to avoid confusion)
+        // create defaults
         setBasics({ name: '', code: '', description: '' });
         setBaseIndicatorId('');
-        setAgeGroupSetCode('');
+        setAgeCategoryCode('');
         setGenders(['F', 'M']);
         setSqlPreview('');
         setBaseFull(null);
         setBaseError(null);
     }, [open, mode, initial?.uuid]);
 
-    // load full base indicator when selected
+    // load full base indicator
     React.useEffect(() => {
         if (!open) return;
         if (!baseIndicatorId) {
@@ -138,35 +137,41 @@ export default function CreateFinalIndicatorModal({
         return () => ac.abort();
     }, [open, baseIndicatorId]);
 
-    // compute SQL preview
+    // compute sql preview
     React.useEffect(() => {
         if (!open) return;
 
-        if (!baseFull || !ageGroupSetCode) {
+        if (!baseFull || !ageCategoryCode) {
             setSqlPreview('');
             return;
         }
 
         const sql = buildFinalIndicatorSql({
             baseIndicator: baseFull,
-            ageGroupSetCode,
+            ageGroupSetCode: ageCategoryCode, // builder expects category code
             genders,
         });
 
         setSqlPreview(sql);
-    }, [open, baseFull, ageGroupSetCode, genders]);
+    }, [open, baseFull, ageCategoryCode, genders]);
 
-    const canSubmit = Boolean(basics.name.trim()) && Boolean(baseIndicatorId) && Boolean(ageGroupSetCode) && Boolean(sqlPreview.trim());
+    const canSubmit =
+        Boolean(basics.name.trim()) &&
+        Boolean(baseIndicatorId) &&
+        Boolean(ageCategoryCode) &&
+        Boolean(sqlPreview.trim());
 
     const submit = async () => {
         if (!canSubmit || !baseFull) return;
 
         const finalCode = basics.code.trim() ? basics.code.trim().toUpperCase() : toCode(basics.name);
 
-        const authoring: FinalIndicatorAuthoringV1 = {
+        // store both keys for forward compatibility (you can later remove ageGroupSetCode)
+        const authoring: any = {
             version: 1,
             baseIndicatorId,
-            ageGroupSetCode,
+            ageCategoryCode,
+            ageGroupSetCode: ageCategoryCode,
             genders,
             sqlPreview,
         };
@@ -192,7 +197,7 @@ export default function CreateFinalIndicatorModal({
         onSaved();
     };
 
-    const showPreview = Boolean(baseIndicatorId) && Boolean(ageGroupSetCode);
+    const showPreview = Boolean(baseIndicatorId) && Boolean(ageCategoryCode);
 
     return (
         <Modal
@@ -206,8 +211,8 @@ export default function CreateFinalIndicatorModal({
             size="lg"
         >
             <Stack gap={6}>
-                {loadingSets ? <InlineLoading description="Loading age groups…" /> : null}
-                {setsError ? <InlineNotification kind="error" lowContrast title="Age groups" subtitle={setsError} /> : null}
+                {loadingCats ? <InlineLoading description="Loading age categories…" /> : null}
+                {catsError ? <InlineNotification kind="error" lowContrast title="Age categories" subtitle={catsError} /> : null}
 
                 <FinalIndicatorBasicsSection value={basics} onChange={setBasics} />
 
@@ -215,11 +220,11 @@ export default function CreateFinalIndicatorModal({
 
                 <FinalIndicatorPickerSection
                     baseIndicators={baseIndicators}
-                    ageGroupSets={ageSets}
+                    ageCategories={ageCategories}
                     selectedBaseId={baseIndicatorId}
-                    selectedAgeSetCode={ageGroupSetCode}
+                    selectedAgeCategoryCode={ageCategoryCode}
                     onChangeBaseId={setBaseIndicatorId}
-                    onChangeAgeSetCode={setAgeGroupSetCode}
+                    onChangeAgeCategoryCode={setAgeCategoryCode}
                 />
 
                 {loadingBase ? <InlineLoading description="Loading base indicator details…" /> : null}
