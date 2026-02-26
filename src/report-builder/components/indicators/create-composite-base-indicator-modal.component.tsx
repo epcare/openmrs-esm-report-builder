@@ -3,11 +3,7 @@ import { Modal, Stack, InlineNotification } from '@carbon/react';
 
 import { getIndicator, type IndicatorDto } from '../../services/indicator/indicators.api';
 
-import type {
-    BaseIndicatorOption,
-    CompositeOperator,
-    CreateCompositeBaseIndicatorPayload,
-} from './types/composite-indicator.types';
+import type { BaseIndicatorOption, CompositeOperator } from './types/composite-indicator.types';
 
 import CompositeIndicatorBasicsSection from './sections/composite-indicator-basics.section';
 import CompositeIndicatorPickerSection from './sections/composite-indicator-picker.section';
@@ -22,14 +18,22 @@ import {
 
 type Props = {
     open: boolean;
-    mode: 'create' | 'edit';
-    initial?: IndicatorDto | null;
     onClose: () => void;
     onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
-    onUpdate: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
     onSaved: () => void;
-    onSubmit: (data: CreateCompositeBaseIndicatorPayload) => void;
     baseIndicators: BaseIndicatorOption[];
+};
+
+type CompositeIndicatorAuthoring = {
+    version: 1;
+    unit: 'Patients' | 'Encounters';
+    operator: CompositeOperator;
+    indicatorAId: string;
+    indicatorBId: string;
+    // helpful for display / debugging (safe optional)
+    indicatorACode?: string;
+    indicatorBCode?: string;
+    sqlPreview: string;
 };
 
 const toCode = (name: string) =>
@@ -39,7 +43,7 @@ const toCode = (name: string) =>
         .replace(/^_+|_+$/g, '')
         .slice(0, 50);
 
-const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onSubmit, baseIndicators }) => {
+const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onCreate, onSaved, baseIndicators }) => {
     const firstId = baseIndicators[0]?.id ?? '';
     const secondId = baseIndicators[1]?.id ?? baseIndicators[0]?.id ?? '';
 
@@ -242,8 +246,32 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onS
         !samePick &&
         Boolean(compositeSql.trim());
 
-    const submit = () => {
+    const submit = async () => {
+        if (!canSubmit) return;
+
         const finalCode = code.trim() ? code.trim().toUpperCase() : toCode(name);
+
+        const authoring: CompositeIndicatorAuthoring = {
+            version: 1,
+            unit: inferredUnit,
+            operator,
+            indicatorAId,
+            indicatorBId,
+            indicatorACode: AOpt?.code,
+            indicatorBCode: BOpt?.code,
+            sqlPreview: compositeSql,
+        };
+
+        const payload: Partial<IndicatorDto> = {
+            name: name.trim(),
+            code: finalCode,
+            description: description.trim() || undefined,
+            kind: 'COMPOSITE',
+            defaultValueType: 'NUMBER',
+            themeUuid: null,
+            configJson: JSON.stringify(authoring, null, 2),
+            sqlTemplate: compositeSql,
+        };
 
         // eslint-disable-next-line no-console
         console.log('[composite] submit payload', {
@@ -256,16 +284,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onS
             compositeSqlLen: compositeSql.length,
         });
 
-        onSubmit({
-            code: finalCode,
-            name: name.trim(),
-            description: description.trim(),
-            indicatorAId,
-            indicatorBId,
-            operator,
-            unit: inferredUnit,
-            sqlTemplate: compositeSql,
-        });
+        await onCreate(payload);
+        onSaved();
     };
 
     return (

@@ -228,22 +228,15 @@ export default function IndicatorsPage() {
                 open={openComposite}
                 onClose={() => setOpenComposite(false)}
                 baseIndicators={baseIndicators}
-                onSubmit={async (data) => {
-                    // TODO: wire composite create endpoint when ready.
-                    // For now, log + close + reload.
-                    // eslint-disable-next-line no-console
-                    console.log('Composite submit:', data);
+                onCreate={async (payload) => {
+                    await createIndicator(payload);
+                }}
+                onSaved={async () => {
                     setOpenComposite(false);
                     const ac = new AbortController();
                     await load(ac.signal);
                 }}
-                onCreate={async (payload) => {
-                    await createIndicator(payload);
-                }} mode={'create'} onUpdate={function (uuid: string, payload: Partial<IndicatorDto>): Promise<void> {
-                throw new Error('Function not implemented.');
-            }} onSaved={function (): void {
-                throw new Error('Function not implemented.');
-            }}            />
+            />
 
             <CreateFinalIndicatorModal
                 open={openFinal}
