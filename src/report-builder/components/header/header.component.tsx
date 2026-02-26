@@ -5,6 +5,7 @@ import { formatDate, useSession } from '@openmrs/esm-framework';
 
 import Illustration from './illustration.component';
 import styles from './header.scss';
+import AiAssistButton from '../ai/ai-assist-button.component';
 
 export interface HeaderStatus {
     label: string;
@@ -16,9 +17,11 @@ export interface HeaderProps {
     subtitle?: string;
     status?: HeaderStatus;
     actions?: React.ReactNode;
+
+    showAiAssist?: boolean; // NEW
 }
 
-const Header: React.FC<HeaderProps> = ({ title, subtitle, status, actions }) => {
+const Header: React.FC<HeaderProps> = ({ title, subtitle, status, actions, showAiAssist = true }) => {
     const { t } = useTranslation();
     const session = useSession();
     const location = session?.sessionLocation?.display;
@@ -66,7 +69,12 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, status, actions }) => 
                     </div>
                 </div>
 
-                {actions ? <div className={styles.actions}>{actions}</div> : null}
+                {showAiAssist || actions ? (
+                    <div className={styles.actions}>
+                        {showAiAssist ? <AiAssistButton context={{ page: title }} /> : null}
+                        {actions}
+                    </div>
+                ) : null}
             </div>
 
 

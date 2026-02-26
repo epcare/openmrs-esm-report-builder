@@ -29,7 +29,7 @@ export type IndicatorRow = {
 type Props = {
     rows: IndicatorRow[];
     onOpen?: (id: string) => void;
-    onEdit?: (id: string) => void;
+    onEdit?: (id: string, kind: IndicatorRow['kind']) => void; // ✅ include kind
     onRun?: (id: string) => void;
     onDelete?: (id: string) => void;
 };
@@ -151,7 +151,7 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
 
                                         <TableCell onClick={(e) => e.stopPropagation()} style={{ width: 56 }}>
                                             <OverflowMenu size="sm" flipped>
-                                                <OverflowMenuItem itemText="Edit" onClick={() => onEdit?.(row.id)} />
+                                                <OverflowMenuItem itemText="Edit" onClick={() => onEdit?.(row.id, kind)} />
                                                 <OverflowMenuItem itemText="Run" onClick={() => onRun?.(row.id)} />
                                                 <OverflowMenuItem itemText="Delete" isDelete onClick={() => onDelete?.(row.id)} />
                                             </OverflowMenu>

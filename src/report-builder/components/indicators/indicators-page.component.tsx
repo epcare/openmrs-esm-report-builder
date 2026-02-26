@@ -20,6 +20,7 @@ import CreateBaseIndicatorModal from './create-base-indicator-modal.component';
 import CreateCompositeBaseIndicatorModal from './create-composite-base-indicator-modal.component';
 import { type BaseIndicatorOption } from './types/composite-indicator.types';
 import CreateFinalIndicatorModal from './create-final-indicator-modal.component';
+import AiAssistButton from '../ai/ai-assist-button.component';
 
 import {
     listIndicators,
@@ -101,12 +102,29 @@ export default function IndicatorsPage() {
         setOpenBase(true);
     };
 
-    const onEdit = async (uuid: string) => {
+    const onEdit = async (uuid: string, kind?: string) => {
         try {
             setLoading(true);
+
             const full = await getIndicator(uuid, undefined, 'full');
             setEditing(full);
             setMode('edit');
+
+            const k = (full.kind ?? kind ?? 'BASE').toUpperCase();
+
+            if (k === 'COMPOSITE') {
+                setOpenComposite(true);
+                return;
+            }
+
+            if (k === 'FINAL') {
+                // If final edit isn’t implemented yet, avoid opening the wrong modal
+                setError('Editing final indicators is not yet supported.');
+                return;
+                // If you *do* support final edit, then open the final modal instead:
+                // setOpenFinal(true); return;
+            }
+
             setOpenBase(true);
         } catch (e: any) {
             setError(e?.message ?? 'Failed to load indicator');
