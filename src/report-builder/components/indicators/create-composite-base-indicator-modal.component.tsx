@@ -1,63 +1,35 @@
 import React from 'react';
+import { Modal, Stack, InlineNotification } from '@carbon/react';
+
+import { getIndicator, type IndicatorDto } from '../../services/indicator/indicators.api';
+
+import type {
+    BaseIndicatorOption,
+    CompositeOperator,
+    CreateCompositeBaseIndicatorPayload,
+} from './types/composite-indicator.types';
+
+import CompositeIndicatorBasicsSection from './sections/composite-indicator-basics.section';
+import CompositeIndicatorPickerSection from './sections/composite-indicator-picker.section';
+import CompositeIndicatorSqlPreviewSection from './sections/composite-indicator-sql-preview.section';
+
 import {
-    Modal,
-    Stack,
-    TextInput,
-    TextArea,
-    Select,
-    SelectItem,
-    RadioButtonGroup,
-    RadioButton,
-    Button,
-    InlineNotification,
-} from '@carbon/react';
-import { Information } from '@carbon/icons-react';
-
-export type CompositeOperator = 'AND' | 'OR' | 'A_AND_NOT_B';
-
-/**
- * ✅ Base indicator option to pick from.
- * - `unit` is used for compatibility (Patients vs Encounters).
- * - `populationSqlTemplate` is OPTIONAL but enables us to generate composite SQL.
- *   It should return a set of IDs (patient_id or encounter_id), e.g.:
- *     SELECT DISTINCT a.patient_id ... WHERE ...
- */
-export type BaseIndicatorOption = {
-    id: string;
-    code: string;
-    name: string;
-    unit?: 'Patients' | 'Encounters';
-    populationSqlTemplate?: string;
-};
-
-export type CreateCompositeBaseIndicatorPayload = {
-    code: string;
-    name: string;
-    description: string;
-
-    // We keep IDs because your current flow uses IDs.
-    // Prefer persisting codes in backend later, but we keep this as-is for now.
-    indicatorAId: string;
-    indicatorBId: string;
-
-    operator: CompositeOperator;
-
-    // ✅ extras (safe to ignore by caller for now)
-    unit?: 'Patients' | 'Encounters';
-    sqlTemplate?: string;
-};
+    countSqlToPopulationSql,
+    buildCompositeCountSql,
+    tryGetPatientIdColumnFromConfig,
+    tryGetCountSqlFromIndicator,
+} from './utils/composite-indicator-sql.utils';
 
 type Props = {
     open: boolean;
+    mode: 'create' | 'edit';
+    initial?: IndicatorDto | null;
     onClose: () => void;
+    onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
+    onUpdate: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
+    onSaved: () => void;
     onSubmit: (data: CreateCompositeBaseIndicatorPayload) => void;
-
-    /** Base indicators to pick from (caller can pre-filter compatible ones) */
     baseIndicators: BaseIndicatorOption[];
-
-    /** Optional: computed preview count (wire later) */
-    previewCount?: number | null;
-    onPreview?: (data: Omit<CreateCompositeBaseIndicatorPayload, 'code' | 'name' | 'description'>) => void;
 };
 
 const toCode = (name: string) =>
@@ -65,85 +37,9 @@ const toCode = (name: string) =>
         .toUpperCase()
         .replace(/[^A-Z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '')
-        .slice(0, 20);
+        .slice(0, 50);
 
-const labelFor = (x: BaseIndicatorOption) => {
-    const unit = x.unit ? ` • ${x.unit}` : '';
-    return `${x.name} (${x.code})${unit}`;
-};
-
-function idFieldForUnit(unit: 'Patients' | 'Encounters') {
-    return unit === 'Encounters' ? 'encounter_id' : 'patient_id';
-}
-
-/**
- * Build composite COUNT SQL from two population queries.
- * - populationSqlTemplate should return a column matching `idField` (patient_id or encounter_id).
- */
-function buildCompositeCountSql(args: {
-    unit: 'Patients' | 'Encounters';
-    operator: CompositeOperator;
-    populationSqlA: string;
-    populationSqlB: string;
-}) {
-    const idField = idFieldForUnit(args.unit);
-
-    const A = args.populationSqlA.trim().replace(/;+\s*$/, '');
-    const B = args.populationSqlB.trim().replace(/;+\s*$/, '');
-
-    // NOTE: We assume A and B already return DISTINCT ids.
-    // If not, union/join still works, but may produce duplicates before final count.
-    if (args.operator === 'AND') {
-        return `
-WITH
-A AS (${A}),
-B AS (${B})
-SELECT COUNT(*) AS total
-FROM (
-  SELECT A.${idField}
-  FROM A
-  INNER JOIN B ON B.${idField} = A.${idField}
-) X;
-`.trim();
-    }
-
-    if (args.operator === 'OR') {
-        return `
-WITH
-A AS (${A}),
-B AS (${B})
-SELECT COUNT(*) AS total
-FROM (
-  SELECT ${idField} FROM A
-  UNION
-  SELECT ${idField} FROM B
-) X;
-`.trim();
-    }
-
-    // A_AND_NOT_B
-    return `
-WITH
-A AS (${A}),
-B AS (${B})
-SELECT COUNT(*) AS total
-FROM (
-  SELECT A.${idField}
-  FROM A
-  LEFT JOIN B ON B.${idField} = A.${idField}
-  WHERE B.${idField} IS NULL
-) X;
-`.trim();
-}
-
-const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
-                                                                open,
-                                                                onClose,
-                                                                onSubmit,
-                                                                baseIndicators,
-                                                                previewCount = null,
-                                                                onPreview,
-                                                            }) => {
+const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({ open, onClose, onSubmit, baseIndicators }) => {
     const firstId = baseIndicators[0]?.id ?? '';
     const secondId = baseIndicators[1]?.id ?? baseIndicators[0]?.id ?? '';
 
@@ -155,49 +51,210 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
     const [indicatorBId, setIndicatorBId] = React.useState(secondId);
     const [operator, setOperator] = React.useState<CompositeOperator>('AND');
 
-    // Reset defaults when opened (nice UX)
+    const [loadingA, setLoadingA] = React.useState(false);
+    const [loadingB, setLoadingB] = React.useState(false);
+    const [errA, setErrA] = React.useState<string | null>(null);
+    const [errB, setErrB] = React.useState<string | null>(null);
+
+    const [indA, setIndA] = React.useState<IndicatorDto | null>(null);
+    const [indB, setIndB] = React.useState<IndicatorDto | null>(null);
+
+    // reset on open
     React.useEffect(() => {
         if (!open) return;
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] modal open - reset defaults', { firstId, secondId, baseCount: baseIndicators.length });
+
         setName('New composite indicator');
         setCode('');
         setDescription('');
         setIndicatorAId(firstId);
         setIndicatorBId(secondId);
         setOperator('AND');
+        setErrA(null);
+        setErrB(null);
+        setIndA(null);
+        setIndB(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    const A = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorAId) ?? null, [baseIndicators, indicatorAId]);
-    const B = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorBId) ?? null, [baseIndicators, indicatorBId]);
+    const AOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorAId) ?? null, [baseIndicators, indicatorAId]);
+    const BOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorBId) ?? null, [baseIndicators, indicatorBId]);
 
     const samePick = Boolean(indicatorAId && indicatorBId && indicatorAId === indicatorBId);
 
-    const inferredUnit: 'Patients' | 'Encounters' | null = React.useMemo(() => {
-        // If both have units and they match, use that.
-        if (A?.unit && B?.unit) return A.unit === B.unit ? A.unit : null;
-        // If only one has unit, use it (caller should ideally pass compatible indicators).
-        if (A?.unit) return A.unit;
-        if (B?.unit) return B.unit;
-        return null;
-    }, [A?.unit, B?.unit]);
+    // Keep simple for now; can be expanded later.
+    const inferredUnit: 'Patients' | 'Encounters' = React.useMemo(() => 'Patients', []);
 
-    const unitMismatch = Boolean(A?.unit && B?.unit && A.unit !== B.unit);
+    React.useEffect(() => {
+        if (!open) return;
+        // eslint-disable-next-line no-console
+        console.log('[composite] selection changed', {
+            indicatorAId,
+            indicatorBId,
+            operator,
+            inferredUnit,
+            samePick,
+            AOpt: AOpt ? { id: AOpt.id, code: AOpt.code } : null,
+            BOpt: BOpt ? { id: BOpt.id, code: BOpt.code } : null,
+        });
+    }, [open, indicatorAId, indicatorBId, operator, inferredUnit, samePick, AOpt, BOpt]);
 
-    const canSubmit = Boolean(name.trim()) && Boolean(indicatorAId) && Boolean(indicatorBId) && !samePick && !unitMismatch;
+    // load full indicators for A/B
+    React.useEffect(() => {
+        if (!open) return;
+        if (!indicatorAId) return;
+
+        const ac = new AbortController();
+        setLoadingA(true);
+        setErrA(null);
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] loading indicator A', { indicatorAId });
+
+        getIndicator(indicatorAId, ac.signal, 'full')
+            .then((full) => {
+                // eslint-disable-next-line no-console
+                console.log('[composite] loaded indicator A', {
+                    uuid: full?.uuid,
+                    kind: full?.kind,
+                    hasSqlTemplate: Boolean(full?.sqlTemplate?.trim()),
+                    sqlTemplateLen: full?.sqlTemplate?.length ?? 0,
+                    configJsonLen: full?.configJson?.length ?? 0,
+                });
+                setIndA(full);
+            })
+            .catch((e: any) => {
+                // eslint-disable-next-line no-console
+                console.log('[composite] failed loading indicator A', { indicatorAId, error: e });
+                setErrA(e?.message ?? 'Failed to load indicator A');
+            })
+            .finally(() => setLoadingA(false));
+
+        return () => ac.abort();
+    }, [open, indicatorAId]);
+
+    React.useEffect(() => {
+        if (!open) return;
+        if (!indicatorBId) return;
+
+        const ac = new AbortController();
+        setLoadingB(true);
+        setErrB(null);
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] loading indicator B', { indicatorBId });
+
+        getIndicator(indicatorBId, ac.signal, 'full')
+            .then((full) => {
+                // eslint-disable-next-line no-console
+                console.log('[composite] loaded indicator B', {
+                    uuid: full?.uuid,
+                    kind: full?.kind,
+                    hasSqlTemplate: Boolean(full?.sqlTemplate?.trim()),
+                    sqlTemplateLen: full?.sqlTemplate?.length ?? 0,
+                    configJsonLen: full?.configJson?.length ?? 0,
+                });
+                setIndB(full);
+            })
+            .catch((e: any) => {
+                // eslint-disable-next-line no-console
+                console.log('[composite] failed loading indicator B', { indicatorBId, error: e });
+                setErrB(e?.message ?? 'Failed to load indicator B');
+            })
+            .finally(() => setLoadingB(false));
+
+        return () => ac.abort();
+    }, [open, indicatorBId]);
+
+    const populationSqlA = React.useMemo(() => {
+        if (!indA) return '';
+
+        const { sql: countSql, source } = tryGetCountSqlFromIndicator(indA);
+        const pidCol = tryGetPatientIdColumnFromConfig(indA);
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] A count sql source', { source, countSqlLen: countSql.length, pidCol });
+
+        if (!countSql) {
+            // eslint-disable-next-line no-console
+            console.log('[composite] populationSqlA: missing count SQL (both sqlTemplate and configJson.sqlPreview empty)');
+            return '';
+        }
+
+        const out = countSqlToPopulationSql(countSql, pidCol, inferredUnit);
+        // eslint-disable-next-line no-console
+        console.log('[composite] populationSqlA output', { outLen: out.length, outHead: out.slice(0, 120) });
+
+        return out;
+    }, [indA, inferredUnit]);
+
+    const populationSqlB = React.useMemo(() => {
+        if (!indB) return '';
+
+        const { sql: countSql, source } = tryGetCountSqlFromIndicator(indB);
+        const pidCol = tryGetPatientIdColumnFromConfig(indB);
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] B count sql source', { source, countSqlLen: countSql.length, pidCol });
+
+        if (!countSql) {
+            // eslint-disable-next-line no-console
+            console.log('[composite] populationSqlB: missing count SQL (both sqlTemplate and configJson.sqlPreview empty)');
+            return '';
+        }
+
+        const out = countSqlToPopulationSql(countSql, pidCol, inferredUnit);
+        // eslint-disable-next-line no-console
+        console.log('[composite] populationSqlB output', { outLen: out.length, outHead: out.slice(0, 120) });
+
+        return out;
+    }, [indB, inferredUnit]);
+
+    const compositeSql = React.useMemo(() => {
+        if (!populationSqlA || !populationSqlB) {
+            // eslint-disable-next-line no-console
+            console.log('[composite] compositeSql: missing population SQL', {
+                popALen: populationSqlA?.length ?? 0,
+                popBLen: populationSqlB?.length ?? 0,
+            });
+            return '';
+        }
+
+        const out = buildCompositeCountSql({
+            unit: inferredUnit,
+            operator,
+            populationSqlA,
+            populationSqlB,
+        });
+
+        // eslint-disable-next-line no-console
+        console.log('[composite] compositeSql computed', { operator, outLen: out.length, outHead: out.slice(0, 160) });
+
+        return out;
+    }, [populationSqlA, populationSqlB, inferredUnit, operator]);
+
+    const canSubmit =
+        Boolean(name.trim()) &&
+        Boolean(indicatorAId) &&
+        Boolean(indicatorBId) &&
+        !samePick &&
+        Boolean(compositeSql.trim());
 
     const submit = () => {
         const finalCode = code.trim() ? code.trim().toUpperCase() : toCode(name);
 
-        // If we have population SQL for both, generate a composite SQL template now.
-        let sqlTemplate: string | undefined = undefined;
-        if (inferredUnit && A?.populationSqlTemplate && B?.populationSqlTemplate) {
-            sqlTemplate = buildCompositeCountSql({
-                unit: inferredUnit,
-                operator,
-                populationSqlA: A.populationSqlTemplate,
-                populationSqlB: B.populationSqlTemplate,
-            });
-        }
+        // eslint-disable-next-line no-console
+        console.log('[composite] submit payload', {
+            finalCode,
+            name: name.trim(),
+            indicatorAId,
+            indicatorBId,
+            operator,
+            inferredUnit,
+            compositeSqlLen: compositeSql.length,
+        });
 
         onSubmit({
             code: finalCode,
@@ -206,26 +263,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
             indicatorAId,
             indicatorBId,
             operator,
-            unit: inferredUnit ?? undefined,
-            sqlTemplate,
-        });
-    };
-
-    const requestPreview = () => {
-        onPreview?.({
-            indicatorAId,
-            indicatorBId,
-            operator,
-            unit: inferredUnit ?? undefined,
-            sqlTemplate:
-                inferredUnit && A?.populationSqlTemplate && B?.populationSqlTemplate
-                    ? buildCompositeCountSql({
-                        unit: inferredUnit,
-                        operator,
-                        populationSqlA: A.populationSqlTemplate,
-                        populationSqlB: B.populationSqlTemplate,
-                    })
-                    : undefined,
+            unit: inferredUnit,
+            sqlTemplate: compositeSql,
         });
     };
 
@@ -233,15 +272,16 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
         <Modal
             open={open}
             onRequestClose={onClose}
-            modalHeading="Create Composite Base Indicator"
+            modalHeading="Create Composite Indicator"
             primaryButtonText="Save Indicator"
             secondaryButtonText="Cancel"
             onRequestSubmit={submit}
             primaryButtonDisabled={!canSubmit}
+            size="lg"
         >
             <Stack gap={5}>
                 <div style={{ opacity: 0.8 }}>
-                    Combine existing base indicators with logical conditions to define reusable, testable logic.
+                    Select two base indicators, pick an operator, and we generate a composite SQL preview.
                 </div>
 
                 {samePick ? (
@@ -253,167 +293,36 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
                     />
                 ) : null}
 
-                {unitMismatch ? (
-                    <InlineNotification
-                        kind="error"
-                        lowContrast
-                        title="Incompatible counting units"
-                        subtitle={`Indicator A is "${A?.unit}" but Indicator B is "${B?.unit}". Composite indicators require matching units.`}
-                    />
-                ) : null}
-
-                <TextInput
-                    id="composite-name"
-                    labelText="Indicator Name"
-                    value={name}
-                    onChange={(e) => setName((e.target as HTMLInputElement).value)}
-                />
-
-                <TextInput
-                    id="composite-code"
-                    labelText="Code"
-                    helperText="Short unique code used in reports (e.g. PREG_AND_MAL)"
-                    value={code}
-                    onChange={(e) => setCode((e.target as HTMLInputElement).value)}
-                    placeholder="Auto-generated if blank"
-                />
-
-                <TextArea
-                    id="composite-description"
-                    labelText="Description"
-                    value={description}
-                    onChange={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+                <CompositeIndicatorBasicsSection
+                    value={{ name, code, description }}
+                    onChange={(next) => {
+                        setName(next.name);
+                        setCode(next.code);
+                        setDescription(next.description);
+                    }}
                 />
 
                 <hr style={{ border: 0, borderTop: '1px solid var(--cds-border-subtle, #e0e0e0)' }} />
 
-                <div style={{ fontWeight: 600 }}>Select Indicators</div>
+                <CompositeIndicatorPickerSection
+                    baseIndicators={baseIndicators}
+                    indicatorAId={indicatorAId}
+                    indicatorBId={indicatorBId}
+                    operator={operator}
+                    inferredUnit={inferredUnit}
+                    samePick={samePick}
+                    onChangeA={setIndicatorAId}
+                    onChangeB={setIndicatorBId}
+                    onChangeOperator={setOperator}
+                />
 
-                {/* A + Logic + B row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '0.75rem', alignItems: 'end' }}>
-                    <Select
-                        id="indicator-a"
-                        labelText="Indicator A"
-                        value={indicatorAId}
-                        onChange={(e) => setIndicatorAId((e.target as HTMLSelectElement).value)}
-                    >
-                        {baseIndicators.map((x) => (
-                            <SelectItem key={x.id} value={x.id} text={labelFor(x)} />
-                        ))}
-                    </Select>
-
-                    <div style={{ paddingBottom: '0.35rem' }}>
-                        <div style={{ fontSize: '0.875rem', opacity: 0.75, marginBottom: '0.25rem', textAlign: 'center' }}>
-                            Logic
-                        </div>
-                        <div
-                            style={{
-                                minWidth: '4.5rem',
-                                textAlign: 'center',
-                                padding: '0.55rem 0.75rem',
-                                borderRadius: '0.25rem',
-                                background: 'var(--cds-layer, #ffffff)',
-                                border: '1px solid var(--cds-border-subtle, #e0e0e0)',
-                                fontWeight: 600,
-                            }}
-                            aria-label="Selected operator"
-                        >
-                            {operator === 'A_AND_NOT_B' ? 'A AND NOT B' : operator}
-                        </div>
-                    </div>
-
-                    <Select
-                        id="indicator-b"
-                        labelText="Indicator B"
-                        value={indicatorBId}
-                        onChange={(e) => setIndicatorBId((e.target as HTMLSelectElement).value)}
-                    >
-                        {baseIndicators.map((x) => (
-                            <SelectItem key={x.id} value={x.id} text={labelFor(x)} />
-                        ))}
-                    </Select>
-                </div>
-
-                {/* Operator row */}
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'auto 1fr',
-                        gap: '0.75rem',
-                        alignItems: 'center',
-                        padding: '0.75rem',
-                        borderRadius: '0.25rem',
-                        background: 'var(--cds-layer-accent, #f4f4f4)',
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                        Operator <Information size={16} />
-                    </div>
-
-                    <RadioButtonGroup
-                        legendText=""
-                        name="composite-operator"
-                        valueSelected={operator}
-                        onChange={(val) => setOperator(val as CompositeOperator)}
-                        orientation="horizontal"
-                    >
-                        <RadioButton id="op-and" labelText="AND" value="AND" />
-                        <RadioButton id="op-or" labelText="OR" value="OR" />
-                        <RadioButton id="op-a-not-b" labelText="A AND NOT B" value="A_AND_NOT_B" />
-                    </RadioButtonGroup>
-
-                    <div style={{ gridColumn: '1 / -1', fontSize: '0.875rem', opacity: 0.8 }}>
-                        Tip: For best results, only combine base indicators with the same counting unit (Patients vs Encounters).
-                    </div>
-                </div>
-
-                {/* Preview Count footer row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-                    <div style={{ fontWeight: 600 }}>
-                        Preview Count{inferredUnit ? <span style={{ opacity: 0.75 }}> • {inferredUnit}</span> : null}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {onPreview ? (
-                            <Button size="sm" kind="secondary" onClick={requestPreview} disabled={samePick || unitMismatch}>
-                                Preview
-                            </Button>
-                        ) : null}
-
-                        <div
-                            style={{
-                                minWidth: '9rem',
-                                textAlign: 'center',
-                                padding: '0.55rem 0.75rem',
-                                borderRadius: '0.25rem',
-                                background: 'var(--cds-layer, #ffffff)',
-                                border: '1px solid var(--cds-border-subtle, #e0e0e0)',
-                                fontWeight: 600,
-                            }}
-                        >
-                            Result: {previewCount ?? '—'}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Optional: show generated SQL if available (helps debugging & lock-in) */}
-                {inferredUnit && A?.populationSqlTemplate && B?.populationSqlTemplate ? (
-                    <TextArea
-                        id="composite-sql-preview"
-                        labelText="Generated SQL (composite count)"
-                        value={buildCompositeCountSql({
-                            unit: inferredUnit,
-                            operator,
-                            populationSqlA: A.populationSqlTemplate,
-                            populationSqlB: B.populationSqlTemplate,
-                        })}
-                        readOnly
-                    />
-                ) : (
-                    <div style={{ fontSize: '0.875rem', opacity: 0.75 }}>
-                        SQL preview will appear once base indicators provide <code>populationSqlTemplate</code> (patient_id / encounter_id set query).
-                    </div>
-                )}
+                <CompositeIndicatorSqlPreviewSection
+                    loading={loadingA || loadingB}
+                    errA={errA}
+                    errB={errB}
+                    compositeSql={compositeSql}
+                    show={Boolean(AOpt && BOpt)}
+                />
             </Stack>
         </Modal>
     );

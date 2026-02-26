@@ -1,5 +1,3 @@
-// src/report-builder/components/indicators/indicators-page.component.tsx
-
 import React from 'react';
 import {
     Button,
@@ -19,10 +17,8 @@ import Header from '../header/header.component';
 import IndicatorsTable, { type IndicatorRow } from './indicators-table.component';
 
 import CreateBaseIndicatorModal from './create-base-indicator-modal.component';
-import CreateCompositeBaseIndicatorModal, {
-    type BaseIndicatorOption,
-    type CreateCompositeBaseIndicatorPayload,
-} from './create-composite-base-indicator-modal.component';
+import CreateCompositeBaseIndicatorModal from './create-composite-base-indicator-modal.component';
+import { type BaseIndicatorOption } from './types/composite-indicator.types';
 import CreateFinalIndicatorModal from './create-final-indicator-modal.component';
 
 import {
@@ -34,90 +30,7 @@ import {
     type IndicatorDto,
 } from '../../services/indicator/indicators.api';
 
-import { getDataTheme } from '../../services/theme/data-theme.api';
-
-import type { DataThemeConfig } from './types/data-theme-config.types';
-import type { IndicatorCondition } from './types/indicator-types';
-
-import { hydrateConditionUiState } from './utils/indicator-conditions-hydration.utils';
-import type { QAUiState } from './types/condition-ui.types';
-import type { SelectedConcept } from './handler/concept-search-multiselect.component';
-
 type TabKey = 'base' | 'final';
-
-type BaseIndicatorAuthoringV1 = {
-    version: 1;
-    themeUuid: string;
-    themeConfig: DataThemeConfig;
-    conditions: IndicatorCondition[];
-    sqlPreview: string;
-};
-
-function safeParse<T>(raw: string | undefined | null, fallback: T): T {
-    try {
-        if (!raw) return fallback;
-        const p = JSON.parse(raw);
-        return (p ?? fallback) as T;
-    } catch {
-        return fallback;
-    }
-}
-
-function normalizeThemeConfig(rawConfigJson: string | undefined | null): DataThemeConfig | null {
-    const base = safeParse<any>(rawConfigJson, null);
-    if (!base || typeof base !== 'object') return null;
-    if (base.configJson && typeof base.configJson === 'object') return base.configJson as DataThemeConfig;
-    return base as DataThemeConfig;
-}
-
-/**
- * Supports multiple historical shapes of configJson:
- * - v1 flat: { themeUuid, themeConfig, conditions, sqlPreview }
- * - { base: { ... } }
- * - { authoring: { base: { ... } } }
- */
-function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicatorAuthoringV1 | null {
-    if (!ind?.configJson) return null;
-
-    const parsed = safeParse<any>(ind.configJson, null);
-    if (!parsed || typeof parsed !== 'object') return null;
-
-    // flat v1
-    if (parsed.themeUuid && parsed.themeConfig) {
-        return {
-            version: 1,
-            themeUuid: parsed.themeUuid,
-            themeConfig: parsed.themeConfig,
-            conditions: Array.isArray(parsed.conditions) ? parsed.conditions : [],
-            sqlPreview: parsed.sqlPreview ?? ind.sqlTemplate ?? '',
-        };
-    }
-
-    // { base: {...} }
-    if (parsed.base?.themeUuid && parsed.base?.themeConfig) {
-        return {
-            version: 1,
-            themeUuid: parsed.base.themeUuid,
-            themeConfig: parsed.base.themeConfig,
-            conditions: Array.isArray(parsed.base.conditions) ? parsed.base.conditions : [],
-            sqlPreview: parsed.base.sqlPreview ?? ind.sqlTemplate ?? '',
-        };
-    }
-
-    // { authoring: { base: {...} } }
-    if (parsed.authoring?.base?.themeUuid && parsed.authoring?.base?.themeConfig) {
-        const b = parsed.authoring.base;
-        return {
-            version: 1,
-            themeUuid: b.themeUuid,
-            themeConfig: b.themeConfig,
-            conditions: Array.isArray(b.conditions) ? b.conditions : [],
-            sqlPreview: b.sqlPreview ?? ind.sqlTemplate ?? '',
-        };
-    }
-
-    return null;
-}
 
 export default function IndicatorsPage() {
     const { t } = useTranslation();
@@ -135,10 +48,6 @@ export default function IndicatorsPage() {
 
     const [mode, setMode] = React.useState<'create' | 'edit'>('create');
     const [editing, setEditing] = React.useState<IndicatorDto | null>(null);
-
-    // ✅ preloaded edit UI maps (used by CreateBaseIndicatorModal)
-    const [editingConceptUi, setEditingConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
-    const [editingQaUi, setEditingQaUi] = React.useState<Record<string, QAUiState>>({});
 
     // --------------------------------------------
     // LOAD INDICATORS
@@ -189,52 +98,14 @@ export default function IndicatorsPage() {
     const onCreateBase = () => {
         setMode('create');
         setEditing(null);
-        setEditingConceptUi({});
-        setEditingQaUi({});
         setOpenBase(true);
     };
 
     const onEdit = async (uuid: string) => {
-        const ac = new AbortController();
-
         try {
             setLoading(true);
-            setError(null);
-
-            const full = await getIndicator(uuid, ac.signal, 'full');
-            const authoring = normalizeAuthoring(full);
-
-            // Resolve theme config + picked conditions
-            let resolvedThemeUuid = full.themeUuid ?? '';
-            let resolvedThemeConfig: DataThemeConfig | null = null;
-            let pickedConditions: IndicatorCondition[] = [];
-
-            if (authoring?.themeUuid && authoring?.themeConfig) {
-                resolvedThemeUuid = authoring.themeUuid;
-                resolvedThemeConfig = authoring.themeConfig;
-                pickedConditions = authoring.conditions ?? [];
-            } else {
-                if (resolvedThemeUuid) {
-                    const theme = await getDataTheme(resolvedThemeUuid, ac.signal);
-                    resolvedThemeConfig = normalizeThemeConfig(theme?.configJson);
-                }
-                pickedConditions = [];
-            }
-
-            // ✅ Hydrate UI state before opening modal
-            const hydrated = await hydrateConditionUiState(
-                resolvedThemeConfig?.conditions ?? [],
-                pickedConditions,
-                {},
-                {},
-                ac.signal,
-                { force: true, dedupe: true },
-            );
-
+            const full = await getIndicator(uuid, undefined, 'full');
             setEditing(full);
-            setEditingConceptUi(hydrated.conceptUi);
-            setEditingQaUi(hydrated.qaUi);
-
             setMode('edit');
             setOpenBase(true);
         } catch (e: any) {
@@ -245,19 +116,15 @@ export default function IndicatorsPage() {
     };
 
     const onDelete = async (uuid: string) => {
-        try {
-            await deleteIndicator(uuid, false, 'Retired via UI');
-            const ac = new AbortController();
-            await load(ac.signal);
-        } catch (e: any) {
-            setError(e?.message ?? 'Failed to delete indicator');
-        }
+        await deleteIndicator(uuid, false, 'Retired via UI');
+        const ac = new AbortController();
+        await load(ac.signal);
     };
 
     const onRun = (uuid: string) => console.log('Run indicator:', uuid);
     const onOpen = (uuid: string) => console.log('Open indicator:', uuid);
 
-    // Composite modal wants a list of base indicators
+    // ✅ Composite builder should only get BASE indicators
     const baseIndicators: BaseIndicatorOption[] = React.useMemo(() => {
         return rows
             .filter((r) => r.kind === 'BASE')
@@ -276,7 +143,8 @@ export default function IndicatorsPage() {
         <Stack gap={5}>
             <Header title={t('indicators', 'Indicators')} subtitle="Create and manage report indicators." />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '1rem' }}>
+            {/* Top Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <Search
                     size="lg"
                     labelText="Search"
@@ -308,10 +176,8 @@ export default function IndicatorsPage() {
                 </div>
             </div>
 
-            <Tabs
-                selectedIndex={tab === 'base' ? 0 : 1}
-                onChange={({ selectedIndex }) => setTab(selectedIndex === 0 ? 'base' : 'final')}
-            >
+            {/* Tabs */}
+            <Tabs selectedIndex={tab === 'base' ? 0 : 1} onChange={({ selectedIndex }) => setTab(selectedIndex === 0 ? 'base' : 'final')}>
                 <TabList aria-label="Indicator tabs">
                     <Tab>Base Indicators</Tab>
                     <Tab>Final Indicators</Tab>
@@ -339,27 +205,22 @@ export default function IndicatorsPage() {
                 open={openBase}
                 mode={mode}
                 initial={editing}
-                initialConceptUi={mode === 'edit' ? editingConceptUi : undefined}
-                initialQaUi={mode === 'edit' ? editingQaUi : undefined}
                 onClose={() => {
                     setOpenBase(false);
                     setEditing(null);
-                    setEditingConceptUi({});
-                    setEditingQaUi({});
                 }}
                 onSaved={async () => {
                     setOpenBase(false);
                     setEditing(null);
-                    setEditingConceptUi({});
-                    setEditingQaUi({});
                     const ac = new AbortController();
                     await load(ac.signal);
                 }}
+                // ✅ match modal signature Promise<void>
                 onCreate={async (payload) => {
-                    await createIndicator(payload); // ✅ wrapper keeps Promise<void>
+                    await createIndicator(payload);
                 }}
                 onUpdate={async (uuid, payload) => {
-                    await updateIndicator(uuid, payload); // ✅ wrapper keeps Promise<void>
+                    await updateIndicator(uuid, payload);
                 }}
             />
 
@@ -367,18 +228,29 @@ export default function IndicatorsPage() {
                 open={openComposite}
                 onClose={() => setOpenComposite(false)}
                 baseIndicators={baseIndicators}
-                onSubmit={async (data: CreateCompositeBaseIndicatorPayload) => {
+                onSubmit={async (data) => {
+                    // TODO: wire composite create endpoint when ready.
+                    // For now, log + close + reload.
+                    // eslint-disable-next-line no-console
                     console.log('Composite submit:', data);
                     setOpenComposite(false);
                     const ac = new AbortController();
                     await load(ac.signal);
                 }}
-            />
+                onCreate={async (payload) => {
+                    await createIndicator(payload);
+                }} mode={'create'} onUpdate={function (uuid: string, payload: Partial<IndicatorDto>): Promise<void> {
+                throw new Error('Function not implemented.');
+            }} onSaved={function (): void {
+                throw new Error('Function not implemented.');
+            }}            />
 
             <CreateFinalIndicatorModal
                 open={openFinal}
                 onClose={() => setOpenFinal(false)}
                 onSubmit={async (data) => {
+                    // TODO: wire final create endpoint when ready.
+                    // eslint-disable-next-line no-console
                     console.log('Final submit:', data);
                     setOpenFinal(false);
                     const ac = new AbortController();
