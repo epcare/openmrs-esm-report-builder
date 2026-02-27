@@ -10,7 +10,7 @@ import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../servi
 import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';
 import FinalIndicatorPickerSection from './sections/final-indicator-picker.section';
 import FinalIndicatorDisaggregationSection from './sections/final-indicator-disaggregation.section';
-import FinalIndicatorPreviewSection from './sections/final-indicator-preview.section';
+import FinalIndicatorResultsPreviewSection from './sections/final-indicator-results-preview.section';
 
 import { buildFinalIndicatorSql, type FinalIndicatorAuthoringV1 } from './utils/final-indicator-sql.utils';
 
@@ -44,6 +44,14 @@ const toCode = (name: string) =>
         .replace(/^_+|_+$/g, '')
         .slice(0, 50);
 
+function todayIso(): string {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function CreateFinalIndicatorModal({
                                                       open,
                                                       mode = 'create',
@@ -69,6 +77,10 @@ export default function CreateFinalIndicatorModal({
     const [baseError, setBaseError] = React.useState<string | null>(null);
 
     const [sqlPreview, setSqlPreview] = React.useState('');
+
+    // ✅ Preview parameters (must be inside component)
+    const [previewStartDate, setPreviewStartDate] = React.useState('2025-01-01');
+    const [previewEndDate, setPreviewEndDate] = React.useState(todayIso);
 
     // load categories when modal opens
     React.useEffect(() => {
@@ -104,6 +116,8 @@ export default function CreateFinalIndicatorModal({
             setGenders((cfg.genders as any) ?? ['F', 'M']);
 
             setSqlPreview(String(cfg.sqlPreview ?? initial.sqlTemplate ?? ''));
+
+            // keep preview dates as-is (user controlled)
             return;
         }
 
@@ -115,6 +129,7 @@ export default function CreateFinalIndicatorModal({
         setSqlPreview('');
         setBaseFull(null);
         setBaseError(null);
+        // preview dates remain (or you can reset here if desired)
     }, [open, mode, initial?.uuid]);
 
     // load full base indicator
@@ -232,7 +247,14 @@ export default function CreateFinalIndicatorModal({
 
                 <FinalIndicatorDisaggregationSection genders={genders} onChange={setGenders} />
 
-                <FinalIndicatorPreviewSection sql={sqlPreview} show={showPreview} />
+                <FinalIndicatorResultsPreviewSection
+                    sql={sqlPreview}
+                    maxRows={200}
+                    startDate={previewStartDate}
+                    endDate={previewEndDate}
+                    onChangeStartDate={setPreviewStartDate}
+                    onChangeEndDate={setPreviewEndDate}
+                />
             </Stack>
         </Modal>
     );
