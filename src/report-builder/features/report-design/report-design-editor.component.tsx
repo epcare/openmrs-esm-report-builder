@@ -7,14 +7,14 @@ import styles from './report-design-editor.scss';
 import {buildDefaultTemplate, type IndicatorNode, type TemplateModel} from '../../sample-template';
 import {toJsonTemplate, fromJsonTemplate} from '../../template-utils';
 
-import BuilderHeaderActions from '../header/builder-header-actions.component';
+import BuilderHeaderActions from '../../shared/components/header/builder-header-actions.component';
 
 import TemplateStructurePanel, {
     type SelectedNode
-} from '../template-structure-panel/template-structure-panel.component';
-import JsonPreviewPanel from '../json-preview-panel/JsonPreviewPanel';
-import IndicatorPropertiesPanel from '../indicator-properties-panel/IndicatorPropertiesPanel';
-import MappingPreviewPanel from '../mapping-preview-panel/mapping-preview-panel.component';
+} from '../../shared/components/template-structure-panel/template-structure-panel.component';
+import JsonPreviewPanel from '../../shared/components/json-preview-panel/JsonPreviewPanel';
+import IndicatorPropertiesPanel from '../../shared/components/indicator-properties-panel/IndicatorPropertiesPanel';
+import MappingPreviewPanel from '../../shared/components/mapping-preview-panel/mapping-preview-panel.component';
 
 type Selected = SelectedNode;
 

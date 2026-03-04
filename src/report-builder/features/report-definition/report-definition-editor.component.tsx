@@ -25,7 +25,7 @@ import {
 import { Add, ChevronDown, ChevronRight, Close, Folder, Document } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import styles from '../report-builder/report-builder.scss';
+import styles from '../../app/report-builder/report-builder.scss';
 
 type IndicatorKind = 'base' | 'final';
 

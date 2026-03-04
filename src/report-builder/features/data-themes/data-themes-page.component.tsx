@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import DataThemesTable from './data-themes-table.component';
 import DataThemeModal from './data-theme-modal.component';
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 
 import type { DataTheme, DataThemeRow } from '../../types/theme/data-theme.types';
 import { listThemes, createTheme, updateTheme, deleteTheme, getTheme } from '../../services/theme/data-theme.api';

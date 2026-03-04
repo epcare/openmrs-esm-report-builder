@@ -15,7 +15,7 @@ import {
 import { Add, Download } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 import IndicatorsTable, { type IndicatorRow } from './indicators-table.component';
 
 import CreateBaseIndicatorModal from './create-base-indicator-modal.component';

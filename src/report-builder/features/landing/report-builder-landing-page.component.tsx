@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import styles from './report-builder-landing-page.scss';
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 
 const ReportBuilderLandingPage: React.FC = () => {
   const { t } = useTranslation();

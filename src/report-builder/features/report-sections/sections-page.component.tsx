@@ -17,7 +17,7 @@ import {
 import {Add, Folder} from '@carbon/icons-react';
 import {useTranslation} from 'react-i18next';
 
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 import CreateSectionModal, {CreateSectionPayload, SectionIndicatorRef} from './create-section-modal.component';
 import styles from './sections-page.scss';
 

@@ -5,7 +5,7 @@ import { formatDate, useSession } from '@openmrs/esm-framework';
 
 import Illustration from './illustration.component';
 import styles from './header.scss';
-import AiAssistButton from '../ai/ai-assist-button.component';
+import AiAssistButton from '../../../features/ai/ai-assist-button.component';
 
 export interface HeaderStatus {
     label: string;

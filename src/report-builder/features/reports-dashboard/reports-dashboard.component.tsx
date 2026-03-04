@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 import ReportsTable, { type ReportSummary } from './reports-table.component';
 
 import styles from './reports-dashboard.scss';

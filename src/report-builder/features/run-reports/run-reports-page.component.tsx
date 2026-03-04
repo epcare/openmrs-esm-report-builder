@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import Header from '../header/header.component';
+import Header from '../../shared/components/header/header.component';
 
 const RunReportsPage: React.FC = () => {
   const { t } = useTranslation();

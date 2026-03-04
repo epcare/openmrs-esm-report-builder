@@ -2,9 +2,9 @@ import React from 'react';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from '@carbon/react';
 import { useTranslation } from 'react-i18next';
 
-import Header from '../header/header.component';
-import ReportDesignEditor from '../report-design/report-design-editor.component';
-import ReportDefinition from '../report-definition/report-definition-editor.component';
+import Header from '../../shared/components/header/header.component';
+import ReportDesignEditor from '../../features/report-design/report-design-editor.component';
+import ReportDefinition from '../../features/report-definition/report-definition-editor.component';
 import ReportDetail from './report-detail.component';
 
 import styles from './report-builder.scss';
