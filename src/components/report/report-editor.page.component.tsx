@@ -18,7 +18,7 @@ import AiAssistButton from '../ai-support/ai-assist-button.component';
 
 import ReportDetail, { type ReportDetailModel } from './panels/report-detail.component';
 import ReportDefinitionEditor from './definition/report-definition-editor.component';
-import ReportDesignEditor from './design/report-design-editor.component';
+import ReportDesignEditor, { type DesignSectionSource } from './design/report-design-editor.component';
 
 import type { ReportDefinitionDraft } from './definition/report-definition.types';
 import type { ReportDesignDraft } from './design/report-design.types';
@@ -31,6 +31,7 @@ import {
   compileMambaReport,
   type MambaReportDto,
 } from '../../resources/report/mambareports.api';
+import { listSections } from '../../resources/report-section/mamba-sections.api';
 
 type TabKey = 'details' | 'definition' | 'design';
 type BuilderMode = 'create' | 'edit';
@@ -42,6 +43,13 @@ type ReportFormState = {
   code: string;
   sections: ReportDefinitionDraft['sections'];
   design: ReportDesignDraft;
+};
+
+type SectionDtoLike = {
+  uuid: string;
+  name?: string;
+  configJson?: string;
+  retired?: boolean;
 };
 
 function buildEmptyForm(): ReportFormState {
@@ -80,11 +88,17 @@ function parseSavedReportToForm(report: MambaReportDto): ReportFormState {
     name: report.name ?? parsed?.name ?? '',
     description: report.description ?? parsed?.description ?? '',
     code: report.code ?? parsed?.code ?? '',
-    sections: Array.isArray(definition?.sections)
-        ? definition.sections
-        : legacySections,
+    sections: Array.isArray(definition?.sections) ? definition.sections : legacySections,
     design: design ?? createEmptyReportDesignDraft(),
   };
+}
+
+function safeParseJson(raw?: string | null): any {
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
 }
 
 export default function ReportEditorPage() {
@@ -97,8 +111,10 @@ export default function ReportEditorPage() {
   const [form, setForm] = React.useState<ReportFormState>(() => buildEmptyForm());
 
   const [savedReport, setSavedReport] = React.useState<MambaReportDto | null>(null);
+  const [allSections, setAllSections] = React.useState<SectionDtoLike[]>([]);
 
   const [loading, setLoading] = React.useState(mode === 'edit');
+  const [sectionsLoading, setSectionsLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [compiling, setCompiling] = React.useState(false);
 
@@ -106,6 +122,18 @@ export default function ReportEditorPage() {
   const [saveSuccess, setSaveSuccess] = React.useState<string | null>(null);
   const [compileError, setCompileError] = React.useState<string | null>(null);
   const [compileSuccess, setCompileSuccess] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const ac = new AbortController();
+
+    setSectionsLoading(true);
+    listSections({ v: 'full', includeRetired: false }, ac.signal)
+        .then((rows: SectionDtoLike[]) => setAllSections(Array.isArray(rows) ? rows : []))
+        .catch(() => setAllSections([]))
+        .finally(() => setSectionsLoading(false));
+
+    return () => ac.abort();
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -159,6 +187,41 @@ export default function ReportEditorPage() {
   };
 
   const designDraft: ReportDesignDraft = form.design;
+
+  const sectionNameLookup = React.useMemo(() => {
+    return allSections.reduce<Record<string, string>>((acc, s) => {
+      acc[s.uuid] = s.name ?? s.uuid;
+      return acc;
+    }, {});
+  }, [allSections]);
+
+  const sectionSources = React.useMemo<DesignSectionSource[]>(() => {
+    const chosen = Array.isArray(form.sections) ? form.sections : [];
+    const sectionMap = new Map(allSections.map((s) => [s.uuid, s]));
+
+    return chosen
+        .slice()
+        .sort((a: any, b: any) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+        .map((ref: any) => {
+          const section = sectionMap.get(ref.sectionUuid);
+          const cfg = safeParseJson(section?.configJson);
+          const indicators = Array.isArray(cfg?.indicators) ? cfg.indicators : [];
+
+          return {
+            sectionUuid: ref.sectionUuid,
+            title: ref.titleOverride?.trim() || section?.name || ref.sectionUuid,
+            indicators: indicators
+                .slice()
+                .sort((a: any, b: any) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+                .map((i: any) => ({
+                  id: String(i.indicatorUuid ?? i.id ?? i.code ?? crypto.randomUUID()),
+                  code: String(i.code ?? ''),
+                  name: String(i.name ?? i.code ?? ''),
+                  type: String(i.kind ?? 'indicator'),
+                })),
+          };
+        });
+  }, [allSections, form.sections]);
 
   const handleDetailChange = React.useCallback((next: ReportDetailModel) => {
     setForm((prev) => ({
@@ -287,6 +350,7 @@ export default function ReportEditorPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '1rem' }}>
           <div>
             {loading ? <InlineLoading description="Loading report…" /> : null}
+            {sectionsLoading ? <InlineLoading description="Loading sections…" /> : null}
             {saving ? <InlineLoading description="Saving draft…" /> : null}
             {compiling ? <InlineLoading description="Compiling report…" /> : null}
 
@@ -331,7 +395,7 @@ export default function ReportEditorPage() {
             }
         >
           <TabList aria-label="Report editor tabs">
-            <Tab>Report Details</Tab>
+            <Tab>Report Detail</Tab>
             <Tab>Report Definition</Tab>
             <Tab>Report Design</Tab>
           </TabList>
@@ -359,6 +423,8 @@ export default function ReportEditorPage() {
                   value={designDraft}
                   onChange={handleDesignChange}
                   definitionDraft={definitionDraft}
+                  sectionSources={sectionSources}
+                  sectionNameLookup={sectionNameLookup}
               />
             </TabPanel>
           </TabPanels>
@@ -386,6 +452,7 @@ export default function ReportEditorPage() {
                   sections: form.sections,
                 },
                 design: form.design,
+                sectionSources,
                 mode,
                 savedReportUuid: savedReport?.uuid ?? null,
               },
