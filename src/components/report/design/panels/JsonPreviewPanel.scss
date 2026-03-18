@@ -1,0 +1,32 @@
+@use '@carbon/layout';
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: layout.$spacing-03;
+}
+
+.title {
+  margin: 0;
+}
+
+.tools {
+  display: flex;
+  gap: layout.$spacing-02;
+  align-items: center;
+}
+
+.editorContainer {
+  padding: layout.$spacing-03;
+
+  :global(.ace_editor) {
+    border: 1px solid var(--cds-border-subtle, #e0e0e0);
+    border-radius: 4px;
+  }
+}
+
+.maximized {
+  position: relative;
+  z-index: 5;
+}
