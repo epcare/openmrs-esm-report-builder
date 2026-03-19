@@ -1,4 +1,4 @@
-import type { MambaSectionDto } from '../../resources/report-section/mamba-sections.api';
+import type { ReportSectionDto } from '../../resources/report-section/report-sections.api';
 
 export type SectionIndicatorType = 'BASE' | 'COMPOSITE' | 'FINAL';
 
@@ -51,5 +51,5 @@ export type ReportSectionEditorProps = {
     indicators: SectionIndicatorRef[];
 
     mode?: ReportSectionEditorMode;
-    initialSection?: MambaSectionDto | null;
+    initialSection?: ReportSectionDto | null;
 };

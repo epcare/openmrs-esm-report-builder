@@ -1,8 +1,8 @@
 import { omrsGet, omrsPost } from '../openmrs-api';
 import { decodeHtmlEntities } from '../../utils/html-entities.utils';
 
-const RESOURCE = '/mambareport';
-const COMPILE_RESOURCE = '/mambareportcompile';
+const RESOURCE = '/reportbuilderreport';
+const COMPILE_RESOURCE = '/reportbuilderreportcompile';
 
 type RestList<T> = { results?: T[] } & Record<string, any>;
 
@@ -14,7 +14,7 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
 
 export type RestRep = 'default' | 'full';
 
-export type MambaReportDto = {
+export type ReportDto = {
     uuid: string;
     name: string;
     description?: string;
@@ -24,7 +24,7 @@ export type MambaReportDto = {
     retired?: boolean;
 };
 
-export type SaveMambaReportPayload = {
+export type SaveReportPayload = {
     name: string;
     description?: string;
     code?: string;
@@ -32,17 +32,17 @@ export type SaveMambaReportPayload = {
     metaJson?: string;
 };
 
-export type ListMambaReportsParams = {
+export type ListReportsParams = {
     q?: string;
     includeRetired?: boolean;
     v?: RestRep;
 };
 
-export type CompileMambaReportPayload = {
+export type CompileReportPayload = {
     mambaReportUuid: string;
 };
 
-export type CompileMambaReportResult = {
+export type CompileReportResult = {
     mambaReportUuid: string;
     reportDefinitionUuid?: string;
     reportDefinitionName?: string;
@@ -50,7 +50,7 @@ export type CompileMambaReportResult = {
     compiled?: boolean;
 };
 
-function normalizeReportDto(r: MambaReportDto): MambaReportDto {
+function normalizeReportDto(r: ReportDto): ReportDto {
     return {
         ...r,
         configJson: r.configJson ? decodeHtmlEntities(r.configJson) : r.configJson,
@@ -58,10 +58,10 @@ function normalizeReportDto(r: MambaReportDto): MambaReportDto {
     };
 }
 
-export async function listMambaReports(
-    params?: ListMambaReportsParams,
+export async function listReports(
+    params?: ListReportsParams,
     signal?: AbortSignal,
-): Promise<MambaReportDto[]> {
+): Promise<ReportDto[]> {
     const q = params?.q?.trim();
     const includeRetired = params?.includeRetired === true;
     const v = params?.v ?? 'default';
@@ -72,7 +72,7 @@ export async function listMambaReports(
     if (q) qs.set('q', q);
     if (includeRetired) qs.set('includeRetired', 'true');
 
-    const data = await omrsGet<RestList<MambaReportDto> | MambaReportDto[] | undefined>(
+    const data = await omrsGet<RestList<ReportDto> | ReportDto[] | undefined>(
         `${RESOURCE}?${qs.toString()}`,
         signal,
     );
@@ -82,36 +82,36 @@ export async function listMambaReports(
         .map(normalizeReportDto);
 }
 
-export async function getMambaReport(
+export async function getReport(
     uuid: string,
     signal?: AbortSignal,
     v: RestRep = 'full',
-): Promise<MambaReportDto> {
-    const data = await omrsGet<MambaReportDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
+): Promise<ReportDto> {
+    const data = await omrsGet<ReportDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
     return normalizeReportDto(data);
 }
 
-export async function createMambaReport(
-    payload: SaveMambaReportPayload,
+export async function createReport(
+    payload: SaveReportPayload,
     signal?: AbortSignal,
-): Promise<MambaReportDto> {
-    const data = await omrsPost<MambaReportDto>(RESOURCE, payload, signal);
+): Promise<ReportDto> {
+    const data = await omrsPost<ReportDto>(RESOURCE, payload, signal);
     return normalizeReportDto(data);
 }
 
-export async function updateMambaReport(
+export async function updateReport(
     uuid: string,
-    payload: SaveMambaReportPayload,
+    payload: SaveReportPayload,
     signal?: AbortSignal,
-): Promise<MambaReportDto> {
-    const data = await omrsPost<MambaReportDto>(`${RESOURCE}/${encodeURIComponent(uuid)}`, payload, signal);
+): Promise<ReportDto> {
+    const data = await omrsPost<ReportDto>(`${RESOURCE}/${encodeURIComponent(uuid)}`, payload, signal);
     return normalizeReportDto(data);
 }
 
-export async function compileMambaReport(
+export async function compileReport(
     mambaReportUuid: string,
     signal?: AbortSignal,
-): Promise<CompileMambaReportResult> {
-    const payload: CompileMambaReportPayload = { mambaReportUuid };
-    return omrsPost<CompileMambaReportResult>(COMPILE_RESOURCE, payload, signal);
+): Promise<CompileReportResult> {
+    const payload: CompileReportPayload = { mambaReportUuid };
+    return omrsPost<CompileReportResult>(COMPILE_RESOURCE, payload, signal);
 }

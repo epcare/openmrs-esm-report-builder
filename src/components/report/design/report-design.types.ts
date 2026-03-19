@@ -9,7 +9,7 @@ export type DesignDimension = {
     options: DesignDimensionOption[];
 };
 
-export type DesignRowType = 'indicator' | 'label' | 'spacer';
+export type DesignRowType = 'section-label' | 'indicator' | 'label' | 'spacer';
 
 export type DesignRow = {
     id: string;
@@ -21,6 +21,10 @@ export type DesignRow = {
     dims?: Record<string, string | undefined>;
     showTotal?: boolean;
     showDisaggregation?: boolean;
+
+    // presentation hints
+    span?: 'all' | 'label-only';
+    emphasis?: 'normal' | 'section' | 'summary';
 };
 
 export type DesignGroup = {

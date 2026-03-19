@@ -1,5 +1,5 @@
 import React from 'react';
-import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../../resources/agegroup/mamba-agegroups.api';
+import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../../resources/agegroup/agegroups.api';
 
 export function useAgeCategories(open: boolean) {
     const [ageCategories, setAgeCategories] = React.useState<AgeCategoryOption[]>([]);

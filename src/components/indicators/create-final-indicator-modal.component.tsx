@@ -5,7 +5,7 @@ import type { IndicatorDto } from '../../resources/indicator/indicators.api';
 import { getIndicator } from '../../resources/indicator/indicators.api';
 
 import type { BaseIndicatorOption } from './types/composite-indicator.types';
-import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../resources/agegroup/mamba-agegroups.api';
+import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../resources/agegroup/agegroups.api';
 
 import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';
 import FinalIndicatorPickerSection from './sections/final-indicator-picker.section';

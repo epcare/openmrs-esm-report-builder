@@ -2,7 +2,7 @@ import React from 'react';
 import { ComboBox } from '@carbon/react';
 
 import type { BaseIndicatorOption } from '../types/composite-indicator.types';
-import type { AgeCategoryOption } from '../../../resources/agegroup/mamba-agegroups.api';
+import type { AgeCategoryOption } from '../../../resources/agegroup/agegroups.api';
 
 type IndicatorItem = { id: string; label: string };
 

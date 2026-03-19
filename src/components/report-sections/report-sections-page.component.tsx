@@ -26,9 +26,9 @@ import styles from './sections-page.scss';
 import { useLocation } from 'react-router-dom';
 
 import { listIndicators } from '../../resources/indicator/indicators.api';
-import { createSection, getSection, listSections, updateSection, type MambaSectionDto } from '../../resources/report-section/mamba-sections.api';
+import { createSection, getSection, listSections, updateSection, type ReportSectionDto } from '../../resources/report-section/report-sections.api';
 
-function countIndicatorsFromConfig(section: MambaSectionDto): number {
+function countIndicatorsFromConfig(section: ReportSectionDto): number {
     try {
         if (!section?.configJson) return 0;
         const obj = JSON.parse(section.configJson);
@@ -45,7 +45,7 @@ const SectionsPage: React.FC = () => {
     const [q, setQ] = React.useState('');
     const [openCreate, setOpenCreate] = React.useState(false);
 
-    const [sections, setSections] = React.useState<MambaSectionDto[]>([]);
+    const [sections, setSections] = React.useState<ReportSectionDto[]>([]);
     const [sectionsLoading, setSectionsLoading] = React.useState(false);
     const [sectionsError, setSectionsError] = React.useState<string | null>(null);
 
@@ -54,11 +54,11 @@ const SectionsPage: React.FC = () => {
     const [indicatorsError, setIndicatorsError] = React.useState<string | null>(null);
 
     const [previewOpen, setPreviewOpen] = React.useState(false);
-    const [previewSection, setPreviewSection] = React.useState<MambaSectionDto | null>(null);
+    const [previewSection, setPreviewSection] = React.useState<ReportSectionDto | null>(null);
 
     // NEW: edit state
     const [editOpen, setEditOpen] = React.useState(false);
-    const [editSection, setEditSection] = React.useState<MambaSectionDto | null>(null);
+    const [editSection, setEditSection] = React.useState<ReportSectionDto | null>(null);
 
     const filtered = React.useMemo(() => {
         const s = q.trim().toLowerCase();

@@ -18,12 +18,12 @@ import {
 import { Play } from '@carbon/icons-react';
 
 import { previewSection } from '../../resources/report-section/section-preview.api';
-import type { MambaSectionDto } from '../../resources/report-section/mamba-sections.api';
+import type { ReportSectionDto } from '../../resources/report-section/report-sections.api';
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  section: MambaSectionDto | null;
+  section: ReportSectionDto | null;
 };
 
 type PreviewResult = {

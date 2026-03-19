@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect} from 'react';
 import { searchConcepts } from './concepts.resource';
 import type { ConceptSummary } from './concept-types';
 
 export function useConceptSearch(query: string) {
-    const [loading, setLoading] = React.useState(false);
-    const [results, setResults] = React.useState<ConceptSummary[]>([]);
-    const [error, setError] = React.useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [results, setResults] = useState<ConceptSummary[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const q = query.trim();
         if (q.length < 2) {
             setResults([]);

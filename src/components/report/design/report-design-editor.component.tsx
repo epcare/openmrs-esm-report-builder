@@ -26,12 +26,12 @@ import {
     Copy,
     Launch,
 } from '@carbon/icons-react';
-import { useTranslation } from 'react-i18next';
+import {useTranslation} from 'react-i18next';
 
 import styles from '../../../routes/report-builder.scss';
 
-import type { ReportDefinitionDraft } from '../definition/report-definition.types';
-import type { DesignGroup, DesignRow, ReportDesignDraft } from './report-design.types';
+import type {ReportDefinitionDraft} from '../definition/report-definition.types';
+import type {DesignGroup, DesignRow, ReportDesignDraft} from './report-design.types';
 import {
     createEmptyDesignRow,
     createEmptyReportDesignDraft,
@@ -61,6 +61,10 @@ type DragState = {
     fromGroupId: string;
 } | null;
 
+type StructureItem =
+    | { kind: 'group'; group: DesignGroup }
+    | { kind: 'row'; group: DesignGroup; row: DesignRow; rowIndex: number };
+
 const MAX_INDENT = 10;
 
 function buildDesignFromSectionSources(
@@ -76,36 +80,50 @@ function buildDesignFromSectionSources(
         groups: sectionSources.map((section) => ({
             id: section.sectionUuid,
             title: section.title,
-            rows: section.indicators.map((i) => ({
-                id: i.id,
-                type: 'indicator',
-                code: i.code,
-                label: `${i.code}. ${i.name}`,
-                indent: 0,
-                keyPattern: '{code}_{age}_{sex}',
-                dims: {},
-                showTotal: true,
-                showDisaggregation: true,
-            })),
+            rows: [
+                {
+                    id: `${section.sectionUuid}__section_label`,
+                    type: 'section-label' as any,
+                    label: section.title,
+                    indent: 0,
+                    span: 'all' as any,
+                    emphasis: 'section' as any,
+                    showTotal: false,
+                    showDisaggregation: false,
+                },
+                ...section.indicators.map((i) => ({
+                    id: i.id,
+                    type: 'indicator' as const,
+                    code: i.code,
+                    label: `${i.code}. ${i.name}`,
+                    indent: 1,
+                    keyPattern: '{code}_{age}_{sex}',
+                    dims: {},
+                    showTotal: true,
+                    showDisaggregation: true,
+                    span: 'label-only' as any,
+                    emphasis: 'normal' as any,
+                })),
+            ],
         })),
     };
 }
 
-function buildMappingPreview(group?: DesignGroup | null, rows?: DesignRow[]) {
-    const activeRows = rows ?? group?.rows ?? [];
-    const visible = activeRows.filter((r) => r.type !== 'spacer');
-
+function buildMappingPreview(groups: DesignGroup[]) {
     const columns = ['Age <5 | Male', 'Age <5 | Female', '5-14 | Male', '5-14 | Female'];
 
-    return {
-        columns,
-        rows: visible.slice(0, 8).map((r) => ({
+    const rows = groups.flatMap((group) =>
+        group.rows.map((r) => ({
             id: r.id,
+            type: r.type,
             label: r.label || r.code || 'Untitled row',
-            values: columns.map(() => 0),
+            values: r.type === ('section-label' as any) ? [] : columns.map(() => 0),
             indent: r.indent ?? 0,
+            groupId: group.id,
         })),
-    };
+    );
+
+    return {columns, rows};
 }
 
 const ReportDesignEditor: React.FC<Props> = ({
@@ -114,7 +132,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                  definitionDraft,
                                                  sectionSources = [],
                                              }) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
 
     const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
     const [selectedRowId, setSelectedRowId] = React.useState<string | null>(null);
@@ -148,8 +166,11 @@ const ReportDesignEditor: React.FC<Props> = ({
     );
 
     const selectedRow = React.useMemo(
-        () => selectedGroup?.rows.find((r) => r.id === selectedRowId) ?? null,
-        [selectedGroup, selectedRowId],
+        () =>
+            groups
+                .flatMap((g) => g.rows)
+                .find((r) => r.id === selectedRowId) ?? null,
+        [groups, selectedRowId],
     );
 
     const updateGroups = React.useCallback(
@@ -162,35 +183,44 @@ const ReportDesignEditor: React.FC<Props> = ({
         [draft, setDraft],
     );
 
-    const updateGroup = React.useCallback(
-        (groupId: string, patch: Partial<DesignGroup>) => {
-            updateGroups(groups.map((g) => (g.id === groupId ? { ...g, ...patch } : g)));
+    const updateRow = React.useCallback(
+        (groupId: string, rowId: string, patch: Partial<DesignRow>) => {
+            updateGroups(
+                groups.map((g) =>
+                    g.id === groupId
+                        ? {
+                            ...g,
+                            rows: g.rows.map((r) => (r.id === rowId ? {...r, ...patch} : r)),
+                        }
+                        : g,
+                ),
+            );
         },
         [groups, updateGroups],
     );
 
-    const addRow = React.useCallback(() => {
-        if (!selectedGroup) return;
-
-        const row = createEmptyDesignRow();
-        updateGroups(
-            groups.map((g) =>
-                g.id === selectedGroup.id
-                    ? { ...g, rows: [...g.rows, row] }
-                    : g,
-            ),
-        );
-        setSelectedRowId(row.id);
-    }, [groups, selectedGroup, updateGroups]);
-
-    const removeRow = React.useCallback(
-        (rowId: string) => {
-            if (!selectedGroup) return;
-
+    const addRowToGroup = React.useCallback(
+        (groupId: string) => {
+            const row = createEmptyDesignRow();
             updateGroups(
                 groups.map((g) =>
-                    g.id === selectedGroup.id
-                        ? { ...g, rows: g.rows.filter((r) => r.id !== rowId) }
+                    g.id === groupId
+                        ? {...g, rows: [...g.rows, row]}
+                        : g,
+                ),
+            );
+            setSelectedGroupId(groupId);
+            setSelectedRowId(row.id);
+        },
+        [groups, updateGroups],
+    );
+
+    const removeRow = React.useCallback(
+        (groupId: string, rowId: string) => {
+            updateGroups(
+                groups.map((g) =>
+                    g.id === groupId
+                        ? {...g, rows: g.rows.filter((r) => r.id !== rowId)}
                         : g,
                 ),
             );
@@ -199,14 +229,15 @@ const ReportDesignEditor: React.FC<Props> = ({
                 setSelectedRowId(null);
             }
         },
-        [groups, selectedGroup, selectedRowId, updateGroups],
+        [groups, selectedRowId, updateGroups],
     );
 
     const moveRow = React.useCallback(
-        (rowId: string, dir: -1 | 1) => {
-            if (!selectedGroup) return;
+        (groupId: string, rowId: string, dir: -1 | 1) => {
+            const group = groups.find((g) => g.id === groupId);
+            if (!group) return;
 
-            const rows = selectedGroup.rows.slice();
+            const rows = group.rows.slice();
             const idx = rows.findIndex((r) => r.id === rowId);
             if (idx < 0) return;
 
@@ -219,44 +250,23 @@ const ReportDesignEditor: React.FC<Props> = ({
 
             updateGroups(
                 groups.map((g) =>
-                    g.id === selectedGroup.id
-                        ? { ...g, rows }
-                        : g,
+                    g.id === groupId ? {...g, rows} : g,
                 ),
             );
         },
-        [groups, selectedGroup, updateGroups],
-    );
-
-    const updateRow = React.useCallback(
-        (rowId: string, patch: Partial<DesignRow>) => {
-            if (!selectedGroup) return;
-
-            updateGroups(
-                groups.map((g) =>
-                    g.id === selectedGroup.id
-                        ? {
-                            ...g,
-                            rows: g.rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
-                        }
-                        : g,
-                ),
-            );
-        },
-        [groups, selectedGroup, updateGroups],
+        [groups, updateGroups],
     );
 
     const indentRow = React.useCallback(
-        (rowId: string, dir: -1 | 1) => {
-            if (!selectedGroup) return;
-
-            const row = selectedGroup.rows.find((r) => r.id === rowId);
-            if (!row) return;
+        (groupId: string, rowId: string, dir: -1 | 1) => {
+            const group = groups.find((g) => g.id === groupId);
+            const row = group?.rows.find((r) => r.id === rowId);
+            if (!group || !row) return;
 
             const nextIndent = Math.max(0, Math.min(MAX_INDENT, (row.indent ?? 0) + dir));
-            updateRow(rowId, { indent: nextIndent });
+            updateRow(groupId, rowId, {indent: nextIndent});
         },
-        [selectedGroup, updateRow],
+        [groups, updateRow],
     );
 
     const generateFromDefinition = React.useCallback(() => {
@@ -267,16 +277,19 @@ const ReportDesignEditor: React.FC<Props> = ({
     }, [draft, sectionSources, setDraft]);
 
     const handleDragStart = React.useCallback((rowId: string, fromGroupId: string) => {
-        setDragState({ rowId, fromGroupId });
+        setDragState({rowId, fromGroupId});
     }, []);
 
     const handleDropOnRow = React.useCallback(
-        (targetRowId: string) => {
-            if (!selectedGroup || !dragState) return;
-            if (dragState.fromGroupId !== selectedGroup.id) return;
+        (targetGroupId: string, targetRowId: string) => {
+            if (!dragState) return;
+            if (dragState.fromGroupId !== targetGroupId) return;
             if (dragState.rowId === targetRowId) return;
 
-            const rows = selectedGroup.rows.slice();
+            const group = groups.find((g) => g.id === targetGroupId);
+            if (!group) return;
+
+            const rows = group.rows.slice();
             const fromIdx = rows.findIndex((r) => r.id === dragState.rowId);
             const toIdx = rows.findIndex((r) => r.id === targetRowId);
 
@@ -288,50 +301,33 @@ const ReportDesignEditor: React.FC<Props> = ({
 
             updateGroups(
                 groups.map((g) =>
-                    g.id === selectedGroup.id
-                        ? { ...g, rows }
-                        : g,
+                    g.id === targetGroupId ? {...g, rows} : g,
                 ),
             );
 
             setDragState(null);
             setDragOverRowId(null);
         },
-        [dragState, groups, selectedGroup, updateGroups],
+        [dragState, groups, updateGroups],
     );
 
-    const handleDropAtEnd = React.useCallback(() => {
-        if (!selectedGroup || !dragState) return;
-        if (dragState.fromGroupId !== selectedGroup.id) return;
+    const structureItems = React.useMemo<StructureItem[]>(() => {
+        return groups.flatMap((group) => [
+            {kind: 'group' as const, group},
+            ...group.rows.map((row, rowIndex) => ({
+                kind: 'row' as const,
+                group,
+                row,
+                rowIndex,
+            })),
+        ]);
+    }, [groups]);
 
-        const rows = selectedGroup.rows.slice();
-        const fromIdx = rows.findIndex((r) => r.id === dragState.rowId);
-        if (fromIdx < 0) return;
-
-        const moving = rows[fromIdx];
-        rows.splice(fromIdx, 1);
-        rows.push(moving);
-
-        updateGroups(
-            groups.map((g) =>
-                g.id === selectedGroup.id
-                    ? { ...g, rows }
-                    : g,
-            ),
-        );
-
-        setDragState(null);
-        setDragOverRowId(null);
-    }, [dragState, groups, selectedGroup, updateGroups]);
-
-    const mappingPreview = React.useMemo(
-        () => buildMappingPreview(selectedGroup, selectedGroup?.rows),
-        [selectedGroup],
-    );
+    const mappingPreview = React.useMemo(() => buildMappingPreview(groups), [groups]);
 
     return (
         <div className={styles.designWorkspace}>
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{marginBottom: '1rem'}}>
                 <h3 className={styles.workspaceTitle}>{t('reportDesign', 'Report Design')}</h3>
                 <p className={styles.workspaceHint}>
                     {t(
@@ -350,11 +346,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                 />
             ) : null}
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                <Button size="sm" kind="secondary" renderIcon={Add} onClick={addRow} disabled={!selectedGroup}>
-                    Add Node
-                </Button>
-
+            <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem'}}>
                 <Button
                     size="sm"
                     kind="primary"
@@ -373,9 +365,9 @@ const ReportDesignEditor: React.FC<Props> = ({
                     background: '#fff',
                 }}
             >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
                     {/* Left */}
-                    <div style={{ display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem' }}>
+                    <div style={{display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem'}}>
                         <div
                             style={{
                                 border: '1px solid var(--cds-border-subtle, #e0e0e0)',
@@ -384,8 +376,13 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Template Structure</div>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.75rem'
+                            }}>
+                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>Template Structure</div>
                                 <Button kind="ghost" size="sm" renderIcon={Renew} onClick={generateFromDefinition}>
                                     Refresh JSON
                                 </Button>
@@ -393,22 +390,23 @@ const ReportDesignEditor: React.FC<Props> = ({
 
                             <div
                                 style={{
-                                    minHeight: '10rem',
+                                    minHeight: '12rem',
                                     border: '1px solid var(--cds-border-subtle, #e0e0e0)',
                                     borderRadius: 8,
                                     background: '#fff',
                                     padding: '0.5rem',
                                     overflow: 'auto',
                                 }}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={handleDropAtEnd}
                             >
-                                {!selectedGroup ? (
-                                    <div style={{ opacity: 0.7 }}>Select a section group first.</div>
-                                ) : selectedGroup.rows.length === 0 ? (
-                                    <div style={{ opacity: 0.7 }}>No indicators/nodes yet.</div>
+                                {structureItems.length === 0 ? (
+                                    <div style={{opacity: 0.7}}>No sections/rows yet. Generate from definition.</div>
                                 ) : (
-                                    selectedGroup.rows.map((row, idx) => {
+                                    structureItems.map((item) => {
+
+                                        if (item.kind === 'group') {
+                                            return null;
+                                        }
+                                        const {group, row, rowIndex} = item;
                                         const isSelected = row.id === selectedRowId;
                                         const isDragOver = row.id === dragOverRowId;
 
@@ -416,7 +414,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             <div
                                                 key={row.id}
                                                 draggable
-                                                onDragStart={() => handleDragStart(row.id, selectedGroup.id)}
+                                                onDragStart={() => handleDragStart(row.id, group.id)}
                                                 onDragEnd={() => {
                                                     setDragState(null);
                                                     setDragOverRowId(null);
@@ -427,15 +425,19 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                 }}
                                                 onDrop={(e) => {
                                                     e.preventDefault();
-                                                    handleDropOnRow(row.id);
+                                                    handleDropOnRow(group.id, row.id);
                                                 }}
-                                                onClick={() => setSelectedRowId(row.id)}
+                                                onClick={() => {
+                                                    setSelectedGroupId(group.id);
+                                                    setSelectedRowId(row.id);
+                                                }}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '0.5rem',
                                                     padding: '0.65rem 0.75rem',
                                                     marginBottom: '0.35rem',
+                                                    marginLeft: `${(row.indent ?? 0) * 18}px`,
                                                     borderRadius: 6,
                                                     border: isSelected
                                                         ? '2px solid var(--cds-border-interactive, #0f62fe)'
@@ -446,27 +448,41 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                     cursor: 'pointer',
                                                 }}
                                             >
-                                                <Draggable size={16} />
-                                                <span style={{ paddingLeft: `${(row.indent ?? 0) * 20}px` }}>
+                                                <Draggable size={16}/>
+                                                <span
+                                                    style={{fontWeight: row.type === ('section-label' as any) ? 700 : 500}}>
                           {row.label || row.code || 'Untitled row'}
                         </span>
-                                                {row.code ? (
-                                                    <Tag size="sm" type="gray">
-                                                        {row.code}
-                                                    </Tag>
-                                                ) : null}
+                                                <Tag size="sm" type={row.type === ('section-label' as any) ? 'purple' : 'gray'}>
+                                                    {row.type === ('section-label' as any) ? 'section' : row.code || row.type}
+                                                </Tag>
 
-                                                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem' }}>
+                                                {row.type === ('section-label' as any) ? (
+                                                    <Button
+                                                        size="sm"
+                                                        kind="ghost"
+                                                        renderIcon={Add}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            addRowToGroup(group.id);
+                                                        }}
+                                                    >
+                                                        Add Node
+                                                    </Button>
+                                                ) : null
+                                                }
+
+                                                <div style={{marginLeft: 'auto', display: 'flex', gap: '0.25rem'}}>
                                                     <Button
                                                         kind="ghost"
                                                         size="sm"
                                                         hasIconOnly
                                                         iconDescription="Move up"
                                                         renderIcon={ArrowUp}
-                                                        disabled={idx === 0}
+                                                        disabled={rowIndex === 0}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            moveRow(row.id, -1);
+                                                            moveRow(group.id, row.id, -1);
                                                         }}
                                                     />
                                                     <Button
@@ -475,10 +491,10 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         hasIconOnly
                                                         iconDescription="Move down"
                                                         renderIcon={ArrowDown}
-                                                        disabled={idx === selectedGroup.rows.length - 1}
+                                                        disabled={rowIndex === group.rows.length - 1}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            moveRow(row.id, 1);
+                                                            moveRow(group.id, row.id, 1);
                                                         }}
                                                     />
                                                     <Button
@@ -490,7 +506,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         disabled={(row.indent ?? 0) >= MAX_INDENT}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            indentRow(row.id, 1);
+                                                            indentRow(group.id, row.id, 1);
                                                         }}
                                                     />
                                                     <Button
@@ -502,7 +518,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         disabled={(row.indent ?? 0) <= 0}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            indentRow(row.id, -1);
+                                                            indentRow(group.id, row.id, -1);
                                                         }}
                                                     />
                                                     <Button
@@ -513,7 +529,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         renderIcon={TrashCan}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            removeRow(row.id);
+                                                            removeRow(group.id, row.id);
                                                         }}
                                                     />
                                                 </div>
@@ -521,39 +537,6 @@ const ReportDesignEditor: React.FC<Props> = ({
                                         );
                                     })
                                 )}
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-                                <Button size="sm" kind="primary" renderIcon={Add} onClick={addRow} disabled={!selectedGroup}>
-                                    Add Node
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    kind="secondary"
-                                    renderIcon={ArrowUp}
-                                    disabled={!selectedRow}
-                                    onClick={() => selectedRow && moveRow(selectedRow.id, -1)}
-                                >
-                                    Move Up
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    kind="secondary"
-                                    renderIcon={ArrowDown}
-                                    disabled={!selectedRow}
-                                    onClick={() => selectedRow && moveRow(selectedRow.id, 1)}
-                                >
-                                    Move Down
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    kind="secondary"
-                                    renderIcon={ArrowLeft}
-                                    disabled={!selectedRow || (selectedRow.indent ?? 0) <= 0}
-                                    onClick={() => selectedRow && indentRow(selectedRow.id, -1)}
-                                >
-                                    Outdent
-                                </Button>
                             </div>
                         </div>
 
@@ -565,13 +548,22 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: '#fff',
                             }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>JSON Preview</div>
-                                <div style={{ display: 'flex', gap: '0.35rem' }}>
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Refresh" renderIcon={Renew} />
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Copy" renderIcon={Copy} />
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Download" renderIcon={Download} />
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Expand" renderIcon={Launch} />
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.75rem'
+                            }}>
+                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>JSON Preview</div>
+                                <div style={{display: 'flex', gap: '0.35rem'}}>
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Refresh"
+                                            renderIcon={Renew}/>
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Copy"
+                                            renderIcon={Copy}/>
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Download"
+                                            renderIcon={Download}/>
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Expand"
+                                            renderIcon={Launch}/>
                                 </div>
                             </div>
 
@@ -596,7 +588,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                     </div>
 
                     {/* Right */}
-                    <div style={{ display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem' }}>
+                    <div style={{display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem'}}>
                         <div
                             style={{
                                 border: '1px solid var(--cds-border-subtle, #e0e0e0)',
@@ -605,8 +597,8 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Indicator Properties</div>
-                            <div style={{ opacity: 0.8, marginBottom: '0.75rem' }}>
+                            <div style={{fontSize: '1.1rem', fontWeight: 600}}>Indicator Properties</div>
+                            <div style={{opacity: 0.8, marginBottom: '0.75rem'}}>
                                 Select an indicator/row to edit properties
                             </div>
 
@@ -614,7 +606,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 selectedIndex={
                                     propTab === 'details' ? 0 : propTab === 'disaggregation' ? 1 : propTab === 'mapping' ? 2 : 3
                                 }
-                                onChange={({ selectedIndex }) =>
+                                onChange={({selectedIndex}) =>
                                     setPropTab(selectedIndex === 0 ? 'details' : selectedIndex === 1 ? 'disaggregation' : selectedIndex === 2 ? 'mapping' : 'api')
                                 }
                             >
@@ -626,17 +618,17 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 </TabList>
                             </Tabs>
 
-                            <div style={{ marginTop: '1rem' }}>
-                                {!selectedRow ? (
-                                    <div style={{ opacity: 0.7 }}>Select a node to edit.</div>
+                            <div style={{marginTop: '1rem'}}>
+                                {!selectedRow || !selectedGroupId ? (
+                                    <div style={{opacity: 0.7}}>Select a node to edit.</div>
                                 ) : propTab === 'details' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
                                         <TextInput
                                             id="design-row-label"
                                             labelText="Label"
                                             value={selectedRow.label}
                                             onChange={(e) =>
-                                                updateRow(selectedRow.id, { label: (e.target as HTMLInputElement).value })
+                                                updateRow(selectedGroupId, selectedRow.id, {label: (e.target as HTMLInputElement).value})
                                             }
                                         />
                                         <TextInput
@@ -644,7 +636,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             labelText="Code"
                                             value={selectedRow.code ?? ''}
                                             onChange={(e) =>
-                                                updateRow(selectedRow.id, { code: (e.target as HTMLInputElement).value })
+                                                updateRow(selectedGroupId, selectedRow.id, {code: (e.target as HTMLInputElement).value})
                                             }
                                         />
                                         <Select
@@ -652,14 +644,15 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             labelText="Row type"
                                             value={selectedRow.type}
                                             onChange={(e) =>
-                                                updateRow(selectedRow.id, {
+                                                updateRow(selectedGroupId, selectedRow.id, {
                                                     type: (e.target as HTMLSelectElement).value as DesignRow['type'],
                                                 })
                                             }
                                         >
-                                            <SelectItem value="indicator" text="Indicator" />
-                                            <SelectItem value="label" text="Label" />
-                                            <SelectItem value="spacer" text="Spacer" />
+                                            <SelectItem value="section-label" text="Section Label"/>
+                                            <SelectItem value="indicator" text="Indicator"/>
+                                            <SelectItem value="label" text="Label"/>
+                                            <SelectItem value="spacer" text="Spacer"/>
                                         </Select>
                                         <NumberInput
                                             id="design-row-indent"
@@ -669,20 +662,20 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             value={selectedRow.indent ?? 0}
                                             onChange={(e) => {
                                                 const next = Number((e.target as HTMLInputElement).value || 0);
-                                                updateRow(selectedRow.id, {
+                                                updateRow(selectedGroupId, selectedRow.id, {
                                                     indent: Number.isNaN(next) ? 0 : Math.max(0, Math.min(MAX_INDENT, next)),
                                                 });
                                             }}
                                         />
                                     </div>
                                 ) : propTab === 'disaggregation' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
                                         <Checkbox
                                             id="design-row-total"
                                             labelText="Show total"
                                             checked={Boolean(selectedRow.showTotal)}
                                             onChange={(checked) =>
-                                                updateRow(selectedRow.id, { showTotal: Boolean(checked) })
+                                                updateRow(selectedGroupId, selectedRow.id, {showTotal: Boolean(checked)})
                                             }
                                         />
                                         <Checkbox
@@ -690,42 +683,29 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             labelText="Show disaggregation"
                                             checked={Boolean(selectedRow.showDisaggregation)}
                                             onChange={(checked) =>
-                                                updateRow(selectedRow.id, { showDisaggregation: Boolean(checked) })
+                                                updateRow(selectedGroupId, selectedRow.id, {showDisaggregation: Boolean(checked)})
                                             }
                                         />
                                     </div>
                                 ) : propTab === 'mapping' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
                                         <TextInput
                                             id="design-row-key-pattern"
                                             labelText="Key pattern"
                                             value={selectedRow.keyPattern ?? ''}
                                             onChange={(e) =>
-                                                updateRow(selectedRow.id, { keyPattern: (e.target as HTMLInputElement).value })
+                                                updateRow(selectedGroupId, selectedRow.id, {keyPattern: (e.target as HTMLInputElement).value})
                                             }
                                         />
-                                        <div style={{ opacity: 0.8, fontSize: '0.875rem' }}>
+                                        <div style={{opacity: 0.8, fontSize: '0.875rem'}}>
                                             Example: {'{code}_{age}_{sex}'}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ opacity: 0.8, fontSize: '0.875rem' }}>
+                                    <div style={{opacity: 0.8, fontSize: '0.875rem'}}>
                                         Node API preview and compile-time bindings will appear here.
                                     </div>
                                 )}
-                            </div>
-
-                            <div
-                                style={{
-                                    marginTop: '1rem',
-                                    padding: '0.75rem',
-                                    borderLeft: '3px solid var(--cds-border-interactive, #0f62fe)',
-                                    background: 'var(--cds-layer-accent, #edf5ff)',
-                                    fontSize: '0.9rem',
-                                }}
-                            >
-                                Note: Nodes with children act as groups. Leaf nodes act as indicators and will
-                                appear as rows in the output tables.
                             </div>
                         </div>
 
@@ -737,9 +717,14 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Mapping Preview</div>
-                                <View size={18} />
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.75rem'
+                            }}>
+                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>Mapping Preview</div>
+                                <View size={18}/>
                             </div>
 
                             <div
@@ -759,36 +744,54 @@ const ReportDesignEditor: React.FC<Props> = ({
                                         background: '#fafafa',
                                     }}
                                 >
-                                    <div style={{ padding: '0.75rem' }} />
+                                    <div style={{padding: '0.75rem'}}/>
                                     {mappingPreview.columns.map((c) => (
-                                        <div key={c} style={{ padding: '0.75rem' }}>
+                                        <div key={c} style={{padding: '0.75rem'}}>
                                             {c}
                                         </div>
                                     ))}
                                 </div>
 
                                 {mappingPreview.rows.length === 0 ? (
-                                    <div style={{ padding: '1rem', opacity: 0.7 }}>No rows to preview.</div>
+                                    <div style={{padding: '1rem', opacity: 0.7}}>No rows to preview.</div>
                                 ) : (
-                                    mappingPreview.rows.map((row) => (
-                                        <div
-                                            key={row.id}
-                                            style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: `minmax(220px, 1.3fr) repeat(${mappingPreview.columns.length}, minmax(120px, 1fr))`,
-                                                borderTop: '1px solid var(--cds-border-subtle, #f0f0f0)',
-                                            }}
-                                        >
-                                            <div style={{ padding: '0.75rem', fontWeight: 600, paddingLeft: `${12 + row.indent * 18}px` }}>
+                                    mappingPreview.rows.map((row: any) =>
+                                        row.type === 'section-label' ? (
+                                            <div
+                                                key={row.id}
+                                                style={{
+                                                    borderTop: '1px solid var(--cds-border-subtle, #f0f0f0)',
+                                                    background: 'var(--cds-layer-accent, #f4f4f4)',
+                                                    fontWeight: 700,
+                                                    padding: '0.85rem 0.75rem',
+                                                }}
+                                            >
                                                 {row.label}
                                             </div>
-                                            {row.values.map((v, idx) => (
-                                                <div key={idx} style={{ padding: '0.75rem' }}>
-                                                    {v}
+                                        ) : (
+                                            <div
+                                                key={row.id}
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: `minmax(220px, 1.3fr) repeat(${mappingPreview.columns.length}, minmax(120px, 1fr))`,
+                                                    borderTop: '1px solid var(--cds-border-subtle, #f0f0f0)',
+                                                }}
+                                            >
+                                                <div style={{
+                                                    padding: '0.75rem',
+                                                    fontWeight: 600,
+                                                    paddingLeft: `${12 + row.indent * 18}px`
+                                                }}>
+                                                    {row.label}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    ))
+                                                {row.values.map((v: any, idx: number) => (
+                                                    <div key={idx} style={{padding: '0.75rem'}}>
+                                                        {v}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ),
+                                    )
                                 )}
                             </div>
                         </div>

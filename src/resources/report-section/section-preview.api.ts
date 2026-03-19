@@ -5,7 +5,7 @@ export async function previewSection(
     body: { startDate: string; endDate: string; maxRows?: number; params?: Record<string, any> },
     signal?: AbortSignal,
 ) {
-  const { data } = await openmrsFetch(`/ws/rest/v1/mambasection/${sectionUuid}/preview`, {
+  const { data } = await openmrsFetch(`/ws/rest/v1/reportbuildersection/${sectionUuid}/preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,

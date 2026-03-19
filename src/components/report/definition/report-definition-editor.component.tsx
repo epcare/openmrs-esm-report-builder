@@ -10,7 +10,7 @@ import SelectionPanel from './panels/selection-panel.component';
 import PropertiesPanel from './panels/properties-panel.component';
 
 import { parseSectionLibraryItem, sortReportSections, type ReportDefinitionDraft, type ReportSectionRef, type SectionLibraryItem } from './report-definition.types';
-import { listSections } from '../../../resources/report-section/mamba-sections.api';
+import { listSections } from '../../../resources/report-section/report-sections.api';
 
 type Props = {
   value: ReportDefinitionDraft;

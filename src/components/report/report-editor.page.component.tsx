@@ -25,13 +25,13 @@ import type { ReportDesignDraft } from './design/report-design.types';
 import { createEmptyReportDesignDraft } from './design/report-design.utils';
 
 import {
-  createMambaReport,
-  updateMambaReport,
-  getMambaReport,
-  compileMambaReport,
-  type MambaReportDto,
-} from '../../resources/report/mambareports.api';
-import { listSections } from '../../resources/report-section/mamba-sections.api';
+  createReport,
+  updateReport,
+  getReport,
+  compileReport,
+  type ReportDto,
+} from '../../resources/report/reports.api';
+import { listSections } from '../../resources/report-section/report-sections.api';
 
 type TabKey = 'details' | 'definition' | 'design';
 type BuilderMode = 'create' | 'edit';
@@ -71,7 +71,7 @@ function slugifyCode(name: string): string {
       .replace(/^_+|_+$/g, '');
 }
 
-function parseSavedReportToForm(report: MambaReportDto): ReportFormState {
+function parseSavedReportToForm(report: ReportDto): ReportFormState {
   let parsed: any = {};
   try {
     parsed = report.configJson ? JSON.parse(report.configJson) : {};
@@ -110,7 +110,7 @@ export default function ReportEditorPage() {
   const [tab, setTab] = React.useState<TabKey>('details');
   const [form, setForm] = React.useState<ReportFormState>(() => buildEmptyForm());
 
-  const [savedReport, setSavedReport] = React.useState<MambaReportDto | null>(null);
+  const [savedReport, setSavedReport] = React.useState<ReportDto | null>(null);
   const [allSections, setAllSections] = React.useState<SectionDtoLike[]>([]);
 
   const [loading, setLoading] = React.useState(mode === 'edit');
@@ -151,7 +151,7 @@ export default function ReportEditorPage() {
         setSaveError(null);
         setCompileError(null);
 
-        const report = await getMambaReport(reportId);
+        const report = await getReport(reportId);
         if (cancelled) return;
 
         setSavedReport(report);
@@ -276,8 +276,8 @@ export default function ReportEditorPage() {
 
       const result =
           mode === 'edit' && (savedReport?.uuid || reportId)
-              ? await updateMambaReport((savedReport?.uuid || reportId) as string, payload)
-              : await createMambaReport(payload);
+              ? await updateReport((savedReport?.uuid || reportId) as string, payload)
+              : await createReport(payload);
 
       setSavedReport(result);
       setForm((prev) => ({
@@ -313,7 +313,7 @@ export default function ReportEditorPage() {
         throw new Error('Save the report first before compiling.');
       }
 
-      const result = await compileMambaReport(targetUuid);
+      const result = await compileReport(targetUuid);
 
       setCompileSuccess(
           result?.reportDefinitionUuid

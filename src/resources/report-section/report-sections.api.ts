@@ -3,9 +3,9 @@ import { decodeHtmlEntities } from '../../utils/html-entities.utils';
 
 /**
  * REST resource:
- *  /ws/rest/v1/mambasection
+ *  /ws/rest/v1/reportbuildersection
  */
-const RESOURCE = '/mambasection';
+const RESOURCE = '/reportbuildersection';
 
 type RestList<T> = { results?: T[] } & Record<string, any>;
 
@@ -17,7 +17,7 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
 
 export type RestRep = 'default' | 'full';
 
-export type MambaSectionDto = {
+export type ReportSectionDto = {
   uuid: string;
   name: string;
   description?: string;
@@ -27,7 +27,7 @@ export type MambaSectionDto = {
   retired?: boolean;
 };
 
-function normalizeSectionDto(s: MambaSectionDto): MambaSectionDto {
+function normalizeSectionDto(s: ReportSectionDto): ReportSectionDto {
   return {
     ...s,
     configJson: s.configJson ? decodeHtmlEntities(s.configJson) : s.configJson,
@@ -41,7 +41,7 @@ export type ListSectionsParams = {
   v?: RestRep;
 };
 
-export async function listSections(params?: ListSectionsParams, signal?: AbortSignal): Promise<MambaSectionDto[]> {
+export async function listSections(params?: ListSectionsParams, signal?: AbortSignal): Promise<ReportSectionDto[]> {
   const q = params?.q?.trim();
   const includeRetired = params?.includeRetired === true;
   const v = params?.v ?? 'default';
@@ -51,23 +51,23 @@ export async function listSections(params?: ListSectionsParams, signal?: AbortSi
   if (q) qs.set('q', q);
   if (includeRetired) qs.set('includeRetired', 'true');
 
-  const data = await omrsGet<RestList<MambaSectionDto> | MambaSectionDto[] | undefined>(`${RESOURCE}?${qs.toString()}`, signal);
+  const data = await omrsGet<RestList<ReportSectionDto> | ReportSectionDto[] | undefined>(`${RESOURCE}?${qs.toString()}`, signal);
   return unwrapRestList(data)
     .filter((x) => Boolean(x?.uuid))
     .map(normalizeSectionDto);
 }
 
-export async function getSection(uuid: string, signal?: AbortSignal, v: RestRep = 'full'): Promise<MambaSectionDto> {
-  const s = await omrsGet<MambaSectionDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
+export async function getSection(uuid: string, signal?: AbortSignal, v: RestRep = 'full'): Promise<ReportSectionDto> {
+  const s = await omrsGet<ReportSectionDto>(`${RESOURCE}/${encodeURIComponent(uuid)}?v=${v}`, signal);
   return normalizeSectionDto(s);
 }
 
-export async function createSection(payload: Partial<MambaSectionDto>, signal?: AbortSignal): Promise<MambaSectionDto> {
-  const s = await omrsPost<MambaSectionDto>(RESOURCE, payload, signal);
+export async function createSection(payload: Partial<ReportSectionDto>, signal?: AbortSignal): Promise<ReportSectionDto> {
+  const s = await omrsPost<ReportSectionDto>(RESOURCE, payload, signal);
   return normalizeSectionDto(s);
 }
 
-export async function updateSection(uuid: string, payload: Partial<MambaSectionDto>, signal?: AbortSignal): Promise<MambaSectionDto> {
-  const s = await omrsPost<MambaSectionDto>(`${RESOURCE}/${encodeURIComponent(uuid)}`, payload, signal);
+export async function updateSection(uuid: string, payload: Partial<ReportSectionDto>, signal?: AbortSignal): Promise<ReportSectionDto> {
+  const s = await omrsPost<ReportSectionDto>(`${RESOURCE}/${encodeURIComponent(uuid)}`, payload, signal);
   return normalizeSectionDto(s);
 }

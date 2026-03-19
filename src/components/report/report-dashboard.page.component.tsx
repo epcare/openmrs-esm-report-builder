@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import Header from '../shared/header/header.component';
 import ReportsTable, { type ReportSummary } from './dashboard/reports-table.component';
-import { listMambaReports } from '../../resources/report/mambareports.api';
+import { listReports } from '../../resources/report/reports.api';
 
 const ReportDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -16,7 +16,7 @@ const ReportDashboardPage: React.FC = () => {
   React.useEffect(() => {
     const ac = new AbortController();
 
-    listMambaReports({ v: 'default', includeRetired: false }, ac.signal)
+    listReports({ v: 'default', includeRetired: false }, ac.signal)
         .then((data) =>
             setReports(
                 data.map((r) => ({

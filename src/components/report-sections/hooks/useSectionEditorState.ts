@@ -1,13 +1,13 @@
 import React from 'react';
-import type { AgeCategoryOption } from '../../../resources/agegroup/mamba-agegroups.api';
-import type { MambaSectionDto } from '../../../resources/report-section/mamba-sections.api';
+import type { AgeCategoryOption } from '../../../resources/agegroup/agegroups.api';
+import type { ReportSectionDto } from '../../../resources/report-section/report-sections.api';
 import type { Dhis2MappingV1, ReportSectionEditorMode, SectionIndicatorRef, SectionIndicatorType } from '../section-types';
 import { makeDisaggKey, safeParseJson } from '../section-utils';
 
 export function useSectionEditorState(args: {
     open: boolean;
     mode: ReportSectionEditorMode;
-    initialSection?: MambaSectionDto | null;
+    initialSection?: ReportSectionDto | null;
     indicators: SectionIndicatorRef[];
     ageCategories: AgeCategoryOption[];
 }) {

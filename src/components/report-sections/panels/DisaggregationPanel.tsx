@@ -1,6 +1,6 @@
 import React from 'react';
 import { Toggle, ComboBox, Checkbox, InlineNotification } from '@carbon/react';
-import type { AgeCategoryOption } from '../../../resources/agegroup/mamba-agegroups.api';
+import type { AgeCategoryOption } from '../../../resources/agegroup/agegroups.api';
 
 function readChecked(arg1: any, arg2: any): boolean {
     if (typeof arg1 === 'boolean') return arg1;
