@@ -9,7 +9,7 @@ export type DesignDimension = {
     options: DesignDimensionOption[];
 };
 
-export type DesignRowType = 'section-label' | 'indicator' | 'label' | 'spacer';
+export type DesignRowType = 'section-label' | 'group-label' | 'indicator' | 'label' | 'spacer';
 
 export type DesignRow = {
     id: string;
@@ -24,7 +24,7 @@ export type DesignRow = {
 
     // presentation hints
     span?: 'all' | 'label-only';
-    emphasis?: 'normal' | 'section' | 'summary';
+    emphasis?: 'section' | 'group' | 'normal' | 'summary';
 };
 
 export type DesignGroup = {

@@ -26,12 +26,12 @@ import {
     Copy,
     Launch,
 } from '@carbon/icons-react';
-import {useTranslation} from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 
 import styles from '../../../routes/report-builder.scss';
 
-import type {ReportDefinitionDraft} from '../definition/report-definition.types';
-import type {DesignGroup, DesignRow, ReportDesignDraft} from './report-design.types';
+import type { ReportDefinitionDraft } from '../definition/report-definition.types';
+import type { DesignGroup, DesignRow, ReportDesignDraft } from './report-design.types';
 import {
     createEmptyDesignRow,
     createEmptyReportDesignDraft,
@@ -66,6 +66,62 @@ type StructureItem =
     | { kind: 'row'; group: DesignGroup; row: DesignRow; rowIndex: number };
 
 const MAX_INDENT = 10;
+
+function getMinIndentForRowType(type?: string | null) {
+    return type === 'section-label' ? 0 : 1;
+}
+
+function clampIndentForRowType(indent: number | undefined, type?: string | null) {
+    const min = getMinIndentForRowType(type);
+    const safe = Number.isNaN(Number(indent)) ? min : Number(indent ?? min);
+    return Math.max(min, Math.min(MAX_INDENT, safe));
+}
+
+function applyRowTypeDefaults(row: DesignRow, nextType: string): DesignRow {
+    if (nextType === 'section-label') {
+        return {
+            ...row,
+            type: nextType as any,
+            indent: 0,
+            span: 'all' as any,
+            emphasis: 'section' as any,
+            showTotal: false,
+            showDisaggregation: false,
+        };
+    }
+
+    if (nextType === 'group-label') {
+        return {
+            ...row,
+            type: nextType as any,
+            indent: clampIndentForRowType(row.indent, nextType),
+            span: 'label-only' as any,
+            emphasis: 'group' as any,
+            showTotal: false,
+            showDisaggregation: false,
+        };
+    }
+
+    if (nextType === 'indicator') {
+        return {
+            ...row,
+            type: nextType as any,
+            indent: clampIndentForRowType(row.indent, nextType),
+            span: 'label-only' as any,
+            emphasis: 'normal' as any,
+            showTotal: true,
+            showDisaggregation: true,
+        };
+    }
+
+    return {
+        ...row,
+        type: nextType as any,
+        indent: clampIndentForRowType(row.indent, nextType),
+        span: 'label-only' as any,
+        emphasis: 'normal' as any,
+    };
+}
 
 function buildDesignFromSectionSources(
     sectionSources: DesignSectionSource[] = [],
@@ -116,14 +172,18 @@ function buildMappingPreview(groups: DesignGroup[]) {
         group.rows.map((r) => ({
             id: r.id,
             type: r.type,
+            code: (r as any).code,
             label: r.label || r.code || 'Untitled row',
-            values: r.type === ('section-label' as any) ? [] : columns.map(() => 0),
+            values:
+                r.type === ('section-label' as any) || r.type === ('group-label' as any)
+                    ? []
+                    : columns.map(() => 0),
             indent: r.indent ?? 0,
             groupId: group.id,
         })),
     );
 
-    return {columns, rows};
+    return { columns, rows };
 }
 
 const ReportDesignEditor: React.FC<Props> = ({
@@ -132,7 +192,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                  definitionDraft,
                                                  sectionSources = [],
                                              }) => {
-    const {t} = useTranslation();
+    const { t } = useTranslation();
 
     const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
     const [selectedRowId, setSelectedRowId] = React.useState<string | null>(null);
@@ -160,11 +220,6 @@ const ReportDesignEditor: React.FC<Props> = ({
         }
     }, [groups, selectedGroupId]);
 
-    const selectedGroup = React.useMemo(
-        () => groups.find((g) => g.id === selectedGroupId) ?? null,
-        [groups, selectedGroupId],
-    );
-
     const selectedRow = React.useMemo(
         () =>
             groups
@@ -190,7 +245,14 @@ const ReportDesignEditor: React.FC<Props> = ({
                     g.id === groupId
                         ? {
                             ...g,
-                            rows: g.rows.map((r) => (r.id === rowId ? {...r, ...patch} : r)),
+                            rows: g.rows.map((r) => {
+                                if (r.id !== rowId) return r;
+                                const next = { ...r, ...patch };
+                                return {
+                                    ...next,
+                                    indent: clampIndentForRowType(next.indent, next.type),
+                                };
+                            }),
                         }
                         : g,
                 ),
@@ -202,10 +264,12 @@ const ReportDesignEditor: React.FC<Props> = ({
     const addRowToGroup = React.useCallback(
         (groupId: string) => {
             const row = createEmptyDesignRow();
+            row.indent = 1;
+
             updateGroups(
                 groups.map((g) =>
                     g.id === groupId
-                        ? {...g, rows: [...g.rows, row]}
+                        ? { ...g, rows: [...g.rows, row] }
                         : g,
                 ),
             );
@@ -220,7 +284,7 @@ const ReportDesignEditor: React.FC<Props> = ({
             updateGroups(
                 groups.map((g) =>
                     g.id === groupId
-                        ? {...g, rows: g.rows.filter((r) => r.id !== rowId)}
+                        ? { ...g, rows: g.rows.filter((r) => r.id !== rowId) }
                         : g,
                 ),
             );
@@ -250,7 +314,7 @@ const ReportDesignEditor: React.FC<Props> = ({
 
             updateGroups(
                 groups.map((g) =>
-                    g.id === groupId ? {...g, rows} : g,
+                    g.id === groupId ? { ...g, rows } : g,
                 ),
             );
         },
@@ -263,8 +327,9 @@ const ReportDesignEditor: React.FC<Props> = ({
             const row = group?.rows.find((r) => r.id === rowId);
             if (!group || !row) return;
 
-            const nextIndent = Math.max(0, Math.min(MAX_INDENT, (row.indent ?? 0) + dir));
-            updateRow(groupId, rowId, {indent: nextIndent});
+            const minIndent = getMinIndentForRowType(row.type);
+            const nextIndent = Math.max(minIndent, Math.min(MAX_INDENT, (row.indent ?? minIndent) + dir));
+            updateRow(groupId, rowId, { indent: nextIndent });
         },
         [groups, updateRow],
     );
@@ -277,7 +342,7 @@ const ReportDesignEditor: React.FC<Props> = ({
     }, [draft, sectionSources, setDraft]);
 
     const handleDragStart = React.useCallback((rowId: string, fromGroupId: string) => {
-        setDragState({rowId, fromGroupId});
+        setDragState({ rowId, fromGroupId });
     }, []);
 
     const handleDropOnRow = React.useCallback(
@@ -301,7 +366,7 @@ const ReportDesignEditor: React.FC<Props> = ({
 
             updateGroups(
                 groups.map((g) =>
-                    g.id === targetGroupId ? {...g, rows} : g,
+                    g.id === targetGroupId ? { ...g, rows } : g,
                 ),
             );
 
@@ -313,7 +378,7 @@ const ReportDesignEditor: React.FC<Props> = ({
 
     const structureItems = React.useMemo<StructureItem[]>(() => {
         return groups.flatMap((group) => [
-            {kind: 'group' as const, group},
+            { kind: 'group' as const, group },
             ...group.rows.map((row, rowIndex) => ({
                 kind: 'row' as const,
                 group,
@@ -327,7 +392,7 @@ const ReportDesignEditor: React.FC<Props> = ({
 
     return (
         <div className={styles.designWorkspace}>
-            <div style={{marginBottom: '1rem'}}>
+            <div style={{ marginBottom: '1rem' }}>
                 <h3 className={styles.workspaceTitle}>{t('reportDesign', 'Report Design')}</h3>
                 <p className={styles.workspaceHint}>
                     {t(
@@ -346,7 +411,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                 />
             ) : null}
 
-            <div style={{display: 'flex', gap: '0.5rem', marginBottom: '1rem'}}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                 <Button
                     size="sm"
                     kind="primary"
@@ -365,9 +430,8 @@ const ReportDesignEditor: React.FC<Props> = ({
                     background: '#fff',
                 }}
             >
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
-                    {/* Left */}
-                    <div style={{display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem'}}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem' }}>
                         <div
                             style={{
                                 border: '1px solid var(--cds-border-subtle, #e0e0e0)',
@@ -376,13 +440,8 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '0.75rem'
-                            }}>
-                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>Template Structure</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Template Structure</div>
                                 <Button kind="ghost" size="sm" renderIcon={Renew} onClick={generateFromDefinition}>
                                     Refresh JSON
                                 </Button>
@@ -399,16 +458,19 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 }}
                             >
                                 {structureItems.length === 0 ? (
-                                    <div style={{opacity: 0.7}}>No sections/rows yet. Generate from definition.</div>
+                                    <div style={{ opacity: 0.7 }}>No sections/rows yet. Generate from definition.</div>
                                 ) : (
                                     structureItems.map((item) => {
-
                                         if (item.kind === 'group') {
                                             return null;
                                         }
-                                        const {group, row, rowIndex} = item;
+
+                                        const { group, row, rowIndex } = item;
                                         const isSelected = row.id === selectedRowId;
                                         const isDragOver = row.id === dragOverRowId;
+
+                                        const isSectionLabel = row.type === ('section-label' as any);
+                                        const isGroupLabel = row.type === ('group-label' as any);
 
                                         return (
                                             <div
@@ -448,16 +510,33 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                     cursor: 'pointer',
                                                 }}
                                             >
-                                                <Draggable size={16}/>
+                                                <Draggable size={16} />
                                                 <span
-                                                    style={{fontWeight: row.type === ('section-label' as any) ? 700 : 500}}>
+                                                    style={{
+                                                        fontWeight: isSectionLabel ? 700 : isGroupLabel ? 600 : 500,
+                                                    }}
+                                                >
                           {row.label || row.code || 'Untitled row'}
                         </span>
-                                                <Tag size="sm" type={row.type === ('section-label' as any) ? 'purple' : 'gray'}>
-                                                    {row.type === ('section-label' as any) ? 'section' : row.code || row.type}
+
+                                                <Tag
+                                                    size="sm"
+                                                    type={
+                                                        isSectionLabel
+                                                            ? 'purple'
+                                                            : isGroupLabel
+                                                                ? 'cyan'
+                                                                : 'gray'
+                                                    }
+                                                >
+                                                    {isSectionLabel
+                                                        ? 'section'
+                                                        : isGroupLabel
+                                                            ? 'group'
+                                                            : row.code || row.type}
                                                 </Tag>
 
-                                                {row.type === ('section-label' as any) ? (
+                                                {isSectionLabel ? (
                                                     <Button
                                                         size="sm"
                                                         kind="ghost"
@@ -469,10 +548,9 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                     >
                                                         Add Node
                                                     </Button>
-                                                ) : null
-                                                }
+                                                ) : null}
 
-                                                <div style={{marginLeft: 'auto', display: 'flex', gap: '0.25rem'}}>
+                                                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem' }}>
                                                     <Button
                                                         kind="ghost"
                                                         size="sm"
@@ -503,7 +581,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         hasIconOnly
                                                         iconDescription="Indent"
                                                         renderIcon={ArrowRight}
-                                                        disabled={(row.indent ?? 0) >= MAX_INDENT}
+                                                        disabled={(row.indent ?? getMinIndentForRowType(row.type)) >= MAX_INDENT}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             indentRow(group.id, row.id, 1);
@@ -515,7 +593,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                         hasIconOnly
                                                         iconDescription="Outdent"
                                                         renderIcon={ArrowLeft}
-                                                        disabled={(row.indent ?? 0) <= 0}
+                                                        disabled={(row.indent ?? getMinIndentForRowType(row.type)) <= getMinIndentForRowType(row.type)}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             indentRow(group.id, row.id, -1);
@@ -548,22 +626,13 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: '#fff',
                             }}
                         >
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '0.75rem'
-                            }}>
-                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>JSON Preview</div>
-                                <div style={{display: 'flex', gap: '0.35rem'}}>
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Refresh"
-                                            renderIcon={Renew}/>
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Copy"
-                                            renderIcon={Copy}/>
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Download"
-                                            renderIcon={Download}/>
-                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Expand"
-                                            renderIcon={Launch}/>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>JSON Preview</div>
+                                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Refresh" renderIcon={Renew} />
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Copy" renderIcon={Copy} />
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Download" renderIcon={Download} />
+                                    <Button kind="ghost" hasIconOnly size="sm" iconDescription="Expand" renderIcon={Launch} />
                                 </div>
                             </div>
 
@@ -587,8 +656,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                         </div>
                     </div>
 
-                    {/* Right */}
-                    <div style={{display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem'}}>
+                    <div style={{ display: 'grid', gridTemplateRows: 'auto auto', gap: '1rem' }}>
                         <div
                             style={{
                                 border: '1px solid var(--cds-border-subtle, #e0e0e0)',
@@ -597,8 +665,8 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{fontSize: '1.1rem', fontWeight: 600}}>Indicator Properties</div>
-                            <div style={{opacity: 0.8, marginBottom: '0.75rem'}}>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Indicator Properties</div>
+                            <div style={{ opacity: 0.8, marginBottom: '0.75rem' }}>
                                 Select an indicator/row to edit properties
                             </div>
 
@@ -606,7 +674,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 selectedIndex={
                                     propTab === 'details' ? 0 : propTab === 'disaggregation' ? 1 : propTab === 'mapping' ? 2 : 3
                                 }
-                                onChange={({selectedIndex}) =>
+                                onChange={({ selectedIndex }) =>
                                     setPropTab(selectedIndex === 0 ? 'details' : selectedIndex === 1 ? 'disaggregation' : selectedIndex === 2 ? 'mapping' : 'api')
                                 }
                             >
@@ -618,17 +686,17 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 </TabList>
                             </Tabs>
 
-                            <div style={{marginTop: '1rem'}}>
+                            <div style={{ marginTop: '1rem' }}>
                                 {!selectedRow || !selectedGroupId ? (
-                                    <div style={{opacity: 0.7}}>Select a node to edit.</div>
+                                    <div style={{ opacity: 0.7 }}>Select a node to edit.</div>
                                 ) : propTab === 'details' ? (
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                         <TextInput
                                             id="design-row-label"
                                             labelText="Label"
                                             value={selectedRow.label}
                                             onChange={(e) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {label: (e.target as HTMLInputElement).value})
+                                                updateRow(selectedGroupId, selectedRow.id, { label: (e.target as HTMLInputElement).value })
                                             }
                                         />
                                         <TextInput
@@ -636,46 +704,47 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             labelText="Code"
                                             value={selectedRow.code ?? ''}
                                             onChange={(e) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {code: (e.target as HTMLInputElement).value})
+                                                updateRow(selectedGroupId, selectedRow.id, { code: (e.target as HTMLInputElement).value })
                                             }
                                         />
                                         <Select
                                             id="design-row-type"
                                             labelText="Row type"
                                             value={selectedRow.type}
-                                            onChange={(e) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {
-                                                    type: (e.target as HTMLSelectElement).value as DesignRow['type'],
-                                                })
-                                            }
+                                            onChange={(e) => {
+                                                const nextType = (e.target as HTMLSelectElement).value;
+                                                const nextRow = applyRowTypeDefaults(selectedRow, nextType);
+                                                updateRow(selectedGroupId, selectedRow.id, nextRow);
+                                            }}
                                         >
-                                            <SelectItem value="section-label" text="Section Label"/>
-                                            <SelectItem value="indicator" text="Indicator"/>
-                                            <SelectItem value="label" text="Label"/>
-                                            <SelectItem value="spacer" text="Spacer"/>
+                                            <SelectItem value="section-label" text="Section Label" />
+                                            <SelectItem value="group-label" text="Group Label" />
+                                            <SelectItem value="indicator" text="Indicator" />
+                                            <SelectItem value="label" text="Label" />
+                                            <SelectItem value="spacer" text="Spacer" />
                                         </Select>
                                         <NumberInput
                                             id="design-row-indent"
                                             label="Indent"
-                                            min={0}
+                                            min={getMinIndentForRowType(selectedRow.type)}
                                             max={MAX_INDENT}
-                                            value={selectedRow.indent ?? 0}
+                                            value={selectedRow.indent ?? getMinIndentForRowType(selectedRow.type)}
                                             onChange={(e) => {
-                                                const next = Number((e.target as HTMLInputElement).value || 0);
+                                                const next = Number((e.target as HTMLInputElement).value || getMinIndentForRowType(selectedRow.type));
                                                 updateRow(selectedGroupId, selectedRow.id, {
-                                                    indent: Number.isNaN(next) ? 0 : Math.max(0, Math.min(MAX_INDENT, next)),
+                                                    indent: clampIndentForRowType(next, selectedRow.type),
                                                 });
                                             }}
                                         />
                                     </div>
                                 ) : propTab === 'disaggregation' ? (
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                         <Checkbox
                                             id="design-row-total"
                                             labelText="Show total"
                                             checked={Boolean(selectedRow.showTotal)}
                                             onChange={(checked) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {showTotal: Boolean(checked)})
+                                                updateRow(selectedGroupId, selectedRow.id, { showTotal: Boolean(checked) })
                                             }
                                         />
                                         <Checkbox
@@ -683,26 +752,26 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             labelText="Show disaggregation"
                                             checked={Boolean(selectedRow.showDisaggregation)}
                                             onChange={(checked) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {showDisaggregation: Boolean(checked)})
+                                                updateRow(selectedGroupId, selectedRow.id, { showDisaggregation: Boolean(checked) })
                                             }
                                         />
                                     </div>
                                 ) : propTab === 'mapping' ? (
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                         <TextInput
                                             id="design-row-key-pattern"
                                             labelText="Key pattern"
                                             value={selectedRow.keyPattern ?? ''}
                                             onChange={(e) =>
-                                                updateRow(selectedGroupId, selectedRow.id, {keyPattern: (e.target as HTMLInputElement).value})
+                                                updateRow(selectedGroupId, selectedRow.id, { keyPattern: (e.target as HTMLInputElement).value })
                                             }
                                         />
-                                        <div style={{opacity: 0.8, fontSize: '0.875rem'}}>
+                                        <div style={{ opacity: 0.8, fontSize: '0.875rem' }}>
                                             Example: {'{code}_{age}_{sex}'}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{opacity: 0.8, fontSize: '0.875rem'}}>
+                                    <div style={{ opacity: 0.8, fontSize: '0.875rem' }}>
                                         Node API preview and compile-time bindings will appear here.
                                     </div>
                                 )}
@@ -717,14 +786,9 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 background: 'var(--cds-layer, #f4f4f4)',
                             }}
                         >
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '0.75rem'
-                            }}>
-                                <div style={{fontSize: '1.1rem', fontWeight: 600}}>Mapping Preview</div>
-                                <View size={18}/>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Mapping Preview</div>
+                                <View size={18} />
                             </div>
 
                             <div
@@ -744,16 +808,16 @@ const ReportDesignEditor: React.FC<Props> = ({
                                         background: '#fafafa',
                                     }}
                                 >
-                                    <div style={{padding: '0.75rem'}}/>
+                                    <div style={{ padding: '0.75rem' }} />
                                     {mappingPreview.columns.map((c) => (
-                                        <div key={c} style={{padding: '0.75rem'}}>
+                                        <div key={c} style={{ padding: '0.75rem' }}>
                                             {c}
                                         </div>
                                     ))}
                                 </div>
 
                                 {mappingPreview.rows.length === 0 ? (
-                                    <div style={{padding: '1rem', opacity: 0.7}}>No rows to preview.</div>
+                                    <div style={{ padding: '1rem', opacity: 0.7 }}>No rows to preview.</div>
                                 ) : (
                                     mappingPreview.rows.map((row: any) =>
                                         row.type === 'section-label' ? (
@@ -768,6 +832,29 @@ const ReportDesignEditor: React.FC<Props> = ({
                                             >
                                                 {row.label}
                                             </div>
+                                        ) : row.type === 'group-label' ? (
+                                            <div
+                                                key={row.id}
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: `minmax(220px, 1.3fr) repeat(${mappingPreview.columns.length}, minmax(120px, 1fr))`,
+                                                    borderTop: '1px solid var(--cds-border-subtle, #f0f0f0)',
+                                                    background: '#fafafa',
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        padding: '0.75rem',
+                                                        fontWeight: 600,
+                                                        paddingLeft: `${12 + row.indent * 18}px`,
+                                                    }}
+                                                >
+                                                    {row.code ? `${row.code} ${row.label}` : row.label}
+                                                </div>
+                                                {mappingPreview.columns.map((_: any, idx: number) => (
+                                                    <div key={idx} style={{ padding: '0.75rem' }} />
+                                                ))}
+                                            </div>
                                         ) : (
                                             <div
                                                 key={row.id}
@@ -777,15 +864,17 @@ const ReportDesignEditor: React.FC<Props> = ({
                                                     borderTop: '1px solid var(--cds-border-subtle, #f0f0f0)',
                                                 }}
                                             >
-                                                <div style={{
-                                                    padding: '0.75rem',
-                                                    fontWeight: 600,
-                                                    paddingLeft: `${12 + row.indent * 18}px`
-                                                }}>
+                                                <div
+                                                    style={{
+                                                        padding: '0.75rem',
+                                                        fontWeight: 600,
+                                                        paddingLeft: `${12 + row.indent * 18}px`,
+                                                    }}
+                                                >
                                                     {row.label}
                                                 </div>
                                                 {row.values.map((v: any, idx: number) => (
-                                                    <div key={idx} style={{padding: '0.75rem'}}>
+                                                    <div key={idx} style={{ padding: '0.75rem' }}>
                                                         {v}
                                                     </div>
                                                 ))}
