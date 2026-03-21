@@ -12,6 +12,12 @@ import SectionsPage from '../components/report-sections/report-sections-page.com
 import RunReportsPage from '../components/run-reports/run-reports-page.component';
 import DataThemesPage from '../components/data-themes/data-themes-page.component';
 
+import AdminPage from '../components/admin/admin-page.component';
+import ReportCategoriesPage from '../components/admin/report-categories-page.component';
+import AgeCategoriesPage from '../components/admin/age-categories-page.component';
+import AgeGroupsPage from '../components/admin/age-groups-page.component';
+import ReportLibraryPage from '../components/admin/report-library-page.component';
+
 const ReportBuilderRoutes: React.FC = () => {
     return (
         <Routes>
@@ -30,11 +36,23 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/indicators" element={<IndicatorsPage />} />
                 <Route path="/sections" element={<SectionsPage />} />
 
-                {/* Themes */}
-                <Route path="/themes" element={<DataThemesPage />} />
-
                 {/* Run */}
                 <Route path="/run" element={<RunReportsPage />} />
+
+
+                {/* Admin */}
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/report-categories" element={<ReportCategoriesPage />} />
+                <Route path="/admin/age-categories" element={<AgeCategoriesPage />} />
+                <Route path="/admin/age-groups" element={<AgeGroupsPage />} />
+                <Route path="/admin/report-library" element={<ReportLibraryPage />} />
+
+                {/* Data themes now accessed under Admin */}
+                <Route path="/admin/themes" element={<DataThemesPage />} />
+
+                {/* Optional backward compatibility */}
+                <Route path="/themes" element={<Navigate to="/admin/themes" replace />} />
+
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
