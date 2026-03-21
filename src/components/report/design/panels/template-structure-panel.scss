@@ -1,0 +1,81 @@
+.root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.tile {
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.tileHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+.tileTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.treeWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  background: var(--cds-layer-01, #fff);
+}
+
+.structureActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.draggableLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  cursor: grab;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.draggableLabel:active {
+  cursor: grabbing;
+}
+
+.draggableLabel:hover {
+  background: var(--cds-layer-hover-01, #f4f4f4);
+}
+
+.nodeText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeCode {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.375rem;
+}

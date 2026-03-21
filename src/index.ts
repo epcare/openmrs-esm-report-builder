@@ -9,7 +9,7 @@ const options = {
 };
 
 export const reportBuilderAdminLink = getAsyncLifecycle(
-  () => import('./report-builder/admin-card-link.extension'),
+  () => import('./admin-card-link.extension'),
   options,
 );
 

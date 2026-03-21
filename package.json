@@ -1,5 +1,5 @@
 {
-  "name": "@ugandaemr/esm-report-builder",
+  "name": "@openmrs/esm-report-builder",
   "version": "0.1.0",
   "license": "MPL-2.0",
   "description": "OpenMRS ESM Report Builder",
@@ -64,7 +64,7 @@
     "rootDir": "src",
     "config": {
       "paths": {
-        "@ugandaemr/esm-report-builder": ["src"]
+        "@openmrs/esm-report-builder": ["src"]
       }
     }
   }

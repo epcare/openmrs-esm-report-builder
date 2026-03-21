@@ -1,0 +1,55 @@
+.tile {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tileHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tileTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.previewControls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.previewTableWrap {
+  border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.previewTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.previewTable thead th {
+  background: var(--cds-layer-02, #f4f4f4);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+}
+
+.previewTable tbody td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+}
+
+.previewRowLabel {
+  font-weight: 600;
+  white-space: nowrap;
+}
