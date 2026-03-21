@@ -1,0 +1,120 @@
+name: ePCare CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types:
+      - created
+
+concurrency:
+  group: epcare-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🟢 Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: 📦 Install dependencies
+        run: yarn install --immutable
+
+      - name: ✅ Verify
+        run: yarn verify
+
+      - name: 🛠️ Build
+        run: yarn build
+
+      - name: 📤 Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.job }}-${{ github.run_id }}
+          path: dist
+          if-no-files-found: error
+
+  pre_release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🟢 Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: 📦 Install dependencies
+        run: yarn install --immutable
+
+      - name: 🏷️ Version
+        run: yarn version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+
+      - name: 🛠️ Build
+        run: yarn build
+
+      - name: Commit prerelease version
+        run: |
+          git config user.email "<>"
+          git config user.name "OpenMRS CI"
+          git add package.json
+          git commit -m "Prerelease version" --no-verify
+
+      - name: 🚢 Pre-release
+        run: |
+          yarn config set npmAuthToken "${NODE_AUTH_TOKEN}"
+          yarn npm publish --access public --tag next
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'release' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🟢 Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: 📦 Install dependencies
+        run: yarn install --immutable
+
+      - name: 🛠️ Build
+        run: yarn build
+
+      - name: 🚢 Publish
+        run: |
+          yarn config set npmAuthToken "${NODE_AUTH_TOKEN}"
+          yarn npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
