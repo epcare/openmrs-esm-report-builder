@@ -38,7 +38,7 @@ export type AgeCategoryOption = {
 
 export async function listAgeCategoriesWithGroups(signal?: AbortSignal): Promise<AgeCategoryOption[]> {
     // ✅ categories endpoint
-    const data = await omrsGet<RestList<AgeCategoryDto>>('/reportbuilderagecategory?v=full', signal);
+    const data = await omrsGet<RestList<AgeCategoryDto>>('/reportbuilder/agecategory?v=full', signal);
 
     const results = Array.isArray(data?.results) ? data.results : [];
 

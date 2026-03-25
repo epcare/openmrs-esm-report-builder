@@ -102,6 +102,9 @@ const ReportBuilderShell: React.FC = () => {
                             <SideNavMenuItem isActive={isActive('/admin/themes')} onClick={() => navigate('/admin/themes')}>
                                 Data Themes
                             </SideNavMenuItem>
+                          <SideNavMenuItem isActive={isActive('/admin/etl-sources')} onClick={() => navigate('/admin/etl-sources')}>
+                            ETL Sources
+                          </SideNavMenuItem>
                         </SideNavMenu>
                     </SideNavItems>
                 </SideNav>

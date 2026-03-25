@@ -5,7 +5,7 @@ import { decodeHtmlEntities } from '../../utils/html-entities.utils';
  * REST resource:
  *  /ws/rest/v1/reportbuildersection
  */
-const RESOURCE = '/reportbuildersection';
+const RESOURCE = '/reportbuilder/section';
 
 type RestList<T> = { results?: T[] } & Record<string, any>;
 

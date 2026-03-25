@@ -28,7 +28,7 @@ function restBase() {
 }
 
 export async function previewSql(request: SqlPreviewRequest, signal?: AbortSignal): Promise<SqlPreviewResponse> {
-    const url = `${restBase()}/sqlpreview`;
+    const url = `${restBase()}/reportbuilder/sqlpreview`;
 
     const res = await fetch(url, {
         method: 'POST',

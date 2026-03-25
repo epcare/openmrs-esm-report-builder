@@ -17,6 +17,7 @@ import ReportCategoriesPage from '../components/admin/report-categories-page.com
 import AgeCategoriesPage from '../components/admin/age-categories-page.component';
 import AgeGroupsPage from '../components/admin/age-groups-page.component';
 import ReportLibraryPage from '../components/admin/report-library-page.component';
+import ETLSourcesPage from '../components/admin/etl-sources-page.component';
 
 const ReportBuilderRoutes: React.FC = () => {
     return (
@@ -46,6 +47,7 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/admin/age-categories" element={<AgeCategoriesPage />} />
                 <Route path="/admin/age-groups" element={<AgeGroupsPage />} />
                 <Route path="/admin/report-library" element={<ReportLibraryPage />} />
+                <Route path="/admin/etl-sources" element={<ETLSourcesPage />} />
 
                 {/* Data themes now accessed under Admin */}
                 <Route path="/admin/themes" element={<DataThemesPage />} />

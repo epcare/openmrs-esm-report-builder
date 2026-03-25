@@ -8,7 +8,7 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
   return Array.isArray(data.results) ? data.results : [];
 }
 
-const RESOURCE = '/reportcategory';
+const RESOURCE = '/reportbuilder/reportcategory';
 
 export type ReportCategoryDto = {
   uuid: string;

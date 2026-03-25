@@ -1,7 +1,7 @@
 import type { DataTheme } from '../../types/theme/data-theme.types';
 import { omrsDelete, omrsGet, omrsPost } from '../openmrs-api';
 
-const RESOURCE = '/reportbuilderdatatheme';
+const RESOURCE = '/reportbuilder/datatheme';
 
 type RestList<T> = {
     results?: T[];

@@ -1,8 +1,8 @@
 import { omrsGet, omrsPost } from '../openmrs-api';
 import { decodeHtmlEntities } from '../../utils/html-entities.utils';
 
-const RESOURCE = '/reportbuilderreport';
-const COMPILE_RESOURCE = '/reportbuilderreportcompile';
+const RESOURCE = '/reportbuilder/report';
+const COMPILE_RESOURCE = '/reportbuilder/reportcompile';
 
 type RestList<T> = { results?: T[] } & Record<string, any>;
 

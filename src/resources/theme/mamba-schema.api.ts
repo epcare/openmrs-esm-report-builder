@@ -26,6 +26,6 @@ function normalizeTables(payload: ListTablesResponse | null | undefined): Schema
 }
 
 export async function getSchemaTables(signal?: AbortSignal): Promise<SchemaTable[]> {
-    const data = await omrsGet<ListTablesResponse>('/schema', signal);
+    const data = await omrsGet<ListTablesResponse>('/reportbuilder/schema', signal);
     return normalizeTables(data);
 }

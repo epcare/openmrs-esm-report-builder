@@ -50,11 +50,11 @@ function normalizeKey(s: string) {
 function decodeHtmlEntities(s: string) {
   if (!s) return s;
   return s
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 function isMatrixCompatible(r: PreviewResult) {
@@ -74,13 +74,10 @@ function isMatrixCompatible(r: PreviewResult) {
 function startAgeInDays(label: string): number {
   const s = String(label ?? '').trim().toLowerCase();
 
-  // take the "start" part: before '-' or '+'
   const startPart = s.split('-')[0].replace('+', '').trim();
 
-  // patterns like "29d", "5yrs", "10yr", "2y", "6m"
   const m = startPart.match(/^(\d+)\s*(d|day|days|m|mo|mos|month|months|y|yr|yrs|year|years)?$/i);
   if (!m) {
-    // fallback: treat first number as years if any
     const n = startPart.match(/\d+/);
     return n ? Number(n[0]) * 365 : Number.POSITIVE_INFINITY;
   }
@@ -91,7 +88,6 @@ function startAgeInDays(label: string): number {
   if (unit === 'd' || unit === 'day' || unit === 'days') return value;
   if (unit === 'm' || unit === 'mo' || unit === 'mos' || unit === 'month' || unit === 'months') return value * 30;
 
-  // years
   return value * 365;
 }
 
@@ -116,7 +112,6 @@ function buildMatrix(results: PreviewResult[]) {
     }
   }
 
-  // gender ordering: F, M, then others
   const genders = Array.from(genderSet);
   genders.sort((a, b) => {
     const A = a.toUpperCase();
@@ -128,7 +123,6 @@ function buildMatrix(results: PreviewResult[]) {
     return A.localeCompare(B);
   });
 
-  // age ordering: by start age in DAYS, then label
   const ageGroups = Array.from(ageSet);
   ageGroups.sort((a, b) => {
     const da = startAgeInDays(a);
@@ -198,6 +192,7 @@ function toGenericTableModel(columns: string[], rows: any[][]) {
 export default function ReportSectionPreviewModal({ open, onClose, section }: Props) {
   const [startDate, setStartDate] = React.useState<string>('');
   const [endDate, setEndDate] = React.useState<string>('');
+  const [indicatorUuid, setIndicatorUuid] = React.useState<string>('');
   const [maxRows, setMaxRows] = React.useState<number>(200);
 
   const [loading, setLoading] = React.useState(false);
@@ -208,6 +203,7 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
     if (!open) return;
     setStartDate('');
     setEndDate('');
+    setIndicatorUuid('');
     setMaxRows(200);
     setErr(null);
     setData(null);
@@ -231,14 +227,15 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
 
     try {
       const resp = await previewSection(
-          section.uuid,
-          {
-            startDate,
-            endDate,
-            maxRows,
-            params: {},
-          },
-          ac.signal,
+        {
+          sectionUuid: section.uuid,
+          indicatorUuid: indicatorUuid.trim() || undefined,
+          startDate,
+          endDate,
+          maxRows,
+          params: {},
+        },
+        ac.signal,
       );
 
       setData(resp);
@@ -247,8 +244,6 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
     } finally {
       setLoading(false);
     }
-
-    return () => ac.abort();
   };
 
   const results: PreviewResult[] = data?.results ?? [];
@@ -257,154 +252,154 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
   const nonMatrix = results.filter((r) => r.error || !isMatrixCompatible(r));
 
   return (
-      <Modal
-          open={open}
-          onRequestClose={onClose}
-          modalHeading={section ? `Preview Section: ${section.name}` : 'Preview Section'}
-          primaryButtonText="Close"
-          secondaryButtonText="Cancel"
-          onRequestSubmit={onClose}
-          size="lg"
-      >
-        <Stack gap={5}>
-          {!section ? (
-              <InlineNotification kind="warning" lowContrast title="No section" subtitle="Select a section first." />
-          ) : null}
+    <Modal
+      open={open}
+      onRequestClose={onClose}
+      modalHeading={section ? `Preview Section: ${section.name}` : 'Preview Section'}
+      primaryButtonText="Close"
+      secondaryButtonText="Cancel"
+      onRequestSubmit={onClose}
+      size="lg"
+    >
+      <Stack gap={5}>
+        {!section ? (
+          <InlineNotification kind="warning" lowContrast title="No section" subtitle="Select a section first." />
+        ) : null}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <TextInput
-                id="section-preview-startdate"
-                labelText="Start date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate((e.target as HTMLInputElement).value)}
-                disabled={!section}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <TextInput
+            id="section-preview-startdate"
+            labelText="Start date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate((e.target as HTMLInputElement).value)}
+            disabled={!section}
+          />
+          <TextInput
+            id="section-preview-enddate"
+            labelText="End date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate((e.target as HTMLInputElement).value)}
+            disabled={!section}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+          <TextInput
+            id="section-preview-maxrows"
+            labelText="Max rows"
+            value={String(maxRows)}
+            onChange={(e) => {
+              const v = Number((e.target as HTMLInputElement).value);
+              setMaxRows(Number.isFinite(v) && v > 0 ? v : 200);
+            }}
+            disabled={!section}
+          />
+
+          <Button kind="primary" renderIcon={Play} disabled={!canRun} onClick={run}>
+            Preview Section
+          </Button>
+        </div>
+
+        {loading ? <InlineLoading description="Running section preview…" /> : null}
+        {err ? <InlineNotification kind="error" lowContrast title="Preview" subtitle={err} /> : null}
+
+        {data ? (
+          matrix.hasAnyDisagg ? (
+            <TableContainer
+              title="Section preview matrix"
+              description="Indicators are rows; disaggregations are columns. Missing values show as 0."
+            >
+              <DataTable rows={matrix.rows} headers={matrix.headers} size="md" useZebraStyles>
+                {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+                  <Table {...getTableProps()}>
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((h) => (
+                          <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
+                            {h.header}
+                          </TableHeader>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} {...getRowProps({ row })}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value as any}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </TableContainer>
+          ) : (
+            <InlineNotification
+              kind="info"
+              lowContrast
+              title="No disaggregated results"
+              subtitle="No indicator returned (age_group, gender, value) rows for this preview."
             />
-            <TextInput
-                id="section-preview-enddate"
-                labelText="End date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate((e.target as HTMLInputElement).value)}
-                disabled={!section}
-            />
-          </div>
+          )
+        ) : null}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
-            <TextInput
-                id="section-preview-maxrows"
-                labelText="Max rows (per indicator)"
-                value={String(maxRows)}
-                onChange={(e) => {
-                  const v = Number((e.target as HTMLInputElement).value);
-                  setMaxRows(Number.isFinite(v) && v > 0 ? v : 200);
-                }}
-                disabled={!section}
-            />
+        {data && nonMatrix.length ? (
+          <Stack gap={4}>
+            <div style={{ fontWeight: 600, marginTop: '0.5rem' }}>Other results</div>
 
-            <Button kind="primary" renderIcon={Play} disabled={!canRun} onClick={run}>
-              Preview Section
-            </Button>
-          </div>
-
-          {loading ? <InlineLoading description="Running section preview…" /> : null}
-          {err ? <InlineNotification kind="error" lowContrast title="Preview" subtitle={err} /> : null}
-
-          {data ? (
-              matrix.hasAnyDisagg ? (
-                  <TableContainer
-                      title="Section preview matrix"
-                      description="Indicators are rows; disaggregations are columns. Missing values show as 0."
-                  >
-                    <DataTable rows={matrix.rows} headers={matrix.headers} size="md" useZebraStyles>
-                      {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                          <Table {...getTableProps()}>
-                            <TableHead>
-                              <TableRow>
-                                {headers.map((h) => (
-                                    <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
-                                      {h.header}
-                                    </TableHeader>
-                                ))}
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {rows.map((row) => (
-                                  <TableRow key={row.id} {...getRowProps({ row })}>
-                                    {row.cells.map((cell) => (
-                                        <TableCell key={cell.id}>{cell.value as any}</TableCell>
-                                    ))}
-                                  </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                      )}
-                    </DataTable>
-                  </TableContainer>
-              ) : (
+            {nonMatrix.map((r, idx) => {
+              if (r.error) {
+                return (
                   <InlineNotification
-                      kind="info"
-                      lowContrast
-                      title="No disaggregated results"
-                      subtitle="No indicator returned (age_group, gender, value) rows for this preview."
+                    key={`${r.indicatorUuid}-${idx}`}
+                    kind="error"
+                    lowContrast
+                    title={`Indicator error: ${decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}`}
+                    subtitle={r.error}
                   />
-              )
-          ) : null}
+                );
+              }
 
-          {data && nonMatrix.length ? (
-              <Stack gap={4}>
-                <div style={{ fontWeight: 600, marginTop: '0.5rem' }}>Other results</div>
-
-                {nonMatrix.map((r, idx) => {
-                  if (r.error) {
-                    return (
-                        <InlineNotification
-                            key={`${r.indicatorUuid}-${idx}`}
-                            kind="error"
-                            lowContrast
-                            title={`Indicator error: ${decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}`}
-                            subtitle={r.error}
-                        />
-                    );
-                  }
-
-                  const { headers, tableRows } = toGenericTableModel(r.columns ?? [], r.rows ?? []);
-                  return (
-                      <TableContainer
-                          key={`${r.indicatorUuid}-${idx}`}
-                          title={decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}
-                          description={`Returned columns: ${(r.columns ?? []).join(', ')}`}
-                      >
-                        <DataTable rows={tableRows} headers={headers} size="md" useZebraStyles>
-                          {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                              <Table {...getTableProps()}>
-                                <TableHead>
-                                  <TableRow>
-                                    {headers.map((h) => (
-                                        <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
-                                          {h.header}
-                                        </TableHeader>
-                                    ))}
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {rows.map((row) => (
-                                      <TableRow key={row.id} {...getRowProps({ row })}>
-                                        {row.cells.map((cell) => (
-                                            <TableCell key={cell.id}>{cell.value as any}</TableCell>
-                                        ))}
-                                      </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                          )}
-                        </DataTable>
-                      </TableContainer>
-                  );
-                })}
-              </Stack>
-          ) : null}
-        </Stack>
-      </Modal>
+              const { headers, tableRows } = toGenericTableModel(r.columns ?? [], r.rows ?? []);
+              return (
+                <TableContainer
+                  key={`${r.indicatorUuid}-${idx}`}
+                  title={decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}
+                  description={`Returned columns: ${(r.columns ?? []).join(', ')}`}
+                >
+                  <DataTable rows={tableRows} headers={headers} size="md" useZebraStyles>
+                    {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+                      <Table {...getTableProps()}>
+                        <TableHead>
+                          <TableRow>
+                            {headers.map((h) => (
+                              <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
+                                {h.header}
+                              </TableHeader>
+                            ))}
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {rows.map((row) => (
+                            <TableRow key={row.id} {...getRowProps({ row })}>
+                              {row.cells.map((cell) => (
+                                <TableCell key={cell.id}>{cell.value as any}</TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </DataTable>
+                </TableContainer>
+              );
+            })}
+          </Stack>
+        ) : null}
+      </Stack>
+    </Modal>
   );
 }

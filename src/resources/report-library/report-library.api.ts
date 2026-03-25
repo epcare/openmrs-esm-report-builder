@@ -8,7 +8,7 @@ function unwrapRestList<T>(data: RestList<T> | T[] | undefined): T[] {
   return Array.isArray(data.results) ? data.results : [];
 }
 
-const RESOURCE = '/reportlibrary';
+const RESOURCE = '/reportbuilder/reportlibrary';
 
 export type ReportSourceType = 'LEGACY' | 'BUILDER';
 export type ReportType = 'AGGREGATE' | 'LINE_LIST';
