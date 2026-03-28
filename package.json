@@ -8,8 +8,8 @@
   "source": true,
   "scripts": {
     "start": "openmrs develop",
-    "build": "openmrs build --build-mode=production",
-    "analyze": "openmrs build --build-mode=production --analyze",
+    "build": "openmrs build",
+    "analyze": "openmrs build --analyze",
     "lint": "eslint --ext js,jsx,ts,tsx .",
     "typescript": "tsc",
     "test": "jest --passWithNoTests",
