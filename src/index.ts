@@ -1,7 +1,7 @@
 import { defineConfigSchema, getAsyncLifecycle } from '@openmrs/esm-framework';
 import { configSchema } from './config-schema';
 
-const moduleName = '@ugandaemr/esm-report-builder';
+const moduleName = '@epcare/esm-report-builder';
 
 const options = {
   featureName: 'report-builder',
