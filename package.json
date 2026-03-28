@@ -7,12 +7,7 @@
   "main": "src/index.ts",
   "source": true,
   "files": [
-    "dist",
-    "routes.json",
-    "src",
-    "package.json",
-    "README.md",
-    "LICENSE"
+    "*"
   ],
   "scripts": {
     "start": "openmrs develop",
