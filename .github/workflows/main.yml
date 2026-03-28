@@ -32,7 +32,7 @@ jobs:
         run: corepack enable
 
       - name: 📦 Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: ✅ Verify
         run: yarn verify
@@ -66,10 +66,10 @@ jobs:
         run: corepack enable
 
       - name: 📦 Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: 🏷️ Version
-        run: yarn version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+        run: yarn version --no-git-tag-version --new-version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
 
       - name: 🛠️ Build
         run: yarn build
@@ -107,7 +107,7 @@ jobs:
         run: corepack enable
 
       - name: 📦 Install dependencies
-        run: yarn install --immutable
+        run: yarn install --frozen-lockfile
 
       - name: 🛠️ Build
         run: yarn build
