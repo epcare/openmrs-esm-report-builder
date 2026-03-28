@@ -39,11 +39,11 @@ export type ListReportsParams = {
 };
 
 export type CompileReportPayload = {
-    mambaReportUuid: string;
+    reportUuid: string;
 };
 
 export type CompileReportResult = {
-    mambaReportUuid: string;
+    reportUuid: string;
     reportDefinitionUuid?: string;
     reportDefinitionName?: string;
     reportDesignPath?: string;
@@ -109,9 +109,9 @@ export async function updateReport(
 }
 
 export async function compileReport(
-    mambaReportUuid: string,
+    reportUuid: string,
     signal?: AbortSignal,
 ): Promise<CompileReportResult> {
-    const payload: CompileReportPayload = { mambaReportUuid };
+    const payload: CompileReportPayload = { reportUuid };
     return omrsPost<CompileReportResult>(COMPILE_RESOURCE, payload, signal);
 }
