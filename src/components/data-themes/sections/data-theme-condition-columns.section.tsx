@@ -89,7 +89,14 @@ function toRows(conds: ThemeCondition[] | undefined, columnNames: string[]): UiC
 }
 
 function stripRows(rows: UiConditionRow[]): ThemeCondition[] {
-  return rows.map(({ _id, _columnMode, _qaQuestionCol, _qaAnswerCol, ...rest }) => rest);
+  return rows.map((row) => {
+    const rest = { ...row };
+    delete rest._id;
+    delete rest._columnMode;
+    delete rest._qaQuestionCol;
+    delete rest._qaAnswerCol;
+    return rest;
+  });
 }
 
 function defaultRow(idx: number): UiConditionRow {

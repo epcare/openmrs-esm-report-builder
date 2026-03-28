@@ -1,4 +1,4 @@
-import { test, expect } from '../core/test';
+import { test } from '../core/test';
 
 test.describe('report builder navigation', () => {
   test('loads the sections page', async ({ reportSectionsPage }) => {

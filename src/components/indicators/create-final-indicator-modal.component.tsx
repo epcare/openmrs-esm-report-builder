@@ -212,7 +212,6 @@ export default function CreateFinalIndicatorModal({
         onSaved();
     };
 
-    const showPreview = Boolean(baseIndicatorId) && Boolean(ageCategoryCode);
 
     return (
         <Modal

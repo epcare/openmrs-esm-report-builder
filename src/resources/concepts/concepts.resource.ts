@@ -1,7 +1,6 @@
-import { openmrsFetch } from '@openmrs/esm-framework';
 import type { ConceptSummary } from './concept-types';
 
-import { omrsDelete, omrsGet, omrsPost } from '../openmrs-api';
+import { omrsGet } from '../openmrs-api';
 
 
 const RESOURCE = '/concept';

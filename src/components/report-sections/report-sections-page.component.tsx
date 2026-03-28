@@ -2,7 +2,6 @@ import React from 'react';
 import {
     Button,
     Search,
-    Stack,
     DataTable,
     Table,
     TableHead,
@@ -46,11 +45,11 @@ const SectionsPage: React.FC = () => {
     const [openCreate, setOpenCreate] = React.useState(false);
 
     const [sections, setSections] = React.useState<ReportSectionDto[]>([]);
-    const [sectionsLoading, setSectionsLoading] = React.useState(false);
+    const [, setSectionsLoading] = React.useState(false);
     const [sectionsError, setSectionsError] = React.useState<string | null>(null);
 
     const [allIndicators, setAllIndicators] = React.useState<SectionIndicatorRef[]>([]);
-    const [indicatorsLoading, setIndicatorsLoading] = React.useState(false);
+    const [, setIndicatorsLoading] = React.useState(false);
     const [indicatorsError, setIndicatorsError] = React.useState<string | null>(null);
 
     const [previewOpen, setPreviewOpen] = React.useState(false);

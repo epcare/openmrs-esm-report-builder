@@ -3,7 +3,6 @@ import {
   Button,
   DataTable,
   DataTableHeader,
-  DataTableRow,
   DataTableSkeleton,
   Modal,
   Search,
@@ -118,7 +117,7 @@ const ReportCategoriesPage: React.FC = () => {
 
   const onDelete = async (row: ReportCategoryDto) => {
     if (!row?.uuid) return;
-    const yes = window.confirm(`Retire report category \"${row.name}\"?`);
+    const yes = window.confirm(`Retire report category "${row.name}"?`);
     if (!yes) return;
     try {
       await deleteReportCategory(row.uuid);

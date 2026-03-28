@@ -140,7 +140,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
     const [metaJson, setMetaJson] = React.useState<string>(wrapMeta(defaultMeta));
 
     // schema tables
-    const [tables, setTables] = React.useState<SchemaTable[]>([]);
+    const [, setTables] = React.useState<SchemaTable[]>([]);
     const [loadingTables, setLoadingTables] = React.useState(false);
     const [tablesError, setTablesError] = React.useState<string | null>(null);
 

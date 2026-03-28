@@ -7,7 +7,7 @@ import { getConceptByUuid } from '../../../resources/concepts/concepts.resource'
 import type { ConceptSummary } from '../../../resources/concepts/concept-types';
 
 import { toSelectedConcept, type SelectedConcept } from '../handler/concept-search-multiselect.component';
-import type { QAUiState, ConceptUiMap, QaUiMap } from '../types/condition-ui.types';
+import type { ConceptUiMap, QaUiMap } from '../types/condition-ui.types';
 
 export type HydrationOptions = {
     force?: boolean;

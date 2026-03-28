@@ -7,8 +7,6 @@ import {
   InlineNotification,
   Modal,
   Search,
-  Select,
-  SelectItem,
   Stack,
   Table,
   TableBody,

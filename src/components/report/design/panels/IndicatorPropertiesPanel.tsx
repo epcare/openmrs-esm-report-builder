@@ -339,7 +339,7 @@ export default function IndicatorPropertiesPanel({
                         ) : null}
                       </div>
 
-                      {!!selectedConceptItem.mappings?.length ? (
+                      {selectedConceptItem.mappings?.length ? (
                           <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.85 }}>
                             {t('mappings', 'Mappings')}: {selectedConceptItem.mappings.slice(0, 3).map((m) => m.display).filter(Boolean).join(' • ')}
                             {selectedConceptItem.mappings.length > 3 ? ' …' : ''}
