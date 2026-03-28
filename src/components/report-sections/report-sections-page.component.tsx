@@ -229,7 +229,7 @@ const SectionsPage: React.FC = () => {
 
                                 <TableBody>
                                     {rows.map((row) => (
-                                        <TableRow key={row.id} {...getRowProps({ row })}>
+                                        <TableRow key={row.id} data-testid={`section-row-${String(filtered.find((x) => x.uuid === row.id)?.name ?? row.id).replace(/\s+/g, '-')}`} {...getRowProps({ row })}>
                                             <TableCell>
                                                 <Folder size={16} />
                                             </TableCell>
@@ -238,7 +238,7 @@ const SectionsPage: React.FC = () => {
                                                 if (cell.info.header === 'actions') {
                                                     return (
                                                         <TableCell key={cell.id}>
-                                                            <OverflowMenu size="sm" ariaLabel="Actions" flipped>
+                                                            <OverflowMenu data-testid={`section-actions-${row.id}`} size="sm" ariaLabel="Actions" flipped>
                                                                 <OverflowMenuItem itemText="Preview" onClick={() => openPreview(row.id)} />
                                                                 <OverflowMenuItem itemText="Edit" onClick={() => openEdit(row.id)} />
                                                             </OverflowMenu>

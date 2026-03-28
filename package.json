@@ -17,8 +17,8 @@
     "verify": "npm-run-all --parallel lint test typescript"
   },
   "dependencies": {
-    "@carbon/react": "^1.39.0",
     "@carbon/icons-react": "^11.58.0",
+    "@carbon/react": "^1.39.0",
     "lodash-es": "^4.17.21",
     "react-ace": "^10.1.0",
     "sass": "^1.83.0"
@@ -26,6 +26,7 @@
   "devDependencies": {
     "@openmrs/esm-framework": "next",
     "@openmrs/esm-styleguide": "next",
+    "@playwright/test": "^1.58.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.2",
@@ -64,7 +65,9 @@
     "rootDir": "src",
     "config": {
       "paths": {
-        "@openmrs/esm-report-builder": ["src"]
+        "@openmrs/esm-report-builder": [
+          "src"
+        ]
       }
     }
   }

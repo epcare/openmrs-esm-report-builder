@@ -269,6 +269,7 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <TextInput
             id="section-preview-startdate"
+            data-testid="section-preview-startdate"
             labelText="Start date"
             type="date"
             value={startDate}
@@ -277,6 +278,7 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
           />
           <TextInput
             id="section-preview-enddate"
+            data-testid="section-preview-enddate"
             labelText="End date"
             type="date"
             value={endDate}
@@ -285,9 +287,19 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
           />
         </div>
 
+        <TextInput
+          id="section-preview-indicatoruuid"
+          data-testid="section-preview-indicatoruuid"
+          labelText="Indicator UUID (optional)"
+          value={indicatorUuid}
+          onChange={(e) => setIndicatorUuid((e.target as HTMLInputElement).value)}
+          disabled={!section}
+        />
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'end' }}>
           <TextInput
             id="section-preview-maxrows"
+            data-testid="section-preview-maxrows"
             labelText="Max rows"
             value={String(maxRows)}
             onChange={(e) => {
@@ -297,7 +309,7 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
             disabled={!section}
           />
 
-          <Button kind="primary" renderIcon={Play} disabled={!canRun} onClick={run}>
+          <Button data-testid="section-preview-run" kind="primary" renderIcon={Play} disabled={!canRun} onClick={run}>
             Preview Section
           </Button>
         </div>
@@ -308,6 +320,7 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
         {data ? (
           matrix.hasAnyDisagg ? (
             <TableContainer
+              data-testid="section-preview-matrix"
               title="Section preview matrix"
               description="Indicators are rows; disaggregations are columns. Missing values show as 0."
             >

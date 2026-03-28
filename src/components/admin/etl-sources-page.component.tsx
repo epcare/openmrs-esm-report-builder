@@ -178,7 +178,7 @@ export default function ETLSourcesPage() {
         title="ETL Sources"
         subtitle="Manage ETL source definitions used by the report builder."
         actions={
-          <Button size="sm" renderIcon={Add} onClick={openCreate}>
+          <Button data-testid="etl-source-new" size="sm" renderIcon={Add} onClick={openCreate}>
             New ETL Source
           </Button>
         }
@@ -186,6 +186,7 @@ export default function ETLSourcesPage() {
 
       <div style={{ padding: '0 1rem 1rem', display: 'grid', gap: '1rem' }}>
         <Search
+          data-testid="etl-source-search"
           size="lg"
           labelText="Search"
           placeholder="Search ETL sources…"
@@ -261,6 +262,7 @@ export default function ETLSourcesPage() {
       <Modal
         open={open}
         modalHeading={mode === 'create' ? 'New ETL Source' : 'Edit ETL Source'}
+        data-testid="etl-source-modal"
         primaryButtonText={saving ? 'Saving…' : 'Save'}
         secondaryButtonText="Cancel"
         onRequestClose={() => !saving && setOpen(false)}
@@ -270,6 +272,7 @@ export default function ETLSourcesPage() {
         <Stack gap={5}>
           <TextInput
             id="etl-source-name"
+            data-testid="etl-source-name"
             labelText="Name"
             value={form.name}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -279,6 +282,7 @@ export default function ETLSourcesPage() {
 
           <TextInput
             id="etl-source-code"
+            data-testid="etl-source-code"
             labelText="Code"
             value={form.code}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -288,6 +292,7 @@ export default function ETLSourcesPage() {
 
           <TextInput
             id="etl-source-schema"
+            data-testid="etl-source-schema"
             labelText="Schema Name"
             value={form.schemaName}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -297,6 +302,7 @@ export default function ETLSourcesPage() {
 
           <TextInput
             id="etl-source-type"
+            data-testid="etl-source-type"
             labelText="Source Type"
             value={form.sourceType}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -306,6 +312,7 @@ export default function ETLSourcesPage() {
 
           <TextArea
             id="etl-source-description"
+            data-testid="etl-source-description"
             labelText="Description"
             rows={3}
             value={form.description}
@@ -316,6 +323,7 @@ export default function ETLSourcesPage() {
 
           <TextArea
             id="etl-source-table-patterns"
+            data-testid="etl-source-table-patterns"
             labelText="Table Patterns"
             helperText="Store table matching patterns as text."
             rows={4}
