@@ -104,10 +104,16 @@ jobs:
         run: |
           test -f src/routes.json || (echo "src/routes.json missing" && exit 1)
 
+      - name: Prepare root routes.json
+        run: |
+          cp src/routes.json routes.json
+          test -f routes.json || (echo "root routes.json missing" && exit 1)
+
       - name: ✅ Verify npm package contents
         run: |
           npm pack
-          tar -tf *.tgz | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
+          TARFILE=$(ls -t *.tgz | head -n 1)
+          tar -tf "$TARFILE" | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
 
       - name: Commit prerelease version
         run: |
@@ -122,6 +128,10 @@ jobs:
           npm publish --access public --tag next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+      - name: Clean root routes.json
+        if: always()
+        run: rm -f routes.json *.tgz
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -171,10 +181,16 @@ jobs:
         run: |
           test -f src/routes.json || (echo "src/routes.json missing" && exit 1)
 
+      - name: Prepare root routes.json
+        run: |
+          cp src/routes.json routes.json
+          test -f routes.json || (echo "root routes.json missing" && exit 1)
+
       - name: ✅ Verify npm package contents
         run: |
           npm pack
-          tar -tf *.tgz | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
+          TARFILE=$(ls -t *.tgz | head -n 1)
+          tar -tf "$TARFILE" | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
 
       - name: 🚢 Publish
         run: |
@@ -182,3 +198,7 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+      - name: Clean root routes.json
+        if: always()
+        run: rm -f routes.json *.tgz
