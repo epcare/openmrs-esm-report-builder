@@ -17,7 +17,8 @@
   "scripts": {
     "start": "openmrs develop",
     "build": "openmrs build",
-    "prepack": "cp dist/routes.json routes.json",
+    "prepack": "cp src/routes.json routes.json",
+    "postpack": "rm -f routes.json",
     "analyze": "openmrs build --analyze",
     "lint": "eslint --ext js,jsx,ts,tsx .",
     "typescript": "tsc",
