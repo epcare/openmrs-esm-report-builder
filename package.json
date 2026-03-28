@@ -6,9 +6,18 @@
   "browser": "dist/openmrs-esm-report-builder.js",
   "main": "src/index.ts",
   "source": true,
+  "files": [
+    "dist",
+    "routes.json",
+    "src",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "openmrs develop",
     "build": "openmrs build",
+    "prepack": "cp dist/routes.json routes.json",
     "analyze": "openmrs build --analyze",
     "lint": "eslint --ext js,jsx,ts,tsx .",
     "typescript": "tsc",
@@ -73,7 +82,7 @@
     "rootDir": "src",
     "config": {
       "paths": {
-        "@openmrs/esm-report-builder": [
+        "@epcare/esm-report-builder": [
           "src"
         ]
       }

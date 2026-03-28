@@ -49,6 +49,10 @@ jobs:
       - name: 🛠️ Build
         run: yarn build
 
+      - name: ✅ Verify build output
+        run: |
+          test -f dist/routes.json || (echo "dist/routes.json missing" && exit 1)
+
       - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -95,6 +99,15 @@ jobs:
 
       - name: 🛠️ Build
         run: yarn build
+
+      - name: ✅ Verify build output
+        run: |
+          test -f dist/routes.json || (echo "dist/routes.json missing" && exit 1)
+
+      - name: ✅ Verify npm package contents
+        run: |
+          npm pack
+          tar -tf *.tgz | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
 
       - name: Commit prerelease version
         run: |
@@ -153,6 +166,15 @@ jobs:
 
       - name: 🛠️ Build
         run: yarn build
+
+      - name: ✅ Verify build output
+        run: |
+          test -f dist/routes.json || (echo "dist/routes.json missing" && exit 1)
+
+      - name: ✅ Verify npm package contents
+        run: |
+          npm pack
+          tar -tf *.tgz | grep -E '^package/routes.json$' || (echo "root routes.json missing from npm tarball" && exit 1)
 
       - name: 🚢 Publish
         run: |
