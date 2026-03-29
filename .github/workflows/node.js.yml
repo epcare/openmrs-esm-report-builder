@@ -27,6 +27,9 @@ jobs:
           corepack enable
           corepack prepare yarn@4.10.3 --activate
 
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
+
       - run: yarn install --immutable
       - run: yarn verify
       - run: yarn build
@@ -58,6 +61,9 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@4.10.3 --activate
+
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
 
       - run: yarn install --immutable
       - run: yarn version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
@@ -96,6 +102,9 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@4.10.3 --activate
+
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
 
       - run: yarn install --immutable
       - run: yarn config set npmAuthToken "${NPM_AUTH_TOKEN}" && yarn npm publish --access public
