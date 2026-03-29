@@ -84,7 +84,7 @@ jobs:
         run: yarn install --immutable
 
       - name: Version
-        run: yarn version --no-git-tag-version --new-version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+        run: yarn version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
 
       - name: Build
         run: yarn build
@@ -112,10 +112,10 @@ jobs:
 
       - name: Pre-release
         run: |
-          yarn config set npmAuthToken "${NODE_AUTH_TOKEN}"
+          yarn config set npmAuthToken "${NPM_AUTH_TOKEN}"
           yarn npm publish --access public --tag next
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
 
       - name: Clean root routes.json
         if: always()
@@ -175,10 +175,10 @@ jobs:
 
       - name: Publish
         run: |
-          yarn config set npmAuthToken "${NODE_AUTH_TOKEN}"
+          yarn config set npmAuthToken "${NPM_AUTH_TOKEN}"
           yarn npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
 
       - name: Clean root routes.json
         if: always()
