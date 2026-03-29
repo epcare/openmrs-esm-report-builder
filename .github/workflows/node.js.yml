@@ -32,6 +32,9 @@ jobs:
           corepack enable
           corepack prepare yarn@4.10.3 --activate
 
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
+
       - name: Install dependencies
         run: yarn install --immutable
 
@@ -73,6 +76,9 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@4.10.3 --activate
+
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -143,6 +149,9 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@4.10.3 --activate
+
+      - name: Configure Yarn linker
+        run: yarn config set nodeLinker node-modules
 
       - name: Install dependencies
         run: yarn install --immutable
