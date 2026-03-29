@@ -15,14 +15,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Use Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@4.10.3 --activate
+
       - run: yarn install --immutable
       - run: yarn verify
-      - run: yarn turbo build
+      - run: yarn build
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -36,21 +44,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@4.10.3 --activate
+
       - run: yarn install --immutable
       - run: yarn version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
-      - run: yarn turbo build
+      - run: yarn build
       - run: git config user.email "info@openmrs.org" && git config user.name "OpenMRS CI"
       - run: git add . && git commit -m "Prerelease version" --no-verify
       - run: yarn config set npmAuthToken "${NPM_AUTH_TOKEN}" && yarn npm publish --access public --tag next
         env:
           NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -65,13 +82,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@4.10.3 --activate
+
       - run: yarn install --immutable
       - run: yarn config set npmAuthToken "${NPM_AUTH_TOKEN}" && yarn npm publish --access public
         env:
