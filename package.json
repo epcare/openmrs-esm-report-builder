@@ -26,9 +26,19 @@
   "dependencies": {
     "@carbon/icons-react": "^11.58.0",
     "@carbon/react": "^1.39.0",
+    "@react-aria/utils": "^3.31.0",
+    "@react-types/shared": "^3.32.0",
+    "classnames": "^2.5.1",
+    "dayjs": "^1.11.13",
     "lodash-es": "^4.17.21",
     "react-ace": "^10.1.0",
-    "sass": "^1.83.0"
+    "react-aria": "^3.44.0",
+    "react-router-dom": "^6.30.1",
+    "react-stately": "^3.42.0",
+    "sass": "^1.83.0",
+    "single-spa-react": "^6.0.2",
+    "swr": "^2.2.5",
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@openmrs/esm-framework": "next",
@@ -69,6 +79,9 @@
     "react-i18next": "^16.0.0",
     "rxjs": "^6.6.7",
     "single-spa": "^5.0.0"
+  },
+  "resolutions": {
+    "zustand": "^4.5.7"
   },
   "openmrs": {
     "buildPath": "dist",

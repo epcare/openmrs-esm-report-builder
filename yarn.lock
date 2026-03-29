@@ -639,6 +639,8 @@ __metadata:
     "@openmrs/esm-framework": "npm:next"
     "@openmrs/esm-styleguide": "npm:next"
     "@playwright/test": "npm:^1.58.2"
+    "@react-aria/utils": "npm:^3.31.0"
+    "@react-types/shared": "npm:^3.32.0"
     "@swc/core": "npm:^1.7.36"
     "@swc/jest": "npm:^0.2.36"
     "@types/jest": "npm:^29.5.12"
@@ -649,7 +651,9 @@ __metadata:
     "@types/webpack-env": "npm:^1.18.5"
     "@typescript-eslint/eslint-plugin": "npm:^7.9.0"
     "@typescript-eslint/parser": "npm:^7.9.0"
+    classnames: "npm:^2.5.1"
     css-loader: "npm:^6.11.0"
+    dayjs: "npm:^1.11.13"
     eslint: "npm:^8.57.0"
     eslint-plugin-import: "npm:^2.31.0"
     eslint-plugin-react-hooks: "npm:^4.6.2"
@@ -662,13 +666,19 @@ __metadata:
     prettier: "npm:^3.4.2"
     react: "npm:^18.3.1"
     react-ace: "npm:^10.1.0"
+    react-aria: "npm:^3.44.0"
     react-dom: "npm:^18.3.1"
     react-i18next: "npm:^16.0.0"
+    react-router-dom: "npm:^6.30.1"
+    react-stately: "npm:^3.42.0"
     rxjs: "npm:^6.6.7"
     sass: "npm:^1.83.0"
     single-spa: "npm:^5.9.5"
+    single-spa-react: "npm:^6.0.2"
     swc-loader: "npm:^0.2.6"
+    swr: "npm:^2.2.5"
     typescript: "npm:5.5.4"
+    zustand: "npm:^4.5.7"
   peerDependencies:
     "@openmrs/esm-framework": ^8.0.0
     react: ^18.0.0
@@ -3912,7 +3922,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-aria/utils@npm:^3.33.1":
+"@react-aria/utils@npm:^3.31.0, @react-aria/utils@npm:^3.33.1":
   version: 3.33.1
   resolution: "@react-aria/utils@npm:3.33.1"
   dependencies:
@@ -4646,7 +4656,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-types/shared@npm:^3.33.1":
+"@react-types/shared@npm:^3.32.0, @react-types/shared@npm:^3.33.1":
   version: 3.33.1
   resolution: "@react-types/shared@npm:3.33.1"
   peerDependencies:
@@ -7485,7 +7495,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"classnames@npm:2.5.1":
+"classnames@npm:2.5.1, classnames@npm:^2.5.1":
   version: 2.5.1
   resolution: "classnames@npm:2.5.1"
   checksum: 10c0/afff4f77e62cea2d79c39962980bf316bacb0d7c49e13a21adaadb9221e1c6b9d3cdb829d8bb1b23c406f4e740507f37e1dcf506f7e3b7113d17c5bab787aa69
@@ -8591,6 +8601,13 @@ __metadata:
   version: 1.1.2
   resolution: "depd@npm:1.1.2"
   checksum: 10c0/acb24aaf936ef9a227b6be6d495f0d2eb20108a9a6ad40585c5bda1a897031512fef6484e4fdbb80bd249fdaa82841fa1039f416ece03188e677ba11bcfda249
+  languageName: node
+  linkType: hard
+
+"dequal@npm:^2.0.3":
+  version: 2.0.3
+  resolution: "dequal@npm:2.0.3"
+  checksum: 10c0/f98860cdf58b64991ae10205137c0e97d384c3a4edc7f807603887b7c4b850af1224a33d88012009f150861cbee4fa2d322c4cc04b9313bee312e47f6ecaa888
   languageName: node
   linkType: hard
 
@@ -14088,7 +14105,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-aria@npm:^3.47.0":
+"react-aria@npm:^3.44.0, react-aria@npm:^3.47.0":
   version: 3.47.0
   resolution: "react-aria@npm:3.47.0"
   dependencies:
@@ -14203,7 +14220,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router-dom@npm:^6.3.0":
+"react-router-dom@npm:^6.3.0, react-router-dom@npm:^6.30.1":
   version: 6.30.3
   resolution: "react-router-dom@npm:6.30.3"
   dependencies:
@@ -14227,7 +14244,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-stately@npm:^3.45.0":
+"react-stately@npm:^3.42.0, react-stately@npm:^3.45.0":
   version: 3.45.0
   resolution: "react-stately@npm:3.45.0"
   dependencies:
@@ -15770,6 +15787,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"swr@npm:^2.2.5":
+  version: 2.4.1
+  resolution: "swr@npm:2.4.1"
+  dependencies:
+    dequal: "npm:^2.0.3"
+    use-sync-external-store: "npm:^1.6.0"
+  peerDependencies:
+    react: ^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10c0/34d61fb4653ac8875ad24e7c6da37e210b0e90fce0815dc59f013b7554a0bd267e79aac0f8ae5fbf04992e2a1815ee3da581b0dab3ed6ac4c2ce0e82b351320f
+  languageName: node
+  linkType: hard
+
 "symbol-tree@npm:^3.2.4":
   version: 3.2.4
   resolution: "symbol-tree@npm:3.2.4"
@@ -17138,7 +17167,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zustand@npm:^4.5.5":
+"zustand@npm:^4.5.7":
   version: 4.5.7
   resolution: "zustand@npm:4.5.7"
   dependencies:
