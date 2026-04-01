@@ -12,7 +12,7 @@ import type {
 
 import { THEME_OPERATOR_OPTIONS } from '../../../types/condition-operators';
 
-import type { TableColumn } from '../../../resources/theme/mamba-table-meta.api';
+import type { TableColumn } from '../../../resources/theme/etl-table-meta.api';
 
 type Props = {
   open: boolean;

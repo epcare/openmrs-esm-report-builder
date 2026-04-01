@@ -1,5 +1,5 @@
 import React from 'react';
-import { getSchemaTables, type SchemaTable } from '../../resources/theme/mamba-schema.api';
+import { getSchemaTables, type SchemaTable } from '../../resources/theme/etl-schema.api';
 
 function toTableName(t: SchemaTable | any): string {
     // Try common backend shapes
@@ -13,7 +13,7 @@ function toTableName(t: SchemaTable | any): string {
     );
 }
 
-export function useMambaTables(enabled: boolean) {
+export function useETLTables(enabled: boolean) {
     const [tables, setTables] = React.useState<string[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);

@@ -1,8 +1,8 @@
 import React from 'react';
-import { getMambaTableMeta } from '../../resources/theme/mamba-table-meta.api';
-import type { TableColumn } from '../../resources/theme/mamba-table-meta.api';
+import { getETLTableMeta } from '../../resources/theme/etl-table-meta.api';
+import type { TableColumn } from '../../resources/theme/etl-table-meta.api';
 
-export function useMambaTableMeta(table?: string, enabled: boolean = true) {
+export function useETLTableMeta(table?: string, enabled: boolean = true) {
     const [columns, setColumns] = React.useState<TableColumn[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -20,7 +20,7 @@ export function useMambaTableMeta(table?: string, enabled: boolean = true) {
         setLoading(true);
         setError(null);
 
-        getMambaTableMeta(table, ac.signal)
+        getETLTableMeta(table, ac.signal)
             .then((cols) => setColumns(Array.isArray(cols) ? cols : []))
             .catch((e) => {
                 if (e?.name !== 'AbortError') setError(e?.message ?? 'Failed to load columns');

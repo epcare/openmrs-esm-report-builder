@@ -2,8 +2,8 @@ import React from 'react';
 import { ComboBox, Select, SelectItem, InlineLoading } from '@carbon/react';
 
 import type { DataThemeConfig } from '../../../types/theme/data-theme.types';
-import { getSchemaTables, type SchemaTable } from '../../../resources/theme/mamba-schema.api';
-import { getMambaTableMeta, type TableColumn } from '../../../resources/theme/mamba-table-meta.api';
+import { getSchemaTables, type SchemaTable } from '../../../resources/theme/etl-schema.api';
+import { getETLTableMeta, type TableColumn } from '../../../resources/theme/etl-table-meta.api';
 
 type Props = {
     open: boolean;
@@ -72,7 +72,7 @@ export default function DataThemeSourceSection({ open, config, onChange }: Props
         setLoadingCols(true);
         setColsError(null);
 
-        getMambaTableMeta(table, ac.signal)
+        getETLTableMeta(table, ac.signal)
             .then((data) => setColumns(data ?? []))
             .catch((e) => {
                 if (e?.name !== 'AbortError') setColsError(e?.message ?? 'Failed to load columns');

@@ -9,8 +9,8 @@ import DataThemeMetadataSection, { type DataThemeMeta } from './sections/data-th
 import DataThemePreviewSection from './sections/data-theme-preview.section';
 
 import type { DataTheme, DataThemeConfig } from '../../types/theme/data-theme.types';
-import { getSchemaTables, type SchemaTable } from '../../resources/theme/mamba-schema.api';
-import { getMambaTableMeta, type TableColumn } from '../../resources/theme/mamba-table-meta.api';
+import { getSchemaTables, type SchemaTable } from '../../resources/theme/etl-schema.api';
+import { getETLTableMeta, type TableColumn } from '../../resources/theme/etl-table-meta.api';
 
 type Props = {
     open: boolean;
@@ -218,7 +218,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
         setColsError(null);
         setColumns([]);
 
-        getMambaTableMeta(table, ac.signal)
+        getETLTableMeta(table, ac.signal)
             .then((data) => setColumns(data ?? []))
             .catch((e) => {
                 if (e?.name !== 'AbortError') setColsError(e?.message ?? 'Failed to load table columns');

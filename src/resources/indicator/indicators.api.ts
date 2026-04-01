@@ -52,7 +52,7 @@ export type IndicatorDto = {
     retireReason?: string | null;
 };
 
-export type MambaIndicatorDto = {
+export type ETLIndicatorDto = {
     id: string,
     uuid: string;
     name: string;

@@ -29,12 +29,12 @@ function normalizeColumns(input: RawColumn[] = []): TableColumn[] {
       .filter((c) => c.name.length > 0);
 }
 
-export async function getMambaTableMeta(
+export async function getETLTableMeta(
     table: string,
     signal?: AbortSignal
 ): Promise<TableColumn[]> {
   const data = await omrsGet<RawMetaResponse>(
-      `/mambatablecolumn?table=${encodeURIComponent(table)}`,
+      `/etltablecolumn?table=${encodeURIComponent(table)}`,
       signal
   );
 
