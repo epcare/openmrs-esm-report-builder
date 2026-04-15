@@ -14,6 +14,7 @@ import {
     Layers,
     Play,
     Settings,
+    Document,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -104,6 +105,9 @@ const ReportBuilderShell: React.FC = () => {
                             </SideNavMenuItem>
                           <SideNavMenuItem isActive={isActive('/admin/etl-sources')} onClick={() => navigate('/admin/etl-sources')}>
                             ETL Sources
+                          </SideNavMenuItem>
+                          <SideNavMenuItem isActive={isActive('/legacy-reports')} onClick={() => navigate('/legacy-reports')}>
+                            Legacy Reports
                           </SideNavMenuItem>
                         </SideNavMenu>
                     </SideNavItems>
