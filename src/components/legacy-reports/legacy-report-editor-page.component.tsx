@@ -11,7 +11,6 @@ import {
   TabPanels,
   TabPanel,
   Tag,
-  Stack,
 } from '@carbon/react';
 import { ArrowLeft, Save, View } from '@carbon/icons-react';
 

@@ -13,7 +13,7 @@ import {
   OverflowMenuItem,
   Button,
 } from '@carbon/react';
-import { Upload, Document, Edit } from '@carbon/icons-react';
+import { Upload, Document } from '@carbon/icons-react';
 
 export type LegacyReportRow = {
   uuid: string;

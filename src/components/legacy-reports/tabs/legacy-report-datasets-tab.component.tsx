@@ -2,13 +2,6 @@ import React from 'react';
 import {
   Button,
   Tile,
-  Table,
-  TableHead,
-  TableRow,
-  TableHeader,
-  TableBody,
-  TableCell,
-  TableContainer,
   Stack,
   Modal,
   ModalBody,

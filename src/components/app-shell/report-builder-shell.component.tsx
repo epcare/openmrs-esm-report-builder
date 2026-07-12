@@ -14,7 +14,6 @@ import {
     Layers,
     Play,
     Settings,
-    Document,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';

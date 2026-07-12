@@ -10,9 +10,6 @@ import {
   Modal,
   ModalBody,
   ModalFooter,
-  ModalHeader,
-  FormGroup,
-  Layer,
 } from '@carbon/react';
 import { Information, Add } from '@carbon/icons-react';
 

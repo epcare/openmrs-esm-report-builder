@@ -5,10 +5,7 @@ import {
   ModalFooter,
   Button,
   FileUploader,
-  FileUploaderDropContainer,
-  FileUploaderItem,
   ProgressBar,
-  InlineLoading,
   InlineNotification,
   Tag,
   StructuredListBody,
@@ -18,7 +15,7 @@ import {
   Accordion,
   AccordionItem,
 } from '@carbon/react';
-import { Information, Checkmark, Warning } from '@carbon/icons-react';
+import { Checkmark, Warning } from '@carbon/icons-react';
 
 import { uploadLegacyReport, importLegacyReport, type UploadLegacyReportResponse } from '../../resources/legacy-reports/legacy-reports.api';
 import type { LegacyReportRow } from './legacy-reports-table.component';

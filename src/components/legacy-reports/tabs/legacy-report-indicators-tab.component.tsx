@@ -182,15 +182,6 @@ const LegacyReportIndicatorsTab: React.FC<Props> = ({ report, onChange }) => {
     }
   };
 
-  const getIndicatorTypeColor = (type: string) => {
-    switch (type) {
-      case 'BASE': return 'blue';
-      case 'COMPOSITE': return 'green';
-      case 'TEMPORAL': return 'purple';
-      default: return 'gray';
-    }
-  };
-
   const filteredIndicators = React.useMemo(() => {
     return indicators.filter((ind) => ind.type === activeTab);
   }, [indicators, activeTab]);
@@ -256,7 +247,7 @@ const LegacyReportIndicatorsTab: React.FC<Props> = ({ report, onChange }) => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {filteredIndicators.map((indicator, index) => {
+                      {filteredIndicators.map((indicator) => {
                         const originalIndex = indicators.indexOf(indicator);
                         const IconComponent = getIndicatorTypeIcon(indicator.type);
 
