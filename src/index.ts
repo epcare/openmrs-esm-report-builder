@@ -18,6 +18,12 @@ export const importTranslation = require.context('../translations', true, /.json
 
 export const root = getAsyncLifecycle(() => import('./root.component'), options);
 
+// Data Visualizer confirm modal (used for sending reports to DHIS2)
+export const confirmModal = getAsyncLifecycle(
+  () => import('./data-visualizer/components/model/confirm.component'),
+  options
+);
+
 export function startupApp() {
   defineConfigSchema(moduleName, configSchema);
 }

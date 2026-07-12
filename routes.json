@@ -16,12 +16,6 @@
       "component": "reportBuilderAdminLink",
       "online": true,
       "offline": false
-    },
-    {
-      "component": "confirmModal",
-      "name": "confirm-modal",
-      "online": true,
-      "offline": true
     }
   ]
 }

@@ -1,0 +1,492 @@
+import useSWR from "swr";
+import { openmrsFetch, restBaseUrl } from "@openmrs/esm-framework";
+import { CQIReportingCohort } from "./data-visualizer.component";
+import dayjs from "dayjs";
+import { indicatorIdsWithoutEndPoints } from "./constants";
+
+type ReportRequest = {
+  uuid: string;
+  startDate: string;
+  endDate: string;
+  type: string;
+  reportCategory?: {
+    category: ReportCategory;
+    renderType?: RenderType;
+  };
+  reportIndicators?: Array<Indicator>;
+  reportType: ReportType;
+  reportingCohort?: CQIReportingCohort;
+};
+
+type saveReportRequest = {
+  reportName: string;
+  reportDescription?: string;
+  reportType?: string;
+  columns?: string;
+  rows: string;
+  report_request_object: string;
+};
+
+type ReportDownloadParams = {
+  uuid: string;
+  startDate: string;
+  endDate: string;
+  reportCategory?: ReportCategory;
+  reportingCohort?: CQIReportingCohort;
+};
+
+type ReportLibraryCategoryRef = {
+  uuid: string;
+  display?: string;
+  name?: string;
+  description?: string;
+};
+
+type ReportLibraryItem = {
+  uuid: string;
+  display?: string;
+  name: string;
+  description?: string;
+  code?: string;
+  sourceType?: string;
+  reportDefinitionUuid?: string;
+  reportBuilderReportUuid?: string;
+  reportType?: string;
+  migrated?: boolean;
+  retired?: boolean;
+  category?: ReportLibraryCategoryRef;
+};
+
+type ReportLibraryResponse = {
+  data: {
+    results: ReportLibraryItem[];
+  };
+};
+
+type ReportCategoryItem = {
+  uuid: string;
+  display?: string;
+  name: string;
+  description?: string;
+  retired?: boolean;
+};
+
+type ReportCategoryResponse = {
+  data: {
+    results: ReportCategoryItem[];
+  };
+};
+
+export async function getReport(params: ReportRequest, signal?: AbortSignal) {
+  if (params.reportType === "fixed") {
+    const query = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      uuid: params.uuid,
+    });
+
+    if (params.reportCategory?.category === "cqi" && params.reportingCohort) {
+      query.set("cohortList", params.reportingCohort);
+    }
+
+    if (params.reportCategory?.renderType) {
+      query.set("renderType", params.reportCategory.renderType);
+    }
+
+    return openmrsFetch(
+      `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
+      { signal },
+    );
+  }
+
+  const columns =
+    params.reportIndicators?.length
+      ? formatReportArray(params.reportIndicators)
+      : [];
+
+  return openmrsFetch(`${restBaseUrl}/reportbuilder/dataExport`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: {
+      cohort: {
+        type: params.type,
+        uuid: params.uuid,
+        name: "",
+        description: "",
+        parameters: [
+          { startDate: params.startDate },
+          { endDate: params.endDate },
+        ],
+      },
+      columns,
+    },
+  });
+}
+
+export function downloadReport(params: ReportDownloadParams) {
+  const abortController = new AbortController();
+  let apiUrl = `${restBaseUrl}/reportbuilder/reportDownload?startDate=${params.startDate}&endDate=${params.endDate}&uuid=${params.uuid}`;
+  if (params.reportCategory === "cqi") {
+    apiUrl += `&cohortList=${params.reportingCohort}`;
+  }
+
+  return openmrsFetch(apiUrl, {
+    signal: abortController.signal,
+  });
+}
+
+export async function getCategoryIndicator(id: string, type?: string) {
+  let apiUrl: string;
+  if (id === "IDN") {
+    apiUrl = `${restBaseUrl}/patientidentifiertype`;
+  } else if (id === "PAT") {
+    apiUrl = `${restBaseUrl}/personattributetype`;
+  } else if (id === "CON") {
+    apiUrl = `${restBaseUrl}/reportbuilder/concepts/conditions`;
+  } else if (indicatorIdsWithoutEndPoints.includes(id)) {
+    return null;
+  } else {
+    if (type === "Orders") {
+      apiUrl = `${restBaseUrl}/reportbuilder/order/indications?uuid=${id}`;
+    } else {
+      apiUrl = `${restBaseUrl}/reportbuilder/concepts/encountertype?uuid=${id}`;
+    }
+  }
+
+  const { data } = await openmrsFetch(apiUrl);
+  return data;
+}
+
+export function useGetEncounterType() {
+  const apiUrl = `${restBaseUrl}/encountertype`;
+  const { data, error, isLoading } = useSWR<{ data: { results: any } }, Error>(
+    apiUrl,
+    openmrsFetch
+  );
+  return {
+    encounterTypes: data ? mapDataElements(data?.data["results"]) : [],
+    isError: error,
+    isLoadingEncounterTypes: isLoading,
+  };
+}
+
+export function useGetOrderTypes() {
+  const apiUrl = `${restBaseUrl}/ordertype?v=custom:(uuid,display,name)`;
+  const { data, error, isLoading } = useSWR<{ data: { results: any } }, Error>(
+    apiUrl,
+    openmrsFetch
+  );
+  return {
+    orderTypes: data
+      ? mapDataOrderTypeElements(data?.data["results"], "Orders")
+      : [],
+    isError: error,
+    isLoadingOrderTypes: isLoading,
+  };
+}
+
+export async function saveReport(params: saveReportRequest) {
+  const apiUrl = `${restBaseUrl}/dashboardReport`;
+  const abortController = new AbortController();
+
+  return openmrsFetch(apiUrl, {
+    method: "POST",
+    signal: abortController.signal,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: {
+      name: params.reportName,
+      description: params?.reportDescription,
+      type: params?.reportType,
+      columns: params?.columns,
+      rows: params?.rows,
+      report_request_object: params.report_request_object,
+    },
+  });
+}
+
+export async function sendReportToDHIS2(report, dhis2Json) {
+  const apiUrl = `${restBaseUrl}/sendreport?uuid=${report}`;
+  const abortController = new AbortController();
+
+  return openmrsFetch(apiUrl, {
+    method: "POST",
+    signal: abortController.signal,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: {
+      ...dhis2Json,
+    },
+  });
+}
+
+export async function getCohortCategory(type: string) {
+  let apiUrl: string;
+  if (type === "patientSearch") {
+    apiUrl = `${restBaseUrl}/reportbuilder/patientsearch`;
+  } else {
+    apiUrl = `${restBaseUrl}/${type}?v=custom:(uuid,name)`;
+  }
+  const { data } = await openmrsFetch(apiUrl);
+  return data;
+}
+
+/* report library */
+
+export function useGetReportLibrary() {
+  const apiUrl = `${restBaseUrl}/reportbuilder/reportlibrary?v=full`;
+
+  const { data, error, isLoading, mutate } = useSWR<ReportLibraryResponse, Error>(
+    apiUrl,
+    openmrsFetch
+  );
+
+  return {
+    reportLibrary: data?.data?.results ?? [],
+    isError: error,
+    isLoadingReportLibrary: isLoading,
+    mutate,
+  };
+}
+
+export function useGetReportCategories() {
+  const apiUrl = `${restBaseUrl}/reportbuilder/reportcategory?v=full`;
+
+  const { data, error, isLoading, mutate } = useSWR<ReportCategoryResponse, Error>(
+    apiUrl,
+    openmrsFetch
+  );
+
+  return {
+    reportCategories: data?.data?.results ?? [],
+    isError: error,
+    isLoadingReportCategories: isLoading,
+    mutate,
+  };
+}
+
+export const getReportFromRegistry = (
+  reportLibrary: ReportLibraryItem[],
+  type: string
+) => {
+  return reportLibrary?.filter(
+    (report) =>
+      report?.category?.name?.toLowerCase() === type?.toLowerCase() ||
+      report?.category?.display?.toLowerCase() === type?.toLowerCase()
+  );
+};
+
+export const createColumns = (columns: Array<string>) => {
+  let dataColumn: Array<Record<string, string>> = [];
+  columns.map((column: string, index) => {
+    dataColumn.push({
+      id: `${index++}`,
+      key: column,
+      header: column,
+      accessor: column,
+    });
+  });
+  return dataColumn;
+};
+
+export const mapDataOrderTypeElements = (
+  dataArray: Array<Record<string, string>>,
+  type?: string,
+  category?: string
+) => {
+  let arrayToReturn: Array<Indicator> = [];
+  if (dataArray) {
+    dataArray.map((ordertype: Record<string, string>) => {
+      arrayToReturn.push({
+        id: ordertype.uuid,
+        label: ordertype.name + " Indicators",
+        type: type,
+      });
+    });
+  }
+
+  return arrayToReturn;
+};
+
+export const mapDataElements = (
+  dataArray: Array<Record<string, string>>,
+  type?: string,
+  category?: string
+) => {
+  let arrayToReturn: Array<Indicator> = [];
+  if (dataArray) {
+    if (category === "concepts") {
+      dataArray.map((encounterType: Record<string, string>) => {
+        arrayToReturn.push({
+          id: encounterType.uuid,
+          label: encounterType.conceptName,
+          type: encounterType.type,
+          modifier: 1,
+          showModifierPanel: false,
+          extras: [],
+          attributes: [],
+        });
+      });
+    } else {
+      dataArray.map((encounterType: Record<string, string>) => {
+        arrayToReturn.push({
+          id: encounterType.uuid,
+          label: encounterType.display,
+          type: type ?? "",
+          modifier: 1,
+          showModifierPanel: false,
+          extras: [],
+          attributes: [],
+        });
+      });
+    }
+  }
+
+  return arrayToReturn;
+};
+
+export const mapOrderDataElements = (
+  dataArray: Array<string>,
+  type?: string,
+  category?: string
+) => {
+  let arrayToReturn: Array<Indicator> = [];
+  if (dataArray) {
+    dataArray.map((indication: string) => {
+      arrayToReturn.push({
+        id: category,
+        label: indication,
+        type: type,
+        modifier: 1,
+        showModifierPanel: false,
+        extras: [],
+        attributes: [],
+      });
+    });
+  }
+
+  return arrayToReturn;
+};
+
+export const formatReportArray = (selectedItems: Array<Indicator>) => {
+  let arrayToReturn: Array<ReportParamItem> = [];
+  if (selectedItems) {
+    selectedItems.map((item: Indicator) => {
+      arrayToReturn.push({
+        label: item.label,
+        type: item.type,
+        expression: item.id,
+        modifier: item?.modifier,
+        extras: item?.extras,
+      });
+    });
+  }
+
+  return arrayToReturn;
+};
+
+export const getDateRange = (selectedPeriod: ReportingPeriod) => {
+  const currentDate = new Date();
+
+  switch (selectedPeriod) {
+    case "today":
+      return {
+        start: currentDate,
+        end: currentDate,
+      };
+    case "week":
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+
+      const endOfWeek = new Date(currentDate);
+      endOfWeek.setDate(currentDate.getDate() + (6 - currentDate.getDay()));
+
+      return {
+        start: startOfWeek,
+        end: endOfWeek,
+      };
+    case "month":
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      );
+      return {
+        start: startOfMonth,
+        end: endOfMonth,
+      };
+    case "quarter":
+      const quarter = Math.floor(currentDate.getMonth() / 3);
+      const startOfQuarter = new Date(
+        currentDate.getFullYear(),
+        Math.floor(currentDate.getMonth() / 3) * 3,
+        1
+      );
+      const endOfQuarter = new Date(
+        currentDate.getFullYear(),
+        (quarter + 1) * 3,
+        0
+      );
+      return {
+        start: startOfQuarter,
+        end: endOfQuarter,
+      };
+    case "lastQuarter":
+      const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
+      let previousQuarter;
+      let previousQuarterYear;
+
+      if (currentQuarter === 1) {
+        previousQuarter = 4;
+        previousQuarterYear = currentDate.getFullYear() - 1;
+      } else {
+        previousQuarter = currentQuarter - 1;
+        previousQuarterYear = currentDate.getFullYear();
+      }
+
+      const startOfPreviousQuarter = new Date(
+        previousQuarterYear,
+        (previousQuarter - 1) * 3,
+        1
+      );
+
+      const endOfPreviousQuarter = new Date(
+        previousQuarterYear,
+        previousQuarter * 3,
+        0
+      );
+
+      return {
+        start: startOfPreviousQuarter,
+        end: endOfPreviousQuarter,
+      };
+    default:
+      return {
+        start: null,
+        end: null,
+      };
+  }
+};
+
+export const extractDate = (timestamp: string): string => {
+  const dateObject = new Date(timestamp);
+  const year = dateObject.getFullYear();
+  const month = (dateObject.getMonth() + 1).toString().padStart(2, "0");
+  const day = dateObject.getDate().toString().padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+export const formatDate = (date: Date): string => {
+  return dayjs(date).format("YYYY-MM-DD");
+};
