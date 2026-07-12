@@ -21,6 +21,11 @@ export default function AdminPage() {
           <p>Catalog completed and legacy reports before full migration into the builder.</p>
         </ClickableTile>
 
+        <ClickableTile style={tileStyle} onClick={() => navigate('/legacy-reports')}>
+          <h4>Legacy Reports</h4>
+          <p>Upload, validate, and import legacy report configurations into the report builder.</p>
+        </ClickableTile>
+
         <ClickableTile style={tileStyle} onClick={() => navigate('/admin/themes')}>
           <h4>Data Themes</h4>
           <p>Manage reusable source configurations and table mappings.</p>
