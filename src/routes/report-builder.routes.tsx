@@ -21,6 +21,7 @@ import ETLSourcesPage from '../components/admin/etl-sources-page.component';
 
 import LegacyReportsPage from '../components/legacy-reports/legacy-reports-page.component';
 import LegacyReportDetailPage from '../components/legacy-reports/legacy-report-detail-page.component';
+import LegacyReportEditorPage from '../components/legacy-reports/legacy-report-editor-page.component';
 
 const ReportBuilderRoutes: React.FC = () => {
     return (
@@ -55,6 +56,8 @@ const ReportBuilderRoutes: React.FC = () => {
                 {/* Legacy Reports */}
                 <Route path="/legacy-reports" element={<LegacyReportsPage />} />
                 <Route path="/legacy-reports/:uuid" element={<LegacyReportDetailPage />} />
+                <Route path="/legacy-reports/:uuid/edit" element={<LegacyReportEditorPage />} />
+                <Route path="/legacy-reports/new/edit" element={<LegacyReportEditorPage />} />
 
                 {/* Data themes now accessed under Admin */}
                 <Route path="/admin/themes" element={<DataThemesPage />} />

@@ -14,7 +14,7 @@ import {
   FormGroup,
   Layer,
 } from '@carbon/react';
-import { Information } from '@carbon/icons-react';
+import { Information, Add } from '@carbon/icons-react';
 
 import Header from '../shared/header/header.component';
 import LegacyReportsTable, { type LegacyReportRow } from './legacy-reports-table.component';
@@ -100,6 +100,14 @@ const LegacyReportsPage: React.FC = () => {
     navigate(`/legacy-reports/${uuid}/import`);
   };
 
+  const handleEditReport = (uuid: string) => {
+    navigate(`/legacy-reports/${uuid}/edit`);
+  };
+
+  const handleCreateNew = () => {
+    navigate('/legacy-reports/new/edit');
+  };
+
   const handleDeleteReport = (uuid: string) => {
     if (confirm('Are you sure you want to delete this legacy report?')) {
       setReports((prev) => prev.filter((r) => r.uuid !== uuid));
@@ -142,19 +150,25 @@ const LegacyReportsPage: React.FC = () => {
         </div>
       </Tile>
 
-      <TextInput
-        id="search-reports"
-        labelText=""
-        placeholder="Search reports by name, key, or description..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: '1rem' }}
-      />
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+        <TextInput
+          id="search-reports"
+          labelText=""
+          placeholder="Search reports by name, key, or description..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <Button kind="primary" renderIcon={Add} onClick={handleCreateNew}>
+          Create New Report
+        </Button>
+      </div>
 
       <LegacyReportsTable
         rows={filteredReports}
         onUpload={handleUploadClick}
         onView={handleViewReport}
+        onEdit={handleEditReport}
         onImport={handleImportReport}
         onDelete={handleDeleteReport}
       />

@@ -63,6 +63,10 @@ const LegacyReportDetailPage: React.FC = () => {
     navigate(`/legacy-reports/${uuid}/edit`);
   };
 
+  const handleCreateNew = () => {
+    navigate('/legacy-reports/new/edit');
+  };
+
   if (loading) {
     return (
       <div>

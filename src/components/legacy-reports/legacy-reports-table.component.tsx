@@ -30,6 +30,7 @@ type Props = {
   onUpload?: () => void;
   onView?: (uuid: string) => void;
   onImport?: (uuid: string) => void;
+  onEdit?: (uuid: string) => void;
   onDelete?: (uuid: string) => void;
 };
 
@@ -40,7 +41,7 @@ function statusTag(status: string) {
   return <Tag type="gray">Draft</Tag>;
 }
 
-export default function LegacyReportsTable({ rows, onUpload, onView, onImport, onDelete }: Props) {
+export default function LegacyReportsTable({ rows, onUpload, onView, onImport, onEdit, onDelete }: Props) {
   const headers = [
     { key: 'key', header: 'Key' },
     { key: 'name', header: 'Name' },
@@ -135,6 +136,7 @@ export default function LegacyReportsTable({ rows, onUpload, onView, onImport, o
                       <TableCell onClick={(e) => e.stopPropagation()} style={{ width: 56 }}>
                         <OverflowMenu size="sm" flipped>
                           <OverflowMenuItem itemText="View Details" onClick={() => onView?.(row.id)} />
+                          <OverflowMenuItem itemText="Edit Configuration" onClick={() => onEdit?.(row.id)} />
                           <OverflowMenuItem itemText="Import to Builder" onClick={() => onImport?.(row.id)} />
                           <OverflowMenuItem itemText="Delete" isDelete onClick={() => onDelete?.(row.id)} />
                         </OverflowMenu>
