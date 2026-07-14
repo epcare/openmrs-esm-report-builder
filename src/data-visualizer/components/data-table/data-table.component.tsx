@@ -10,9 +10,7 @@ import {
   TableHeader,
   TableRow,
   TableToolbar,
-  TableToolbarAction,
   TableToolbarContent,
-  TableToolbarMenu,
   TableToolbarSearch,
   Tile,
 } from "@carbon/react";
@@ -44,8 +42,6 @@ interface ListProps {
     name: string;
   };
 }
-
-type DocumentType = "csv" | "pdf" | "json";
 
 const DataList: React.FC<ListProps> = ({ columns, data, report }) => {
   const { t } = useTranslation();
@@ -85,7 +81,7 @@ const DataList: React.FC<ListProps> = ({ columns, data, report }) => {
   };
 
   useEffect(() => {
-    let rows: Array<Record<string, string>> = [];
+    const rows: Array<Record<string, string>> = [];
 
     paginatedList.map((item: any, index) => {
       return rows.push({ ...item, id: index++ });

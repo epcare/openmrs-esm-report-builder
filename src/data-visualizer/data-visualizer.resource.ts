@@ -282,35 +282,26 @@ export const getReportFromRegistry = (
 };
 
 export const createColumns = (columns: Array<string>) => {
-  let dataColumn: Array<Record<string, string>> = [];
-  columns.map((column: string, index) => {
-    dataColumn.push({
-      id: `${index++}`,
-      key: column,
-      header: column,
-      accessor: column,
-    });
-  });
-  return dataColumn;
+  return columns.map((column: string, index) => ({
+    id: `${index}`,
+    key: column,
+    header: column,
+    accessor: column,
+  }));
 };
 
 export const mapDataOrderTypeElements = (
   dataArray: Array<Record<string, string>>,
   type?: string,
-  category?: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _category?: string
 ) => {
-  let arrayToReturn: Array<Indicator> = [];
-  if (dataArray) {
-    dataArray.map((ordertype: Record<string, string>) => {
-      arrayToReturn.push({
-        id: ordertype.uuid,
-        label: ordertype.name + " Indicators",
-        type: type,
-      });
-    });
-  }
-
-  return arrayToReturn;
+  if (!dataArray) return [];
+  return dataArray.map((ordertype: Record<string, string>) => ({
+    id: ordertype.uuid,
+    label: ordertype.name + " Indicators",
+    type: type,
+  }));
 };
 
 export const mapDataElements = (
@@ -318,36 +309,27 @@ export const mapDataElements = (
   type?: string,
   category?: string
 ) => {
-  let arrayToReturn: Array<Indicator> = [];
-  if (dataArray) {
-    if (category === "concepts") {
-      dataArray.map((encounterType: Record<string, string>) => {
-        arrayToReturn.push({
-          id: encounterType.uuid,
-          label: encounterType.conceptName,
-          type: encounterType.type,
-          modifier: 1,
-          showModifierPanel: false,
-          extras: [],
-          attributes: [],
-        });
-      });
-    } else {
-      dataArray.map((encounterType: Record<string, string>) => {
-        arrayToReturn.push({
-          id: encounterType.uuid,
-          label: encounterType.display,
-          type: type ?? "",
-          modifier: 1,
-          showModifierPanel: false,
-          extras: [],
-          attributes: [],
-        });
-      });
-    }
+  if (!dataArray) return [];
+  if (category === "concepts") {
+    return dataArray.map((encounterType: Record<string, string>) => ({
+      id: encounterType.uuid,
+      label: encounterType.conceptName,
+      type: encounterType.type,
+      modifier: 1,
+      showModifierPanel: false,
+      extras: [],
+      attributes: [],
+    }));
   }
-
-  return arrayToReturn;
+  return dataArray.map((encounterType: Record<string, string>) => ({
+    id: encounterType.uuid,
+    label: encounterType.display,
+    type: type ?? "",
+    modifier: 1,
+    showModifierPanel: false,
+    extras: [],
+    attributes: [],
+  }));
 };
 
 export const mapOrderDataElements = (
@@ -355,51 +337,40 @@ export const mapOrderDataElements = (
   type?: string,
   category?: string
 ) => {
-  let arrayToReturn: Array<Indicator> = [];
-  if (dataArray) {
-    dataArray.map((indication: string) => {
-      arrayToReturn.push({
-        id: category,
-        label: indication,
-        type: type,
-        modifier: 1,
-        showModifierPanel: false,
-        extras: [],
-        attributes: [],
-      });
-    });
-  }
-
-  return arrayToReturn;
+  if (!dataArray) return [];
+  return dataArray.map((indication: string) => ({
+    id: category,
+    label: indication,
+    type: type,
+    modifier: 1,
+    showModifierPanel: false,
+    extras: [],
+    attributes: [],
+  }));
 };
 
 export const formatReportArray = (selectedItems: Array<Indicator>) => {
-  let arrayToReturn: Array<ReportParamItem> = [];
-  if (selectedItems) {
-    selectedItems.map((item: Indicator) => {
-      arrayToReturn.push({
-        label: item.label,
-        type: item.type,
-        expression: item.id,
-        modifier: item?.modifier,
-        extras: item?.extras,
-      });
-    });
-  }
-
-  return arrayToReturn;
+  if (!selectedItems) return [];
+  return selectedItems.map((item: Indicator) => ({
+    label: item.label,
+    type: item.type,
+    expression: item.id,
+    modifier: item?.modifier,
+    extras: item?.extras,
+  }));
 };
 
 export const getDateRange = (selectedPeriod: ReportingPeriod) => {
   const currentDate = new Date();
 
   switch (selectedPeriod) {
-    case "today":
+    case "today": {
       return {
         start: currentDate,
         end: currentDate,
       };
-    case "week":
+    }
+    case "week": {
       const startOfWeek = new Date(currentDate);
       startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
 
@@ -410,7 +381,8 @@ export const getDateRange = (selectedPeriod: ReportingPeriod) => {
         start: startOfWeek,
         end: endOfWeek,
       };
-    case "month":
+    }
+    case "month": {
       const startOfMonth = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -425,7 +397,8 @@ export const getDateRange = (selectedPeriod: ReportingPeriod) => {
         start: startOfMonth,
         end: endOfMonth,
       };
-    case "quarter":
+    }
+    case "quarter": {
       const quarter = Math.floor(currentDate.getMonth() / 3);
       const startOfQuarter = new Date(
         currentDate.getFullYear(),
@@ -441,7 +414,8 @@ export const getDateRange = (selectedPeriod: ReportingPeriod) => {
         start: startOfQuarter,
         end: endOfQuarter,
       };
-    case "lastQuarter":
+    }
+    case "lastQuarter": {
       const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
       let previousQuarter;
       let previousQuarterYear;
@@ -470,6 +444,7 @@ export const getDateRange = (selectedPeriod: ReportingPeriod) => {
         start: startOfPreviousQuarter,
         end: endOfPreviousQuarter,
       };
+    }
     default:
       return {
         start: null,

@@ -80,8 +80,8 @@ export default function QueryResultsPreview({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoRun, canRun, sql, JSON.stringify(params ?? {}), maxRows]);
 
-    const columns = data?.columns ?? [];
-    const rows = data?.rows ?? [];
+    const columns = React.useMemo(() => data?.columns ?? [], [data?.columns]);
+    const rows = React.useMemo(() => data?.rows ?? [], [data?.rows]);
 
     const headers = React.useMemo(() => columns.map((c) => ({ key: c, header: c })), [columns]);
 

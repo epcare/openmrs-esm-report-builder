@@ -63,8 +63,14 @@ const LegacyReportIndicatorsTab: React.FC<Props> = ({ report, onChange }) => {
   });
   const [error, setError] = React.useState<string | null>(null);
 
-  const indicators = report.advancedFeatures?.indicatorDataSet?.indicators || [];
-  const dimensions = report.advancedFeatures?.indicatorDataSet?.dimensionDefinitions || [];
+  const indicators = React.useMemo(
+    () => report.advancedFeatures?.indicatorDataSet?.indicators || [],
+    [report.advancedFeatures?.indicatorDataSet?.indicators]
+  );
+  const dimensions = React.useMemo(
+    () => report.advancedFeatures?.indicatorDataSet?.dimensionDefinitions || [],
+    [report.advancedFeatures?.indicatorDataSet?.dimensionDefinitions]
+  );
 
   const getAvailableBaseIndicators = () => {
     return indicators.filter((ind) => ind.type === 'BASE');

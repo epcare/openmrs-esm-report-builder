@@ -18,7 +18,6 @@ import {
   TableExpandHeader,
 } from "@carbon/react";
 import {
-  isDesktop,
   useLayoutType,
   usePagination,
 } from "@openmrs/esm-framework";

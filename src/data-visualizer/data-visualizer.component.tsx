@@ -4,7 +4,7 @@ import TableRenderers from "react-pivottable/TableRenderers";
 import Plot from "react-plotly.js";
 import createPlotlyRenderers from "react-pivottable/PlotlyRenderers";
 import Illustration from "./data-visualizer-illustration.component";
-import type { Indicator, Item as ItemType, ReportType, ReportCategory, RenderType, ReportingPeriod } from "./types";
+import type { Indicator, Item, ReportType, ReportCategory, RenderType } from "./types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -85,11 +85,6 @@ type ReportingDuration = "fixed" | "relative";
 export type CQIReportingCohort =
   | "Patients with encounters"
   | "Patients on appointment";
-type DynamicReportType =
-  | "program"
-  | "cohort"
-  | "patientSearch"
-  | "reportDefinition";
 
 type ReportLibraryItem = {
   uuid: string;
@@ -689,34 +684,6 @@ const DataVisualizer: React.FC = () => {
     );
   };
 
-  const handleOnChnageExtras = (selectedParameter, event) => {
-    if (event?.target?.checked) {
-      setSelectedParameters((selectedParameters) =>
-        selectedParameters.map((parameter) =>
-          parameter.id === selectedParameter.id
-            ? {
-              ...parameter,
-              extras: [...parameter?.extras, event?.target?.value],
-            }
-            : parameter
-        )
-      );
-    } else {
-      setSelectedParameters((selectedParameters) =>
-        selectedParameters.map((parameter) =>
-          parameter.id === selectedParameter.id
-            ? {
-              ...parameter,
-              extras: parameter?.extras.filter(
-                (modifier) => modifier !== event?.target?.value
-              ),
-            }
-            : parameter
-        )
-      );
-    }
-  };
-
   const handleUpdateReport = useCallback(() => {
     if (!selectedReport) return;
 
@@ -1255,7 +1222,6 @@ const DataVisualizer: React.FC = () => {
                                 <ModifierComponent
                                   listItem={parameter}
                                   onChangeMostRecent={changeModifier}
-                                  onChangeExtraValue={handleOnChnageExtras}
                                 />
                               </div>
                             </React.Fragment>

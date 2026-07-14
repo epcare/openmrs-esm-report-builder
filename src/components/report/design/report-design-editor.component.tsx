@@ -212,7 +212,7 @@ const ReportDesignEditor: React.FC<Props> = ({
         [onChange],
     );
 
-    const groups = draft.groups ?? [];
+    const groups = React.useMemo(() => draft.groups ?? [], [draft.groups]);
 
     React.useEffect(() => {
         if (!selectedGroupId && groups.length > 0) {

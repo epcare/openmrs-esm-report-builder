@@ -108,8 +108,8 @@ export default function QuestionAnswerConceptSearch({
     const [answerComboKey, setAnswerComboKey] = React.useState(0);
     const [questionComboKey, setQuestionComboKey] = React.useState(0);
 
-    const selectedQuestions = value.questions ?? [];
-    const selectedAnswers = value.answers ?? [];
+    const selectedQuestions = React.useMemo(() => value.questions ?? [], [value.questions]);
+    const selectedAnswers = React.useMemo(() => value.answers ?? [], [value.answers]);
 
     const mergeUniqueByUuid = React.useCallback((xs: SelectedConcept[]) => {
         const m = new Map<string, SelectedConcept>();

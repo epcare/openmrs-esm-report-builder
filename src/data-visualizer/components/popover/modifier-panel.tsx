@@ -7,12 +7,10 @@ import type { Indicator } from "../../types";
 type Props = {
   listItem: Indicator;
   onChangeMostRecent: (selectParameter: Indicator, type: string) => void;
-  onChangeExtraValue: (selectParameter: Indicator, event) => void;
 };
 const ModifierComponent: React.FC<Props> = ({
   listItem,
   onChangeMostRecent,
-  onChangeExtraValue,
 }) => {
   return (
     <>

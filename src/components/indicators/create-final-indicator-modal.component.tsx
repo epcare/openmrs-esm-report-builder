@@ -99,6 +99,10 @@ export default function CreateFinalIndicatorModal({
     }, [open]);
 
     // init create vs edit
+    // Only re-initialize when switching to a different indicator (uuid changes),
+    // not when individual fields change. This prevents re-initializing during
+    // typing/editing of the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     React.useEffect(() => {
         if (!open) return;
 
@@ -130,6 +134,10 @@ export default function CreateFinalIndicatorModal({
         setBaseFull(null);
         setBaseError(null);
         // preview dates remain (or you can reset here if desired)
+    // Only re-initialize when switching to a different indicator (uuid changes),
+    // not when individual fields change. This prevents re-initializing during
+    // typing/editing of the form.
+    /* eslint-disable react-hooks/exhaustive-deps */
     }, [open, mode, initial?.uuid]);
 
     // load full base indicator
