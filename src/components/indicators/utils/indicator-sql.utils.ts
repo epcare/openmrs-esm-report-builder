@@ -154,10 +154,40 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
             const col = qualifyColumn(tc.column);
 
+            // ✅ BETWEEN requires exactly 2 values: BETWEEN val1 AND val2
+            if (op === 'BETWEEN') {
+                if (arr.length === 2) {
+                    const [v1, v2] = arr.map((x) => (isNumericList ? x : sqlQuote(x)));
+                    clauses.push(`  AND ${col} BETWEEN ${v1} AND ${v2}`);
+                }
+                // If BETWEEN doesn't have exactly 2 values, skip it (invalid)
+                continue;
+            }
+
             if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
             else if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
             else clauses.push(`  AND ${col} ${op} (${rendered})`);
 
+            continue;
+        }
+
+        // ✅ BETWEEN with { start, end } object format
+        if (op === 'BETWEEN' && typeof v === 'object' && v !== null && 'start' in v && 'end' in v) {
+            const startVal = (v as any).start;
+            const endVal = (v as any).end;
+
+            if (startVal !== null && startVal !== undefined && startVal !== '' &&
+                endVal !== null && endVal !== undefined && endVal !== '') {
+
+                const isNumericStart = tc.valueType === 'conceptId' || /^[0-9]+$/.test(String(startVal));
+                const isNumericEnd = tc.valueType === 'conceptId' || /^[0-9]+$/.test(String(endVal));
+
+                const renderedStart = isNumericStart ? startVal : sqlQuote(String(startVal));
+                const renderedEnd = isNumericEnd ? endVal : sqlQuote(String(endVal));
+                const col = qualifyColumn(tc.column);
+
+                clauses.push(`  AND ${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
+            }
             continue;
         }
 
@@ -175,6 +205,9 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
         if (isInOperator(op)) {
             if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${renderedScalar})`);
             else clauses.push(`  AND ${col} IN (${renderedScalar})`);
+        } else if (op === 'BETWEEN') {
+            // BETWEEN with scalar is invalid (requires 2 values), skip it
+            continue;
         } else {
             clauses.push(`  AND ${col} ${op} ${renderedScalar}`);
         }

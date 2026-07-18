@@ -10,6 +10,7 @@ import QuestionAnswerConceptSearch from '../handler/question-answer-concept-sear
 import type { QAUiState } from '../types/condition-ui.types';
 
 type QAValue = { questions: Array<string | number>; answers: Array<string | number> };
+type BetweenValue = { start: string; end: string };
 
 type Props = {
     conditions: ThemeCondition[];
@@ -66,7 +67,9 @@ export default function IndicatorConditionsSection({
                             ? ({ questions: [], answers: [] } as any)
                             : tc.operator === 'IN' || tc.operator === 'NOT_IN'
                                 ? []
-                                : '',
+                                : tc.operator === 'BETWEEN' || tc.handler === 'DATE_RANGE'
+                                    ? { start: '', end: '' } as any
+                                    : '',
                 } as IndicatorCondition);
 
             onPickedChange(upsert(picked ?? [], { ...existing, ...patch, key: tc.key }));
@@ -162,6 +165,41 @@ export default function IndicatorConditionsSection({
                             }
                         }}
                     />
+                </div>
+            );
+        }
+
+        // BETWEEN / DATE_RANGE - needs two inputs (start and end)
+        if (tc.handler === 'DATE_RANGE' || tc.operator === 'BETWEEN') {
+            const currentValue = (current?.value as any) as BetweenValue | undefined;
+            const start = currentValue?.start ?? '';
+            const end = currentValue?.end ?? '';
+
+            return (
+                <div key={tc.key}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{tc.label || tc.key}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <TextInput
+                            id={`cond-${tc.key}-start`}
+                            labelText="Start value"
+                            placeholder="Start"
+                            value={start}
+                            onChange={(e) => {
+                                const nextValue = { start: (e.target as HTMLInputElement).value, end };
+                                upsertPicked(tc, { value: nextValue as any });
+                            }}
+                        />
+                        <TextInput
+                            id={`cond-${tc.key}-end`}
+                            labelText="End value"
+                            placeholder="End"
+                            value={end}
+                            onChange={(e) => {
+                                const nextValue = { start, end: (e.target as HTMLInputElement).value };
+                                upsertPicked(tc, { value: nextValue as any });
+                            }}
+                        />
+                    </div>
                 </div>
             );
         }

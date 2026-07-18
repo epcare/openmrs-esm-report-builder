@@ -6,6 +6,18 @@
 
 ---
 
+## 📚 Documentation
+
+| Document | Description | Audience |
+|----------|-------------|----------|
+| **[User Manual](USER_MANUAL.md)** | Complete guide for end users on using the application | Implementers, Report Developers |
+| **[Technical Documentation](DOCUMENTATION.md)** | Architecture, API, and integration details | Developers, Technical Staff |
+| **[Quick Reference](QUICK_REFERENCE.md)** | Quick lookup for routes, endpoints, and common patterns | All Users |
+| **[Backend Support](BACKEND_SUPPORT_ANALYSIS.md)** | Backend API dependencies and requirements | Developers |
+| **[Endpoint Migration](ENDPOINT_MIGRATION_SUMMARY.md)** | API migration details and status | Developers |
+
+---
+
 ## Overview
 
 The **OpenMRS ESM Report Builder** is an OpenMRS 3 frontend microfrontend (ESM) for **designing, managing, and structuring health reports** used in national and facility-level reporting.
@@ -311,6 +323,13 @@ When contributing:
 Mozilla Public License 2.0 (MPL-2.0)
 
 ---
+
+## Documentation
+
+For detailed documentation, see:
+- **[User Manual](USER_MANUAL.md)** - How to use the Report Builder
+- **[Technical Documentation](DOCUMENTATION.md)** - Architecture and implementation details
+- **[Quick Reference](QUICK_REFERENCE.md)** - Quick lookup for common tasks
 
 ## Acknowledgements
 

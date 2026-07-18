@@ -118,6 +118,7 @@ function buildAuthoring(
 function defaultValueForTheme(tc: ThemeCondition) {
     if (tc.handler === 'QUESTION_ANSWER_CONCEPT_SEARCH') return { questions: [], answers: [] } as any;
     if (tc.operator === 'IN' || tc.operator === 'NOT_IN') return [] as any;
+    if (tc.operator === 'BETWEEN' || tc.handler === 'DATE_RANGE') return { start: '', end: '' } as any;
     return '' as any;
 }
 
