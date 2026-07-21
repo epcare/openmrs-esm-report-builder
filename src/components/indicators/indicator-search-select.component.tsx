@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ComboBox, InlineLoading } from '@carbon/react';
 
-import { listIndicators, type IndicatorDto } from '../../resources/indicator/indicators.api';
+import { listIndicators } from '../../resources/indicator/indicators.api';
 import type { IndicatorOption } from './types/composite-indicator.types';
 
 type ComboItem = {

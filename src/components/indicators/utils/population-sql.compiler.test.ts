@@ -138,10 +138,10 @@ describe('Population SQL Compiler', () => {
             const result = await compilePopulationSql(composite, getIndicator);
 
             expect(result.sql).toContain('WITH A AS');
-            expect(result.sql).toContain('WITH B AS');
+            expect(result.sql).toMatch(/B AS \(/);  // B AS ( appears after A, without WITH
             expect(result.sql).toContain('INNER JOIN B');
             expect(result.sql).toContain('ON B.patient_id = A.patient_id');
-            expect(result.sql).toContain('SELECT DISTINCT A.patient_id');
+            expect(result.sql).toMatch(/SELECT DISTINCT\s+A\.patient_id/);  // Handles multi-line SELECT
         });
 
         it('should compile nested composite indicators correctly', async () => {

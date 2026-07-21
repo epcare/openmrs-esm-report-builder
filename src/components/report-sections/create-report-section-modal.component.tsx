@@ -2,7 +2,6 @@ import React from 'react';
 import { Modal, Stack, InlineLoading, InlineNotification } from '@carbon/react';
 
 import { getIndicator, type IndicatorDto } from '../../resources/indicator/indicators.api';
-import { buildFinalIndicatorSql } from '../indicators/utils/final-indicator-sql.utils';
 import { buildSectionDisaggregationSql, buildSectionDisaggregationSqlAsync } from './section-disaggregation.utils';
 
 import type { ReportSectionEditorProps } from './section-types';
@@ -89,7 +88,7 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
 
             // Create a getIndicator function for the async compiler
             const getIndicatorFn = async (uuid: string) => {
-                let ind = byId.get(uuid);
+                const ind = byId.get(uuid);
                 if (ind) return ind;
 
                 // If not in our map, try fetching it

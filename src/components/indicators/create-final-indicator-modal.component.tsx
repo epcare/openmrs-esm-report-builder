@@ -4,7 +4,6 @@ import { Modal, Stack, InlineLoading, InlineNotification } from '@carbon/react';
 import type { IndicatorDto } from '../../resources/indicator/indicators.api';
 import { getIndicator } from '../../resources/indicator/indicators.api';
 
-import type { IndicatorOption } from './types/composite-indicator.types';
 import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../resources/agegroup/agegroups.api';
 
 import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';

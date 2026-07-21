@@ -3,7 +3,7 @@ import { Modal, Stack, InlineNotification } from '@carbon/react';
 
 import { getIndicator, type IndicatorDto } from '../../resources/indicator/indicators.api';
 
-import type { IndicatorOption, CompositeOperator } from './types/composite-indicator.types';
+import type { CompositeOperator } from './types/composite-indicator.types';
 
 import CompositeIndicatorBasicsSection from './sections/composite-indicator-basics.section';
 import CompositeIndicatorPickerSection from './sections/composite-indicator-picker.section';

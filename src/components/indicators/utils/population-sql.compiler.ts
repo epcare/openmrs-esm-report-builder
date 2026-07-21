@@ -322,8 +322,8 @@ function combineWithOperator(
     const idField = unit === 'Encounters' ? 'encounter_id' : 'patient_id';
 
     // Clean the SQL - remove trailing semicolons
-    let cleanA = populationSqlA.trim().replace(/;+\s*$/, '');
-    let cleanB = populationSqlB.trim().replace(/;+\s*$/, '');
+    const cleanA = populationSqlA.trim().replace(/;+\s*$/, '');
+    const cleanB = populationSqlB.trim().replace(/;+\s*$/, '');
 
     // Check if the population SQL contains WITH clauses (nested CTEs)
     const aHasWith = /^\s*WITH\s+/i.test(cleanA);
