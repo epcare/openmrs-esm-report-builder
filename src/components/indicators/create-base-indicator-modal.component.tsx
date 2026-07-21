@@ -337,9 +337,9 @@ export default function CreateBaseIndicatorModal({
             return;
         }
 
-        if (themeConfig?.sourceTables && initial?.configJson) {
+        if (themeConfig?.sourceTable && initial?.configJson) {
             const authoring = normalizeAuthoring(initial);
-            if (authoring?.themeUuid === themeUuid && authoring?.themeConfig?.sourceTables === themeConfig.sourceTables) {
+            if (authoring?.themeUuid === themeUuid && authoring?.themeConfig?.sourceTable === themeConfig.sourceTable) {
                 return;
             }
         }
@@ -392,8 +392,8 @@ export default function CreateBaseIndicatorModal({
     const canSave =
         Boolean(name.trim()) &&
         Boolean(themeUuid) &&
-        Array.isArray(themeConfig?.sourceTables) &&
-        themeConfig.sourceTables.length > 0 &&
+        Array.isArray(themeConfig?.sourceTable) &&
+        themeConfig.sourceTable.length > 0 &&
         Boolean(themeConfig?.patientIdColumn) &&
         Boolean(themeConfig?.dateColumn);
 

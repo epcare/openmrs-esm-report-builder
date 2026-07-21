@@ -130,16 +130,6 @@ export default function DataThemeConditionsSection({ open, config, onChange, col
 
   const qaColumnOptions = React.useMemo(() => baseColumnOptions, [baseColumnOptions]);
 
-  // Source options for conditions - only show when multiple sources exist
-  const sourceOptions = React.useMemo(() => {
-    const sources = config?.sourceTables ?? [];
-    if (sources.length <= 1) return [];
-    return [
-      { id: '', label: 'All sources' },
-      ...sources.map((s, i) => ({ id: s, label: `Source ${i + 1}` }))
-    ];
-  }, [config?.sourceTables]);
-
   const lastCommittedSerializedRef = React.useRef<string>('');
   const [rows, setRows] = React.useState<UiConditionRow[]>(() => toRows(config.conditions, columnNames));
 
@@ -193,12 +183,6 @@ export default function DataThemeConditionsSection({ open, config, onChange, col
 
   const canEdit = open && !loadingCols;
 
-  // Only show source column when there are multiple sources
-  const showSourceColumn = (config?.sourceTables?.length ?? 0) > 1;
-  const gridColumns = showSourceColumn
-    ? '1.2fr 1fr 1.4fr 1.2fr 2fr 1fr 1.1fr auto'
-    : '1.2fr 1.4fr 1.2fr 2fr 1fr 1.1fr auto';
-
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Conditions</div>
@@ -209,9 +193,8 @@ export default function DataThemeConditionsSection({ open, config, onChange, col
 
       {rows.length === 0 ? <div style={{ marginBottom: '0.75rem', opacity: 0.8 }}>No conditions yet.</div> : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: gridColumns, gap: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.4fr 1.2fr 2fr 1fr 1.1fr auto', gap: '0.75rem' }}>
         <div style={{ fontWeight: 600 }}>Key</div>
-        {showSourceColumn && <div style={{ fontWeight: 600 }}>Source</div>}
         <div style={{ fontWeight: 600 }}>Label</div>
         <div style={{ fontWeight: 600 }}>Handler</div>
         <div style={{ fontWeight: 600 }}>Column/Expr</div>
@@ -233,9 +216,6 @@ export default function DataThemeConditionsSection({ open, config, onChange, col
           const selectedAnswerItem =
             qaColumnOptions.find((x) => x.id === (r._qaAnswerCol ?? '')) ?? null;
 
-          const selectedSourceItem =
-            sourceOptions.find((x) => x.id === (r.source ?? '')) ?? null;
-
           return (
             <React.Fragment key={r._id}>
               <TextInput
@@ -247,21 +227,6 @@ export default function DataThemeConditionsSection({ open, config, onChange, col
                 placeholder="concept_id"
                 onChange={(e) => updateRow(r._id, { key: (e.target as HTMLInputElement).value })}
               />
-
-              {showSourceColumn ? (
-                <ComboBox
-                  id={`theme-cond-source-${r._id}`}
-                  titleText=""
-                  items={sourceOptions}
-                  itemToString={(it) => (it ? it.label : '')}
-                  selectedItem={selectedSourceItem}
-                  disabled={!canEdit}
-                  placeholder="All sources"
-                  onChange={({ selectedItem }) => {
-                    updateRow(r._id, { source: selectedItem?.id ?? undefined });
-                  }}
-                />
-              ) : null}
 
               <TextInput
                 id={`theme-cond-label-${r._id}`}

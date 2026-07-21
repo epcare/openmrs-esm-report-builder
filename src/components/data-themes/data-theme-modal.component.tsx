@@ -21,7 +21,7 @@ type Props = {
 };
 
 const defaultConfig: DataThemeConfig = {
-    sourceTables: [],
+    sourceTable: '',
     patientIdColumn: '',
     dateColumn: '',
     locationColumn: '',
@@ -64,7 +64,7 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
  * 1) configJson string parses to { ...configFields }
  * 2) configJson string parses to { configJson: { ...configFields } }
  *
- * Also migrates legacy `sourceTable` -> `sourceTables[]` and `conditionColumns` -> `conditions[]` when needed.
+ * Also migrates legacy `conditionColumns` -> `conditions[]` when present AND conditions[] missing/empty.
  */
 function parseConfig(raw: string | undefined | null): DataThemeConfig {
     const parsed = safeParseJson<any>(raw, defaultConfig);
@@ -76,12 +76,7 @@ function parseConfig(raw: string | undefined | null): DataThemeConfig {
 
     const cfg: any = { ...defaultConfig, ...(base ?? {}) };
 
-    // MIGRATION: old themes had sourceTable (string), new ones have sourceTables (array)
-    if (cfg.sourceTable && typeof cfg.sourceTable === 'string' && !Array.isArray(cfg.sourceTables)) {
-        cfg.sourceTables = [cfg.sourceTable];
-    }
     // normalize arrays defensively
-    if (!Array.isArray(cfg.sourceTables)) cfg.sourceTables = [];
     if (!Array.isArray(cfg.fields)) cfg.fields = [];
     if (!Array.isArray(cfg.conditions)) cfg.conditions = [];
 
@@ -210,9 +205,8 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
     React.useEffect(() => {
         if (!open) return;
 
-        const sourceTables = config?.sourceTables ?? [];
-        const firstTable = sourceTables[0];
-        if (!firstTable) {
+        const table = config?.sourceTable;
+        if (!table) {
             setColumns([]);
             setColsError(null);
             setLoadingCols(false);
@@ -224,7 +218,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
         setColsError(null);
         setColumns([]);
 
-        getETLTableMeta(firstTable, ac.signal)
+        getETLTableMeta(table, ac.signal)
             .then((data) => setColumns(data ?? []))
             .catch((e) => {
                 if (e?.name !== 'AbortError') setColsError(e?.message ?? 'Failed to load table columns');
@@ -232,7 +226,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
             .finally(() => setLoadingCols(false));
 
         return () => ac.abort();
-    }, [open, config?.sourceTables]);
+    }, [open, config?.sourceTable]);
 
     // keep configJson synced when user edits config
     React.useEffect(() => {
@@ -251,8 +245,7 @@ export default function DataThemeModal({ open, mode, initial, onClose, onSave }:
         Boolean(name.trim()) &&
         Boolean((code.trim() || toCode(name)).trim()) &&
         Boolean(domain) &&
-        Array.isArray(config?.sourceTables) &&
-        config.sourceTables.length > 0 &&
+        Boolean(config?.sourceTable) &&
         Boolean(config?.patientIdColumn) &&
         Boolean(config?.dateColumn);
 
