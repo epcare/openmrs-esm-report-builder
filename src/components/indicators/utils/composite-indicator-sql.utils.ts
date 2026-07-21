@@ -137,7 +137,7 @@ ${inner}
         `SELECT DISTINCT a.${idColumn} AS ${idField}\n`,
     );
 
-    // If it didn’t replace, fallback: try simpler replace
+    // If it didn't replace, fallback: try simpler replace
     if (replaced === noSemi) {
         return noSemi.replace(/COUNT\s*\(\s*\*\s*\)\s+AS\s+total/gi, `DISTINCT a.${idColumn} AS ${idField}`);
     }
@@ -146,8 +146,139 @@ ${inner}
 }
 
 /**
+ * Extracts CTEs from a SQL query and renames them to avoid conflicts.
+ * Handles nested WITH clauses by recursively extracting inner CTEs to the top level.
+ *
+ * @param sql - The SQL query that may start WITH CTEs
+ * @param prefix - Prefix to add to CTE names (e.g., 'base_' or 'filter_')
+ * @returns Object with ctes string and the main query with updated references
+ */
+function extractAndRenameCtes(sql: string, prefix: string): { ctes: string; mainQuery: string } {
+    const trimmed = sql.trim();
+
+    // Check if SQL starts WITH
+    const withMatch = trimmed.match(/^\s*WITH\s+/i);
+    if (!withMatch) {
+        // No CTEs, return as-is
+        return { ctes: '', mainQuery: trimmed };
+    }
+
+    // Find the SELECT that starts the main query (after all CTEs)
+    let parenCount = 0;
+    let mainSelectIndex = -1;
+    let foundWith = false;
+
+    for (let i = 0; i < trimmed.length; i++) {
+        const char = trimmed[i];
+
+        // Track if we've passed the WITH keyword
+        if (!foundWith && i >= withMatch[0].length) {
+            foundWith = true;
+        }
+
+        if (char === '(') {
+            parenCount++;
+        } else if (char === ')') {
+            parenCount--;
+        }
+
+        // Look for SELECT when we're not in parentheses
+        if (foundWith && parenCount === 0) {
+            if (trimmed.substring(i, i + 6).toUpperCase() === 'SELECT') {
+                mainSelectIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (mainSelectIndex === -1) {
+        // Couldn't find main SELECT, return as-is
+        return { ctes: '', mainQuery: trimmed };
+    }
+
+    // Split into CTEs section and main query
+    const ctesSection = trimmed.substring(withMatch[0].length, mainSelectIndex);
+    const mainQuery = trimmed.substring(mainSelectIndex);
+
+    // Process CTEs - handle nested WITH by recursive extraction
+    const allCtes: string[] = [];
+    let current = '';
+    let level = 0;
+
+    for (let i = 0; i < ctesSection.length; i++) {
+        const char = ctesSection[i];
+
+        if (char === '(') level++;
+        else if (char === ')') level--;
+
+        current += char;
+
+        // When level returns to 0, check for comma or end
+        if (level === 0 && current.trim()) {
+            // Look ahead for comma
+            let j = i + 1;
+            while (j < ctesSection.length && /[\s]/.test(ctesSection[j])) j++;
+
+            if (j >= ctesSection.length || ctesSection[j] === ',') {
+                // Complete CTE
+                const cteDef = current.trim().replace(/,$/, '');
+                if (cteDef) {
+                    // Match: NAME AS (body)
+                    const nameMatch = cteDef.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+AS\s*\((.*)\)\s*$/);
+                    if (nameMatch) {
+                        const oldName = nameMatch[1];
+                        let body = nameMatch[2].trim();
+                        const newName = prefix + oldName;
+
+                        // Check if body contains nested WITH clause
+                        const nestedWithMatch = body.match(/^\s*WITH\s+/i);
+                        if (nestedWithMatch) {
+                            // Recursively extract nested CTEs
+                            const nestedResult = extractAndRenameCtes(body, prefix);
+                            // Add the nested CTEs first (they're referenced by the main query)
+                            if (nestedResult.ctes) {
+                                allCtes.push(nestedResult.ctes);
+                            }
+                            // Update body to use the extracted main query
+                            body = nestedResult.mainQuery;
+                        }
+
+                        // Update references within body:
+                        // 1. Column references like A.xxx -> base_A.xxx
+                        let updatedBody = body.replace(/\b([A-D])\.(\w+)/g, `${prefix}$1.$2`);
+                        // 2. Table references like FROM A, JOIN A -> FROM base_A, JOIN base_A
+                        // Use negative lookbehind to avoid matching A in base_A
+                        updatedBody = updatedBody.replace(/(?<![_A-Za-z0-9])([A-D])\b(?!\.)/g, `${prefix}$1`);
+
+                        allCtes.push(`${newName} AS (\n    ${updatedBody}\n)`);
+                    }
+                }
+                current = '';
+                // Skip past comma
+                if (j < ctesSection.length && ctesSection[j] === ',') {
+                    i = j;
+                }
+            }
+        }
+    }
+
+    // Update references in main query
+    let updatedMainQuery = mainQuery.replace(/\b([A-D])\.(\w+)/g, `${prefix}$1.$2`);
+    // Also update table references like FROM A, JOIN A
+    updatedMainQuery = updatedMainQuery.replace(/(?<![_A-Za-z0-9])([A-D])\b(?!\.)/g, `${prefix}$1`);
+
+    return {
+        ctes: allCtes.join(',\n'),
+        mainQuery: updatedMainQuery
+    };
+}
+
+/**
  * Build composite COUNT SQL from two population queries.
  * Population queries MUST return a column named patient_id or encounter_id.
+ *
+ * Handles the case where population queries themselves contain WITH clauses
+ * (composite indicators) by extracting and renaming inner CTEs to avoid conflicts.
  */
 export function buildCompositeCountSql(args: {
     unit: 'Patients' | 'Encounters';
@@ -157,50 +288,56 @@ export function buildCompositeCountSql(args: {
 }) {
     const idField = idFieldForUnit(args.unit);
 
-    const A = args.populationSqlA.trim().replace(/;+\s*$/, '');
-    const B = args.populationSqlB.trim().replace(/;+\s*$/, '');
+    const rawA = args.populationSqlA.trim().replace(/;+\s*$/, '');
+    const rawB = args.populationSqlB.trim().replace(/;+\s*$/, '');
 
-    if (!A || !B) return '';
+    if (!rawA || !rawB) return '';
+
+    // Extract and rename CTEs from population queries (if they are composite indicators)
+    const resultA = extractAndRenameCtes(rawA, 'base_');
+    const resultB = extractAndRenameCtes(rawB, 'filter_');
+
+    // Build the flattened WITH clause with all CTEs
+    // IMPORTANT: CTEs must be ordered such that inner CTEs are defined before outer CTEs
+    // that reference them. The order should be:
+    // 1. Inner CTEs from A (base_A, base_B, ...)
+    // 2. Inner CTEs from B (filter_A, filter_B, ...)
+    // 3. Outer CTE A (which references base_*)
+    // 4. Outer CTE B (which references filter_*)
+    const withCtes: string[] = [];
+
+    // Add inner CTEs from A (renamed with base_ prefix) - these come first
+    if (resultA.ctes) {
+        withCtes.push(resultA.ctes);
+    }
+
+    // Add inner CTEs from B (renamed with filter_ prefix) - these come second
+    if (resultB.ctes) {
+        withCtes.push(resultB.ctes);
+    }
+
+    // Add outer CTE declarations for A and B - these come last and reference the inner CTEs
+    withCtes.push(`A AS (\n  ${resultA.mainQuery}\n)`);
+    withCtes.push(`B AS (\n  ${resultB.mainQuery}\n)`);
+
+    // Build the final query based on operator
+    let innerSelect = '';
 
     if (args.operator === 'AND') {
-        return `
-WITH
-A AS (${A}),
-B AS (${B})
-SELECT COUNT(*) AS total
-FROM (
-  SELECT A.${idField}
-  FROM A
-  INNER JOIN B ON B.${idField} = A.${idField}
-) X;
-`.trim();
+        innerSelect = `SELECT A.${idField}\n  FROM A\n  INNER JOIN B ON B.${idField} = A.${idField}`;
+    } else if (args.operator === 'OR') {
+        innerSelect = `SELECT ${idField} FROM A\n  UNION\n  SELECT ${idField} FROM B`;
+    } else {
+        // A_AND_NOT_B
+        innerSelect = `SELECT A.${idField}\n  FROM A\n  LEFT JOIN B ON B.${idField} = A.${idField}\n  WHERE B.${idField} IS NULL`;
     }
 
-    if (args.operator === 'OR') {
-        return `
-WITH
-A AS (${A}),
-B AS (${B})
-SELECT COUNT(*) AS total
-FROM (
-  SELECT ${idField} FROM A
-  UNION
-  SELECT ${idField} FROM B
-) X;
-`.trim();
-    }
-
-    // A_AND_NOT_B
     return `
 WITH
-A AS (${A}),
-B AS (${B})
+${withCtes.join(',\n')}
 SELECT COUNT(*) AS total
 FROM (
-  SELECT A.${idField}
-  FROM A
-  LEFT JOIN B ON B.${idField} = A.${idField}
-  WHERE B.${idField} IS NULL
+  ${innerSelect}
 ) X;
 `.trim();
 }
