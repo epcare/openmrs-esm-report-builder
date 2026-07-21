@@ -1,18 +1,12 @@
 import React from 'react';
-import { ComboBox, RadioButtonGroup, RadioButton } from '@carbon/react';
+import { RadioButtonGroup, RadioButton } from '@carbon/react';
 import { Information } from '@carbon/icons-react';
 
-import type { BaseIndicatorOption, CompositeOperator } from '../types/composite-indicator.types';
+import type { CompositeOperator } from '../types/composite-indicator.types';
 import { idFieldForUnit } from '../utils/composite-indicator-sql.utils';
-
-const labelFor = (x: BaseIndicatorOption) => {
-    const unit = x.unit ? ` • ${x.unit}` : '';
-    return `${x.name} (${x.code})${unit}`;
-};
+import IndicatorSearchSelect from '../indicator-search-select.component';
 
 type Props = {
-    baseIndicators: BaseIndicatorOption[];
-
     indicatorAId: string;
     indicatorBId: string;
     operator: CompositeOperator;
@@ -25,65 +19,33 @@ type Props = {
     onChangeOperator: (op: CompositeOperator) => void;
 };
 
-type ComboItem = {
-    id: string;
-    label: string;
-    unit?: string;
-    isPlaceholder?: boolean;
-};
-
 export default function CompositeIndicatorPickerSection({
-                                                            baseIndicators,
-                                                            indicatorAId,
-                                                            indicatorBId,
-                                                            operator,
-                                                            inferredUnit,
-                                                            samePick,
-                                                            onChangeA,
-                                                            onChangeB,
-                                                            onChangeOperator,
-                                                        }: Props) {
-    const items: ComboItem[] = React.useMemo(() => {
-        const placeholder: ComboItem = { id: '', label: 'Select an indicator…', isPlaceholder: true };
-        return [
-            placeholder,
-            ...baseIndicators.map((x) => ({
-                id: x.id,
-                label: labelFor(x),
-                unit: x.unit,
-            })),
-        ];
-    }, [baseIndicators]);
-
-    const selectedA: ComboItem | null = React.useMemo(() => {
-        return items.find((x) => x.id === indicatorAId) ?? (indicatorAId ? null : items[0] ?? null);
-    }, [items, indicatorAId]);
-
-    const selectedB: ComboItem | null = React.useMemo(() => {
-        return items.find((x) => x.id === indicatorBId) ?? (indicatorBId ? null : items[0] ?? null);
-    }, [items, indicatorBId]);
-
+    indicatorAId,
+    indicatorBId,
+    operator,
+    inferredUnit,
+    samePick,
+    onChangeA,
+    onChangeB,
+    onChangeOperator,
+}: Props) {
     return (
         <>
-            <div style={{ fontWeight: 600 }}>Select base indicators</div>
+            <div style={{ fontWeight: 600 }}>Select indicators</div>
+            <div style={{ fontSize: '0.875rem', opacity: 0.7, marginBottom: '0.75rem' }}>
+                Search for base or composite indicators by name or code
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '0.75rem', alignItems: 'end' }}>
-                <ComboBox
+                <IndicatorSearchSelect
                     id="indicator-a"
-                    titleText="Indicator A"
-                    items={items}
-                    itemToString={(item) => (item ? item.label : '')}
-                    selectedItem={selectedA}
-                    placeholder="Type to search…"
+                    titleText="Indicator A (search by name or code)"
+                    selectedId={indicatorAId}
+                    kinds={['BASE', 'COMPOSITE']}
                     invalid={Boolean(samePick) && Boolean(indicatorAId) && Boolean(indicatorBId)}
                     invalidText="Indicator A and B cannot be the same."
-                    onChange={({ selectedItem }) => {
-                        if (!selectedItem || selectedItem.isPlaceholder) {
-                            onChangeA('');
-                            return;
-                        }
-                        onChangeA(selectedItem.id);
-                    }}
+                    placeholder=""
+                    onChange={(id) => onChangeA(id)}
                 />
 
                 <div style={{ paddingBottom: '0.35rem' }}>
@@ -104,22 +66,15 @@ export default function CompositeIndicatorPickerSection({
                     </div>
                 </div>
 
-                <ComboBox
+                <IndicatorSearchSelect
                     id="indicator-b"
-                    titleText="Indicator B"
-                    items={items}
-                    itemToString={(item) => (item ? item.label : '')}
-                    selectedItem={selectedB}
-                    placeholder="Type to search…"
+                    titleText="Indicator B (search by name or code)"
+                    selectedId={indicatorBId}
+                    kinds={['BASE', 'COMPOSITE']}
                     invalid={Boolean(samePick) && Boolean(indicatorAId) && Boolean(indicatorBId)}
                     invalidText="Indicator A and B cannot be the same."
-                    onChange={({ selectedItem }) => {
-                        if (!selectedItem || selectedItem.isPlaceholder) {
-                            onChangeB('');
-                            return;
-                        }
-                        onChangeB(selectedItem.id);
-                    }}
+                    placeholder=""
+                    onChange={(id) => onChangeB(id)}
                 />
             </div>
 
@@ -152,7 +107,7 @@ export default function CompositeIndicatorPickerSection({
                 </RadioButtonGroup>
 
                 <div style={{ gridColumn: '1 / -1', fontSize: '0.875rem', opacity: 0.8 }}>
-                    Composite preview is built by converting each base indicator into a population set ({idFieldForUnit(inferredUnit)}) and applying
+                    Composite preview is built by converting each indicator into a population set ({idFieldForUnit(inferredUnit)}) and applying
                     set logic.
                 </div>
             </div>

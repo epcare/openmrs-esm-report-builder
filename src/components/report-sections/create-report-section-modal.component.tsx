@@ -3,6 +3,7 @@ import { Modal, Stack, InlineLoading, InlineNotification } from '@carbon/react';
 
 import { getIndicator, type IndicatorDto } from '../../resources/indicator/indicators.api';
 import { buildFinalIndicatorSql } from '../indicators/utils/final-indicator-sql.utils';
+import { buildSectionDisaggregationSql, buildSectionDisaggregationSqlAsync } from './section-disaggregation.utils';
 
 import type { ReportSectionEditorProps } from './section-types';
 import type { Dhis2MappingV1, CreateSectionPayload, SectionIndicatorType } from './section-types';
@@ -86,6 +87,24 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
 
             const byId = new Map(fulls.map((x) => [x.uuid, x]));
 
+            // Create a getIndicator function for the async compiler
+            const getIndicatorFn = async (uuid: string) => {
+                let ind = byId.get(uuid);
+                if (ind) return ind;
+
+                // If not in our map, try fetching it
+                try {
+                    const fetched = await getIndicator(uuid, undefined, 'full');
+                    if (fetched) {
+                        byId.set(uuid, fetched);
+                        return fetched;
+                    }
+                } catch (e) {
+                    // Ignore fetch errors
+                }
+                return null;
+            };
+
             const sectionDisagg =
                 state.disaggEnabled && state.selectedAgeCategory
                     ? {
@@ -96,71 +115,89 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                     }
                     : { version: 1, none: true };
 
-            const indicatorConfigs: CompiledIndicatorConfig[] = state.selected
-                .slice()
-                .sort((a, b) => a.sortOrder - b.sortOrder)
-                .map((s) => {
-                    const ind: IndicatorDto | undefined = byId.get(s.id);
-                    const kind = s.type as SectionIndicatorType;
+            // Build indicator configs using async processing for composite indicators
+            const indicatorConfigs: CompiledIndicatorConfig[] = await Promise.all(
+                state.selected
+                    .slice()
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map(async (s) => {
+                        const ind: IndicatorDto | undefined = byId.get(s.id);
+                        const kind = s.type as SectionIndicatorType;
 
-                    if (!ind) {
-                        return {
-                            indicatorUuid: s.id,
-                            kind,
-                            sortOrder: s.sortOrder,
-                            sql: { compiled: '-- indicator not found', strategy: 'MISSING' },
-                        };
-                    }
+                        if (!ind) {
+                            return {
+                                indicatorUuid: s.id,
+                                kind,
+                                sortOrder: s.sortOrder,
+                                sql: { compiled: '-- indicator not found', strategy: 'MISSING' },
+                            };
+                        }
 
-                    if (kind === 'FINAL') {
-                        const authoring = parseFinalAuthoring(ind);
-                        const compiled = normalizeCompiledSql(ind.sqlTemplate ?? '');
+                        if (kind === 'FINAL') {
+                            const authoring = parseFinalAuthoring(ind);
+                            const compiled = normalizeCompiledSql(ind.sqlTemplate ?? '');
+
+                            return {
+                                indicatorUuid: ind.uuid,
+                                kind: 'FINAL',
+                                code: ind.code,
+                                name: ind.name,
+                                sortOrder: s.sortOrder,
+                                disaggregation: authoring
+                                    ? { ageCategoryCode: authoring.ageCategoryCode ?? authoring.ageGroupSetCode, genders: authoring.genders }
+                                    : undefined,
+                                sql: {
+                                    compiled,
+                                    strategy: 'FINAL_TEMPLATE',
+                                    inputs: authoring
+                                        ? {
+                                            baseIndicatorId: authoring.baseIndicatorId,
+                                            ageCategoryCode: authoring.ageCategoryCode ?? authoring.ageGroupSetCode,
+                                            genders: authoring.genders,
+                                        }
+                                        : undefined,
+                                },
+                            };
+                        }
+
+                        const ageCode = state.selectedAgeCategory?.code ?? '';
+                        let compiled: string;
+
+                        // For composite indicators, use the async builder to handle nested references
+                        if (kind === 'COMPOSITE') {
+                            const result = await buildSectionDisaggregationSqlAsync({
+                                indicator: ind,
+                                ageCategoryCode: ageCode,
+                                genders: state.pickedGenders,
+                                getIndicator: getIndicatorFn,
+                                compilerOptions: { allowRetired: true }
+                            });
+                            compiled = result.sql;
+                        } else {
+                            // For BASE indicators, use the sync version
+                            compiled = buildSectionDisaggregationSql({
+                                indicator: ind,
+                                ageCategoryCode: ageCode,
+                                genders: state.pickedGenders,
+                            });
+                        }
+
+                        compiled = normalizeCompiledSql(compiled);
 
                         return {
                             indicatorUuid: ind.uuid,
-                            kind: 'FINAL',
+                            kind,
                             code: ind.code,
                             name: ind.name,
                             sortOrder: s.sortOrder,
-                            disaggregation: authoring
-                                ? { ageCategoryCode: authoring.ageCategoryCode ?? authoring.ageGroupSetCode, genders: authoring.genders }
-                                : undefined,
                             sql: {
                                 compiled,
-                                strategy: 'FINAL_TEMPLATE',
-                                inputs: authoring
-                                    ? {
-                                        baseIndicatorId: authoring.baseIndicatorId,
-                                        ageCategoryCode: authoring.ageCategoryCode ?? authoring.ageGroupSetCode,
-                                        genders: authoring.genders,
-                                    }
-                                    : undefined,
+                                strategy: kind === 'COMPOSITE' ? 'COMPOSITE+SECTION_DISAGG' : 'BASE+SECTION_DISAGG',
+                                inputs: { sectionAgeCategoryCode: ageCode, sectionGenders: state.pickedGenders },
                             },
                         };
-                    }
-
-                    const ageCode = state.selectedAgeCategory?.code ?? '';
-                    let compiled = buildFinalIndicatorSql({
-                        baseIndicator: ind,
-                        ageCategoryCode: ageCode,
-                        genders: state.pickedGenders,
-                    });
-
-                    compiled = normalizeCompiledSql(compiled);
-
-                    return {
-                        indicatorUuid: ind.uuid,
-                        kind,
-                        code: ind.code,
-                        name: ind.name,
-                        sortOrder: s.sortOrder,
-                        sql: {
-                            compiled,
-                            strategy: kind === 'COMPOSITE' ? 'COMPOSITE+SECTION_DISAGG' : 'BASE+SECTION_DISAGG',
-                            inputs: { sectionAgeCategoryCode: ageCode, sectionGenders: state.pickedGenders },
-                        },
-                    };
-                });
+                    })
+            );
 
             const config = {
                 version: 1,
