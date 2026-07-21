@@ -4,7 +4,6 @@ import { Modal, Stack, InlineLoading, InlineNotification } from '@carbon/react';
 import type { IndicatorDto } from '../../resources/indicator/indicators.api';
 import { getIndicator } from '../../resources/indicator/indicators.api';
 
-import type { BaseIndicatorOption } from './types/composite-indicator.types';
 import { listAgeCategoriesWithGroups, type AgeCategoryOption } from '../../resources/agegroup/agegroups.api';
 
 import FinalIndicatorBasicsSection from './sections/final-indicator-basics.section';
@@ -12,14 +11,12 @@ import FinalIndicatorPickerSection from './sections/final-indicator-picker.secti
 import FinalIndicatorDisaggregationSection from './sections/final-indicator-disaggregation.section';
 import FinalIndicatorResultsPreviewSection from './sections/final-indicator-results-preview.section';
 
-import { buildFinalIndicatorSql, type FinalIndicatorAuthoringV1 } from './utils/final-indicator-sql.utils';
+import { buildFinalIndicatorSql, buildFinalIndicatorSqlAsync, type FinalIndicatorAuthoringV1 } from './utils/final-indicator-sql.utils';
 
 type Props = {
     open: boolean;
     mode?: 'create' | 'edit';
     initial?: IndicatorDto | null;
-
-    baseIndicators: BaseIndicatorOption[];
 
     onClose: () => void;
 
@@ -56,7 +53,6 @@ export default function CreateFinalIndicatorModal({
                                                       open,
                                                       mode = 'create',
                                                       initial,
-                                                      baseIndicators,
                                                       onClose,
                                                       onCreate,
                                                       onUpdate,
@@ -169,13 +165,35 @@ export default function CreateFinalIndicatorModal({
             return;
         }
 
-        const sql = buildFinalIndicatorSql({
-            baseIndicator: baseFull,
-            ageCategoryCode,
-            genders,
-        });
+        const computeSql = async () => {
+            // For composite base indicators, use the async version
+            if (baseFull.kind === 'COMPOSITE') {
+                const sql = await buildFinalIndicatorSqlAsync({
+                    baseIndicator: baseFull,
+                    ageCategoryCode,
+                    genders,
+                    getIndicator: async (uuid) => {
+                        try {
+                            return await getIndicator(uuid, undefined, 'full');
+                        } catch {
+                            return null;
+                        }
+                    },
+                    compilerOptions: { allowRetired: true }
+                });
+                setSqlPreview(sql);
+            } else {
+                // For BASE indicators, use the sync version
+                const sql = buildFinalIndicatorSql({
+                    baseIndicator: baseFull,
+                    ageCategoryCode,
+                    genders,
+                });
+                setSqlPreview(sql);
+            }
+        };
 
-        setSqlPreview(sql);
+        computeSql();
     }, [open, baseFull, ageCategoryCode, genders]);
 
     const canSubmit =
@@ -241,7 +259,6 @@ export default function CreateFinalIndicatorModal({
                 <hr style={{ border: 0, borderTop: '1px solid var(--cds-border-subtle, #e0e0e0)' }} />
 
                 <FinalIndicatorPickerSection
-                    baseIndicators={baseIndicators}
                     ageCategories={ageCategories}
                     selectedBaseId={baseIndicatorId}
                     selectedAgeCategoryCode={ageCategoryCode}

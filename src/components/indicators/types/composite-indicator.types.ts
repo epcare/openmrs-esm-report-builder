@@ -1,11 +1,17 @@
 export type CompositeOperator = 'AND' | 'OR' | 'A_AND_NOT_B';
 
-export type BaseIndicatorOption = {
+export type IndicatorOption = {
     id: string; // uuid
     code: string;
     name: string;
+    kind: 'BASE' | 'COMPOSITE';
     unit?: 'Patients' | 'Encounters';
 };
+
+/**
+ * @deprecated Use IndicatorOption instead
+ */
+export type BaseIndicatorOption = IndicatorOption;
 
 export type CreateCompositeBaseIndicatorPayload = {
     code: string;

@@ -22,7 +22,6 @@ import CreateBaseIndicatorModal from './create-base-indicator-modal.component';
 import type { QAUiState } from './types/condition-ui.types';
 
 import CreateCompositeBaseIndicatorModal from './create-composite-base-indicator-modal.component';
-import { type BaseIndicatorOption } from './types/composite-indicator.types';
 
 import CreateFinalIndicatorModal from './create-final-indicator-modal.component';
 import AiAssistButton from '../ai-support/ai-assist-button.component';
@@ -223,18 +222,6 @@ export default function IndicatorsPage() {
         if (tab === 'base') return rows.filter((r) => r.kind === 'BASE' || r.kind === 'COMPOSITE');
         return rows.filter((r) => r.kind === 'FINAL');
     }, [rows, tab]);
-
-    // Composite builder should only get BASE indicators
-    const baseIndicators: BaseIndicatorOption[] = React.useMemo(() => {
-        return rows
-            .filter((r) => r.kind === 'BASE')
-            .map((r) => ({
-                id: r.id,
-                code: r.code,
-                name: r.name,
-                unit: 'Patients',
-            }));
-    }, [rows]);
 
     // --------------------------------------------
     // ACTIONS
@@ -444,7 +431,6 @@ export default function IndicatorsPage() {
                     setEditing(null);
                     setMode('create');
                 }}
-                baseIndicators={baseIndicators}
                 onCreate={async (payload) => {
                     await createIndicator(payload);
                 }}
@@ -465,7 +451,6 @@ export default function IndicatorsPage() {
                 open={openFinal}
                 mode="create"
                 initial={null}
-                baseIndicators={baseIndicators}
                 onClose={() => setOpenFinal(false)}
                 onCreate={async (payload) => {
                     await createIndicator(payload);

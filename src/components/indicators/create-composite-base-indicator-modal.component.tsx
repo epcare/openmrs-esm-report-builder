@@ -3,7 +3,7 @@ import { Modal, Stack, InlineNotification } from '@carbon/react';
 
 import { getIndicator, type IndicatorDto } from '../../resources/indicator/indicators.api';
 
-import type { BaseIndicatorOption, CompositeOperator } from './types/composite-indicator.types';
+import type { CompositeOperator } from './types/composite-indicator.types';
 
 import CompositeIndicatorBasicsSection from './sections/composite-indicator-basics.section';
 import CompositeIndicatorPickerSection from './sections/composite-indicator-picker.section';
@@ -24,7 +24,6 @@ type Props = {
     onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
     onUpdate?: (uuid: string, payload: Partial<IndicatorDto>) => Promise<void>;
     onSaved: () => void;
-    baseIndicators: BaseIndicatorOption[];
 };
 
 type CompositeIndicatorAuthoring = {
@@ -62,7 +61,6 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
                                                                 onCreate,
                                                                 onUpdate,
                                                                 onSaved,
-                                                                baseIndicators,
                                                             }) => {
     // ✅ IMPORTANT: no defaults for create mode
     const [name, setName] = React.useState('');
@@ -121,9 +119,6 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
     // typing/editing of the form.
     /* eslint-disable react-hooks/exhaustive-deps */
     }, [open, mode, initial?.uuid]);
-
-    const AOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorAId) ?? null, [baseIndicators, indicatorAId]);
-    const BOpt = React.useMemo(() => baseIndicators.find((x) => x.id === indicatorBId) ?? null, [baseIndicators, indicatorBId]);
 
     const samePick = Boolean(indicatorAId && indicatorBId && indicatorAId === indicatorBId);
 
@@ -212,8 +207,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
             operator,
             indicatorAId,
             indicatorBId,
-            indicatorACode: AOpt?.code,
-            indicatorBCode: BOpt?.code,
+            indicatorACode: indA?.code,
+            indicatorBCode: indB?.code,
             sqlPreview: compositeSql,
         };
 
@@ -275,7 +270,6 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
                 <hr style={{ border: 0, borderTop: '1px solid var(--cds-border-subtle, #e0e0e0)' }} />
 
                 <CompositeIndicatorPickerSection
-                    baseIndicators={baseIndicators}
                     indicatorAId={indicatorAId}
                     indicatorBId={indicatorBId}
                     operator={operator}
@@ -291,7 +285,7 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
                     errA={errA}
                     errB={errB}
                     compositeSql={compositeSql}
-                    show={Boolean(AOpt && BOpt)}
+                    show={Boolean(indA && indB)}
                 />
             </Stack>
         </Modal>

@@ -54,6 +54,8 @@
     "@playwright/test": "^1.58.2",
     "@swc/core": "^1.7.36",
     "@swc/jest": "^0.2.36",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.0",
     "@types/file-saver": "^2.0.7",
     "@types/jest": "^29.5.12",
     "@types/minimatch": "^5.1.2",

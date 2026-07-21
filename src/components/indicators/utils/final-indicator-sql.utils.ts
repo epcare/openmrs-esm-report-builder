@@ -5,6 +5,12 @@ import {
     tryGetPatientIdColumnFromConfig,
     tryGetCountSqlFromIndicator,
 } from './composite-indicator-sql.utils';
+import {
+    compilePopulationSql,
+    generateAgeSexDisaggregationSql,
+    clearCompilationCache,
+    type CompilerOptions
+} from './population-sql.compiler';
 
 export type FinalIndicatorAuthoringV1 = {
     version: 1;
@@ -22,6 +28,11 @@ type BuildFinalSqlArgs = {
     baseIndicator: IndicatorDto;
     ageCategoryCode: string;
     genders: Array<'F' | 'M'>;
+};
+
+type BuildFinalSqlAsyncArgs = BuildFinalSqlArgs & {
+    getIndicator: (uuid: string) => Promise<IndicatorDto | null>;
+    compilerOptions?: CompilerOptions;
 };
 
 /**
@@ -84,7 +95,7 @@ cnt AS (
   JOIN mamba_fact_patients_latest_patient_demographics mdp
     ON mdp.patient_id = base_pop.patient_id
   JOIN ag
-    ON TIMESTAMPDIFF(DAY, mdp.birthdate, ':endDate')
+    ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days
   WHERE mdp.birthdate IS NOT NULL
     AND mdp.gender IS NOT NULL
@@ -121,4 +132,46 @@ function indent(s: string, spaces: number) {
 
 function escapeSqlLiteral(s: string) {
     return String(s).replace(/'/g, "''");
+}
+
+/**
+ * Async version of final indicator SQL builder.
+ *
+ * This function uses the recursive population SQL compiler to properly handle
+ * composite base indicators. For simple base indicators, it falls back to the
+ * synchronous logic.
+ *
+ * Use this version when the base indicator might be a composite indicator.
+ */
+export async function buildFinalIndicatorSqlAsync({
+    baseIndicator,
+    ageCategoryCode,
+    genders,
+    getIndicator,
+    compilerOptions = {}
+}: BuildFinalSqlAsyncArgs): Promise<string> {
+    try {
+        // Clear cache to ensure fresh compilation
+        clearCompilationCache();
+
+        // If base indicator is composite, use the recursive compiler
+        if (baseIndicator.kind === 'COMPOSITE') {
+            const result = await compilePopulationSql(baseIndicator, getIndicator, new Set(), compilerOptions);
+            const populationSql = result.sql;
+
+            // Generate the disaggregation SQL using the compiled population SQL
+            return generateAgeSexDisaggregationSql({
+                populationSql,
+                ageCategoryCode,
+                genders
+            });
+        }
+
+        // For BASE indicators, use the synchronous logic
+        return buildFinalIndicatorSql({ baseIndicator, ageCategoryCode, genders });
+    } catch (error) {
+        // Return an error comment in the SQL
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return `-- Error building final indicator SQL: ${errorMsg}\n-- Base indicator: ${baseIndicator.name} (${baseIndicator.code || baseIndicator.uuid})`;
+    }
 }

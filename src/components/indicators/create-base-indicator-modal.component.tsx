@@ -392,7 +392,8 @@ export default function CreateBaseIndicatorModal({
     const canSave =
         Boolean(name.trim()) &&
         Boolean(themeUuid) &&
-        Boolean(themeConfig?.sourceTable) &&
+        Array.isArray(themeConfig?.sourceTable) &&
+        themeConfig.sourceTable.length > 0 &&
         Boolean(themeConfig?.patientIdColumn) &&
         Boolean(themeConfig?.dateColumn);
 
