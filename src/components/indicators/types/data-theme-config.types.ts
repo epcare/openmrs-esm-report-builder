@@ -49,10 +49,17 @@ export type ThemeCondition = {
     column: string;
     operator: ConditionOperator;
     valueType: ConditionValueType;
+    /** Optional reference to which sourceTable this condition applies to. If not specified, applies to all sources. */
+    source?: string;
 };
 
+export type CombinationStrategy = 'UNION_ALL' | 'UNION' | 'INTERSECTION' | 'EXCEPT';
+
 export type DataThemeConfig = {
-    sourceTable: string;
+    /** Array of source tables to query. Results are combined using the specified combinationStrategy. */
+    sourceTables: string[];
+    /** How to combine results from multiple source tables. Default: UNION_ALL */
+    combinationStrategy?: CombinationStrategy;
     patientIdColumn: string;
     dateColumn: string;
     locationColumn?: string;
