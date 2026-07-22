@@ -1,13 +1,15 @@
 import React from 'react';
-import { Stack, TextInput } from '@carbon/react';
+import { Stack, TextInput, Toggle } from '@carbon/react';
 
 import type { ThemeCondition } from '../types/data-theme-config.types';
 import type { IndicatorCondition } from '../types/indicator-types';
 
 import ConceptSearchMultiSelect, { type SelectedConcept } from '../handler/concept-search-multiselect.component';
 import QuestionAnswerConceptSearch from '../handler/question-answer-concept-search.component';
+import TagInput from '../tag-input.component';
 
 import type { QAUiState } from '../types/condition-ui.types';
+import { isInOperator, normalizeOperator, isNullCheckOperator } from '../../../types/condition-operators';
 
 type QAValue = { questions: Array<string | number>; answers: Array<string | number> };
 type BetweenValue = { start: string; end: string };
@@ -200,6 +202,51 @@ export default function IndicatorConditionsSection({
                             }}
                         />
                     </div>
+                </div>
+            );
+        }
+
+        // IS NULL / IS NOT NULL operators - use Toggle switch
+        if (isNullCheckOperator(normalizeOperator(tc.operator))) {
+            const isChecked = current?.value === true || current?.value === 'true' || current?.value === 1;
+
+            return (
+                <div key={tc.key}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{tc.label || tc.key}</div>
+                    <Toggle
+                        id={`cond-${tc.key}`}
+                        labelText={tc.operator === 'IS_NULL' ? 'Include NULL values' : 'Include NOT NULL values'}
+                        labelA="Off"
+                        labelB="On"
+                        toggled={isChecked}
+                        onToggle={(checked) =>
+                            upsertPicked(tc, {
+                                value: checked as any,
+                            })
+                        }
+                    />
+                </div>
+            );
+        }
+
+        // IN/NOT_IN operators - use TagInput for better UX
+        if (isInOperator(normalizeOperator(tc.operator))) {
+            // Value can be array (from TagInput) or string (legacy/other)
+            const tagValues: string[] = Array.isArray(current?.value)
+                ? current.value.map((v) => String(v))
+                : typeof current?.value === 'string' && current.value.trim()
+                    ? current.value.split(',').map((v) => v.trim()).filter(Boolean)
+                    : [];
+
+            return (
+                <div key={tc.key}>
+                    <TagInput
+                        id={`cond-${tc.key}`}
+                        labelText={tc.label || tc.key}
+                        placeholder="Type and press Enter or comma to add"
+                        value={tagValues}
+                        onChange={(values) => upsertPicked(tc, { value: values as any })}
+                    />
                 </div>
             );
         }

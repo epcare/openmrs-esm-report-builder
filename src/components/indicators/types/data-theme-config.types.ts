@@ -31,7 +31,7 @@ export type ConditionHandler =
  * Theme-side operator tokens (legacy + UI-friendly).
  * NOTE: SQL generation will normalize these to real SQL operators.
  */
-export type ConditionOperator = 'EQUALS' | 'IN' | 'NOT_IN' | 'LIKE' | 'BETWEEN' | 'GTE' | 'LTE';
+export type ConditionOperator = 'EQUALS' | 'IN' | 'NOT_IN' | 'LIKE' | 'BETWEEN' | 'GTE' | 'LTE' | 'IS_NULL' | 'IS_NOT_NULL';
 
 export type ConditionValueType =
     | 'conceptUuid'

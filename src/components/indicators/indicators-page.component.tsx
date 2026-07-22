@@ -24,6 +24,7 @@ import type { QAUiState } from './types/condition-ui.types';
 import CreateCompositeBaseIndicatorModal from './create-composite-base-indicator-modal.component';
 
 import CreateFinalIndicatorModal from './create-final-indicator-modal.component';
+import IndicatorRunPreviewModal from './indicator-run-preview-modal.component';
 import AiAssistButton from '../ai-support/ai-assist-button.component';
 
 import {
@@ -142,6 +143,8 @@ export default function IndicatorsPage() {
     const [openBase, setOpenBase] = React.useState(false);
     const [openComposite, setOpenComposite] = React.useState(false);
     const [openFinal, setOpenFinal] = React.useState(false);
+    const [openRunPreview, setOpenRunPreview] = React.useState(false);
+    const [runPreviewIndicator, setRunPreviewIndicator] = React.useState<string | null>(null);
 
     const [mode, setMode] = React.useState<'create' | 'edit'>('create');
     const [editing, setEditing] = React.useState<IndicatorDto | null>(null);
@@ -310,7 +313,10 @@ export default function IndicatorsPage() {
         }
     };
 
-    const onRun = (uuid: string) => console.log('Run indicator:', uuid);
+    const onRun = (uuid: string) => {
+        setRunPreviewIndicator(uuid);
+        setOpenRunPreview(true);
+    };
     const onOpen = (uuid: string) => console.log('Open indicator:', uuid);
 
     // --------------------------------------------
@@ -459,6 +465,16 @@ export default function IndicatorsPage() {
                     setOpenFinal(false);
                     const ac = new AbortController();
                     await load(ac.signal);
+                }}
+            />
+
+            {/* Indicator Run Preview Modal */}
+            <IndicatorRunPreviewModal
+                open={openRunPreview}
+                indicatorUuid={runPreviewIndicator}
+                onClose={() => {
+                    setOpenRunPreview(false);
+                    setRunPreviewIndicator(null);
                 }}
             />
         </Stack>

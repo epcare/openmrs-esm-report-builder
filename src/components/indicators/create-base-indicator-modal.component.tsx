@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Stack, SideNav, SideNavItems, SideNavLink, Content } from '@carbon/react';
+import { Modal, Stack, SideNav, SideNavItems, SideNavLink, Content, Toggle } from '@carbon/react';
 
 import { listDataThemes, getDataTheme, type DataThemeDto } from '../../resources/theme/data-theme.api';
 import type { DataThemeConfig, ThemeCondition } from './types/data-theme-config.types';
@@ -10,8 +10,9 @@ import IndicatorBasicsSection from './sections/indicator-basics.section';
 import IndicatorThemeSection from './sections/indicator-theme.section';
 import IndicatorConditionsSection from './sections/indicator-conditions.section';
 import IndicatorSqlPreviewSection from './sections/indicator-sql-preview.section';
+import CustomConditionInput, { type CustomCondition } from './custom-condition-input.component';
 
-import { buildSqlPreview, applyConditionClauses } from './utils/indicator-sql.utils';
+import { buildSqlPreview, applyConditionClauses, applyCustomConditions } from './utils/indicator-sql.utils';
 import type { SelectedConcept } from './handler/concept-search-multiselect.component';
 import type { QAUiState } from './types/condition-ui.types';
 
@@ -38,6 +39,8 @@ type BaseIndicatorAuthoring = {
     themeUuid: string;
     themeConfig: DataThemeConfig;
     conditions: IndicatorCondition[];
+    customConditions?: CustomCondition[];
+    excludeDateFilter?: boolean;
     sqlPreview: string;
 };
 
@@ -78,6 +81,8 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             themeUuid: parsed.themeUuid,
             themeConfig: parsed.themeConfig,
             conditions: Array.isArray(parsed.conditions) ? parsed.conditions : [],
+            customConditions: Array.isArray(parsed.customConditions) ? parsed.customConditions : [],
+            excludeDateFilter: parsed.excludeDateFilter === true,
             sqlPreview: parsed.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -88,6 +93,8 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             themeUuid: parsed.base.themeUuid,
             themeConfig: parsed.base.themeConfig,
             conditions: Array.isArray(parsed.base.conditions) ? parsed.base.conditions : [],
+            customConditions: Array.isArray(parsed.base.customConditions) ? parsed.base.customConditions : [],
+            excludeDateFilter: parsed.base.excludeDateFilter === true,
             sqlPreview: parsed.base.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -99,6 +106,8 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             themeUuid: b.themeUuid,
             themeConfig: b.themeConfig,
             conditions: Array.isArray(b.conditions) ? b.conditions : [],
+            customConditions: Array.isArray(b.customConditions) ? b.customConditions : [],
+            excludeDateFilter: b.excludeDateFilter === true,
             sqlPreview: b.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -110,9 +119,11 @@ function buildAuthoring(
     themeUuid: string,
     themeConfig: DataThemeConfig,
     conditions: IndicatorCondition[],
+    customConditions: CustomCondition[],
+    excludeDateFilter: boolean,
     sqlPreview: string,
 ): BaseIndicatorAuthoring {
-    return { version: 1, themeUuid, themeConfig, conditions, sqlPreview };
+    return { version: 1, themeUuid, themeConfig, conditions, customConditions, excludeDateFilter, sqlPreview };
 }
 
 function defaultValueForTheme(tc: ThemeCondition) {
@@ -249,6 +260,10 @@ export default function CreateBaseIndicatorModal({
 
     const [pickedConditions, setPickedConditions] = React.useState<IndicatorCondition[]>([]);
 
+    const [customConditions, setCustomConditions] = React.useState<CustomCondition[]>([]);
+
+    const [excludeDateFilter, setExcludeDateFilter] = React.useState(false);
+
     const [conceptUi, setConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
     const [qaUi, setQaUi] = React.useState<Record<string, QAUiState>>({});
 
@@ -287,11 +302,15 @@ export default function CreateBaseIndicatorModal({
                 setThemeUuid(authoring.themeUuid);
                 setThemeConfig(authoring.themeConfig);
                 setPickedConditions(authoring.conditions ?? []);
+                setCustomConditions(authoring.customConditions ?? []);
+                setExcludeDateFilter(authoring.excludeDateFilter ?? false);
                 setSqlPreview(authoring.sqlPreview ?? '');
             } else {
                 setThemeUuid(initial.themeUuid ?? '');
                 setThemeConfig(null);
                 setPickedConditions([]);
+                setCustomConditions([]);
+                setExcludeDateFilter(false);
                 setSqlPreview('');
             }
 
@@ -306,6 +325,8 @@ export default function CreateBaseIndicatorModal({
             setThemeConfig(null);
             setThemeConfigError(null);
             setPickedConditions([]);
+            setCustomConditions([]);
+            setExcludeDateFilter(false);
             setConceptUi({});
             setQaUi({});
             setSqlPreview('');
@@ -385,15 +406,15 @@ export default function CreateBaseIndicatorModal({
 
         if (isEdit && !sqlDirty) return;
 
-        const base = buildSqlPreview(themeConfig);
-        setSqlPreview(applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions));
-    }, [themeConfig, pickedConditions, isEdit, sqlDirty]);
+        const base = buildSqlPreview(themeConfig, excludeDateFilter);
+        const withThemeConditions = applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions);
+        setSqlPreview(applyCustomConditions(withThemeConditions, customConditions));
+    }, [themeConfig, pickedConditions, customConditions, excludeDateFilter, isEdit, sqlDirty]);
 
     const canSave =
         Boolean(name.trim()) &&
         Boolean(themeUuid) &&
-        Array.isArray(themeConfig?.sourceTable) &&
-        themeConfig.sourceTable.length > 0 &&
+        Boolean(themeConfig?.sourceTable) &&
         Boolean(themeConfig?.patientIdColumn) &&
         Boolean(themeConfig?.dateColumn);
 
@@ -401,7 +422,7 @@ export default function CreateBaseIndicatorModal({
         if (!canSave || !themeConfig) return;
 
         const preparedConditions = prepareConditionsForSave(themeConfig.conditions ?? [], pickedConditions, conceptUi, qaUi);
-        const authoring = buildAuthoring(themeUuid, themeConfig, preparedConditions, sqlPreview);
+        const authoring = buildAuthoring(themeUuid, themeConfig, preparedConditions, customConditions, excludeDateFilter, sqlPreview);
 
         const payload: Partial<IndicatorDto> = {
             name: name.trim(),
@@ -466,32 +487,76 @@ export default function CreateBaseIndicatorModal({
                         ) : null}
 
                         {active === 'theme' ? (
-                            <IndicatorThemeSection
-                                themes={themes}
-                                loading={loadingThemes}
-                                error={themesError}
-                                themeUuid={themeUuid}
-                                onThemeUuidChange={onThemeUuidChange}
-                                themeConfigError={themeConfigError}
-                            />
+                            <Stack gap={6}>
+                                <IndicatorThemeSection
+                                    themes={themes}
+                                    loading={loadingThemes}
+                                    error={themesError}
+                                    themeUuid={themeUuid}
+                                    onThemeUuidChange={onThemeUuidChange}
+                                    themeConfigError={themeConfigError}
+                                />
+                                {themeConfig?.dateColumn ? (
+                                    <div style={{
+                                        padding: '1rem',
+                                        backgroundColor: 'var(--cds-background, #f4f4f4)',
+                                        borderRadius: '0.25rem',
+                                        border: '1px solid var(--cds-interactive-01, #0f62fe)'
+                                    }}>
+                                        <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                                            Date Filtering Control
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #525252)', marginBottom: '1rem' }}>
+                                            By default, the theme automatically filters by <code>{themeConfig.dateColumn}</code> between the start and end dates.
+                                            You can exclude this to define your own custom date conditions.
+                                        </div>
+                                        <Toggle
+                                            id="exclude-date-filter"
+                                            labelText="Exclude automatic date filtering"
+                                            labelA="Use theme date filtering"
+                                            labelB="Use custom date conditions"
+                                            toggled={excludeDateFilter}
+                                            onToggle={(checked) => {
+                                                setExcludeDateFilter(checked);
+                                                setSqlDirty(true);
+                                            }}
+                                        />
+                                    </div>
+                                ) : null}
+                            </Stack>
                         ) : null}
 
                         {active === 'conditions' ? (
-                            <IndicatorConditionsSection
-                                conditions={themeConfig?.conditions ?? []}
-                                picked={pickedConditions}
-                                onPickedChange={onPickedChange}
-                                conceptUi={conceptUi}
-                                onConceptUiChange={(next) => {
-                                    setConceptUi(next);
-                                    setSqlDirty(true);
-                                }}
-                                qaUi={qaUi}
-                                onQaUiChange={(next) => {
-                                    setQaUi(next);
-                                    setSqlDirty(true);
-                                }}
-                            />
+                            <Stack gap={8}>
+                                <IndicatorConditionsSection
+                                    conditions={themeConfig?.conditions ?? []}
+                                    picked={pickedConditions}
+                                    onPickedChange={onPickedChange}
+                                    conceptUi={conceptUi}
+                                    onConceptUiChange={(next) => {
+                                        setConceptUi(next);
+                                        setSqlDirty(true);
+                                    }}
+                                    qaUi={qaUi}
+                                    onQaUiChange={(next) => {
+                                        setQaUi(next);
+                                        setSqlDirty(true);
+                                    }}
+                                />
+                                <div style={{ marginTop: '2rem', borderTop: '1px solid var(--cds-interactive-01, #0f62fe)', paddingTop: '1.5rem' }}>
+                                    <div style={{ fontWeight: 600, marginBottom: '1rem' }}>Custom Conditions</div>
+                                    <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #525252)', marginBottom: '1rem' }}>
+                                        Add your own conditions beyond the theme-defined ones. These will be applied in addition to the theme conditions.
+                                    </div>
+                                    <CustomConditionInput
+                                        conditions={customConditions}
+                                        onChange={(next) => {
+                                            setCustomConditions(next);
+                                            setSqlDirty(true);
+                                        }}
+                                    />
+                                </div>
+                            </Stack>
                         ) : null}
 
                         {active === 'sql' ? <IndicatorSqlPreviewSection sql={sqlPreview} /> : null}

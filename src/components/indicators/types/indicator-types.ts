@@ -10,6 +10,7 @@ export type IndicatorKind = 'BASE' | 'FINAL';
 export type IndicatorConditionValue =
     | string
     | number
+    | boolean
     | Array<string | number>
     | { start?: string; end?: string }
     | null;
