@@ -13,13 +13,14 @@ export type CountSqlSource =
     | 'none'
     | 'none(parse-error)';
 
-export function idFieldForUnit(unit: 'Patients' | 'Encounters') {
+export function idFieldForUnit(unit: 'Patients' | 'Encounters', overrideColumn?: string) {
+    if (overrideColumn) return overrideColumn;
     return unit === 'Encounters' ? 'encounter_id' : 'patient_id';
 }
 
 /**
  * Extract patientIdColumn from stored authoring (if present),
- * otherwise fallback to "patient_id".
+ * otherwise fallback to "client_id".
  */
 export function tryGetPatientIdColumnFromConfig(ind: IndicatorDto): string {
     try {
@@ -33,9 +34,9 @@ export function tryGetPatientIdColumnFromConfig(ind: IndicatorDto): string {
             null;
 
         const pid = cfg?.patientIdColumn;
-        return pid ? String(pid) : 'patient_id';
+        return pid ? String(pid) : 'client_id';
     } catch {
-        return 'patient_id';
+        return 'client_id';
     }
 }
 
@@ -86,6 +87,19 @@ export function tryGetCountSqlFromIndicator(ind: IndicatorDto): { sql: string; s
 }
 
 /**
+ * Extract the primary table alias from a SQL query.
+ * Looks for patterns like "FROM table_name alias" or "FROM table_name AS alias"
+ * Returns the alias or null if not found.
+ */
+function extractTableAlias(sql: string): string | null {
+    // Match: FROM table_name alias or FROM table_name AS alias
+    // Skip if inside parentheses (subqueries) - we only care about the first FROM
+    const fromPattern = /FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:AS\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\b/i;
+    const match = sql.match(fromPattern);
+    return match ? match[2] : null;
+}
+
+/**
  * Convert a base indicator COUNT sqlTemplate into a population query.
  *
  * Supports BOTH:
@@ -97,19 +111,44 @@ export function tryGetCountSqlFromIndicator(ind: IndicatorDto): { sql: string; s
  *  B) Composite-style COUNT SQL:
  *     WITH A AS (...), B AS (...)
  *     SELECT COUNT(*) AS total
- *     FROM ( SELECT A.patient_id ... ) X;
+ *     FROM ( SELECT A.client_id ... ) X;
  *
  * For composite-style, we MUST preserve the WITH ... prefix,
  * otherwise the resulting query references A/B without defining them.
  */
 export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Patients' | 'Encounters') {
-    const idField = idFieldForUnit(unit);
+    // Use idColumn (from theme config) as the output field name for consistency
+    // This ensures base_pop uses the same column name as the source table
+    const idField = idColumn || idFieldForUnit(unit);
 
     const raw = (sql ?? '').trim();
     if (!raw) return '';
 
     // normalize trailing semicolons
     const noSemi = raw.replace(/;+\s*$/, '');
+
+    // ✅ Case 0: Base COUNT DISTINCT SQL
+    // Handle "SELECT COUNT(DISTINCT column) AS alias FROM ... WHERE ..."
+    // by converting to "SELECT DISTINCT column AS {idField} FROM ... WHERE ..."
+    // Preserves FROM, WHERE, JOINs, and all other clauses
+    // Enhanced: supports any result alias name (not just "total") and extracts actual table alias
+    const distinctPattern = /SELECT\s+COUNT\s*\(\s*DISTINCT\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s*\)\s+AS\s+(\w+)\s*/i;
+    const distinctMatch = noSemi.match(distinctPattern);
+    if (distinctMatch) {
+        const columnRef = distinctMatch[1]; // e.g., "a.client_id" or "client_id"
+        // Get everything after "SELECT COUNT(DISTINCT ...) AS alias "
+        // This preserves FROM, WHERE, JOINs, etc.
+        const afterSelect = noSemi.substring(distinctMatch[0].length);
+
+        // If column is already qualified (e.g., "a.client_id"), use it as-is
+        if (columnRef.includes('.')) {
+            return `SELECT DISTINCT ${columnRef} AS ${idField} ${afterSelect}`.trim();
+        }
+
+        // Extract the actual table alias from FROM clause instead of assuming "a"
+        const tableAlias = extractTableAlias(afterSelect) || 'a';
+        return `SELECT DISTINCT ${tableAlias}.${columnRef} AS ${idField} ${afterSelect}`.trim();
+    }
 
     // ✅ Case 1: Composite COUNT SQL
     // Preserve any WITH CTE prefix (e.g. WITH A AS (...), B AS (...))
@@ -130,16 +169,18 @@ ${inner}
 `.trim();
     }
 
-    // ✅ Case 2: Base COUNT SQL (assumes alias "a" exists in query)
+    // ✅ Case 2: Base COUNT SQL
     // Replace the COUNT select with a DISTINCT id select.
+    // Extract the actual table alias from FROM clause instead of assuming "a"
+    const tableAlias = extractTableAlias(noSemi) || 'a';
     const replaced = noSemi.replace(
         /SELECT\s+([\s\S]*?)COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s*/i,
-        `SELECT DISTINCT a.${idColumn} AS ${idField}\n`,
+        `SELECT DISTINCT ${tableAlias}.${idColumn} AS ${idField}\n`,
     );
 
     // If it didn't replace, fallback: try simpler replace
     if (replaced === noSemi) {
-        return noSemi.replace(/COUNT\s*\(\s*\*\s*\)\s+AS\s+total/gi, `DISTINCT a.${idColumn} AS ${idField}`);
+        return noSemi.replace(/COUNT\s*\(\s*\*\s*\)\s+AS\s+total/gi, `DISTINCT ${tableAlias}.${idColumn} AS ${idField}`);
     }
 
     return replaced;
@@ -275,7 +316,7 @@ function extractAndRenameCtes(sql: string, prefix: string): { ctes: string; main
 
 /**
  * Build composite COUNT SQL from two population queries.
- * Population queries MUST return a column named patient_id or encounter_id.
+ * Population queries MUST return a column named client_id or encounter_id.
  *
  * Handles the case where population queries themselves contain WITH clauses
  * (composite indicators) by extracting and renaming inner CTEs to avoid conflicts.

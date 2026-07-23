@@ -42,14 +42,14 @@ describe('Population SQL Compiler', () => {
         it('should extract population SQL from a base indicator', async () => {
             const indicator = createIndicator({
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT a.patient_id FROM table_a a WHERE a.date >= :startDate'
+                sqlTemplate: 'SELECT DISTINCT a.client_id FROM table_a a WHERE a.date >= :startDate'
             });
 
             const getIndicator = createMockGetIndicator(new Map());
             const result = await compilePopulationSql(indicator, getIndicator);
 
             expect(result.sql).toContain('SELECT DISTINCT');
-            expect(result.sql).toContain('patient_id');
+            expect(result.sql).toContain('client_id');
             expect(result.sql).toContain(':startDate');
         });
 
@@ -69,7 +69,7 @@ describe('Population SQL Compiler', () => {
         it('should fix :stratDate typo to :startDate', async () => {
             const indicator = createIndicator({
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT a.patient_id FROM table_a a WHERE a.date >= :stratDate'
+                sqlTemplate: 'SELECT DISTINCT a.client_id FROM table_a a WHERE a.date >= :stratDate'
             });
 
             const getIndicator = createMockGetIndicator(new Map());
@@ -82,7 +82,7 @@ describe('Population SQL Compiler', () => {
         it('should handle population SQL with config_json source', async () => {
             const config = {
                 version: 1,
-                sqlPreview: 'SELECT DISTINCT patient_id FROM patients WHERE active = 1'
+                sqlPreview: 'SELECT DISTINCT client_id FROM patients WHERE active = 1'
             };
 
             const indicator = createIndicator({
@@ -94,7 +94,7 @@ describe('Population SQL Compiler', () => {
             const getIndicator = createMockGetIndicator(new Map());
             const result = await compilePopulationSql(indicator, getIndicator);
 
-            expect(result.sql).toContain('SELECT DISTINCT patient_id');
+            expect(result.sql).toContain('SELECT DISTINCT client_id');
         });
     });
 
@@ -105,14 +105,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-a',
                 code: 'A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_a WHERE condition_a = 1'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_a WHERE condition_a = 1'
             });
 
             const indicatorB = createIndicator({
                 uuid: 'indicator-b',
                 code: 'B',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_b WHERE condition_b = 1'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_b WHERE condition_b = 1'
             });
 
             // Create composite indicator
@@ -140,8 +140,8 @@ describe('Population SQL Compiler', () => {
             expect(result.sql).toContain('WITH A AS');
             expect(result.sql).toMatch(/B AS \(/);  // B AS ( appears after A, without WITH
             expect(result.sql).toContain('INNER JOIN B');
-            expect(result.sql).toContain('ON B.patient_id = A.patient_id');
-            expect(result.sql).toMatch(/SELECT DISTINCT\s+A\.patient_id/);  // Handles multi-line SELECT
+            expect(result.sql).toContain('ON B.client_id = A.client_id');
+            expect(result.sql).toMatch(/SELECT DISTINCT\s+A\.client_id/);  // Handles multi-line SELECT
         });
 
         it('should compile nested composite indicators correctly', async () => {
@@ -150,14 +150,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'enrollment',
                 code: 'ENROLLMENT',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM enrollment WHERE date >= :startDate'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM enrollment WHERE date >= :startDate'
             });
 
             const transferIn = createIndicator({
                 uuid: 'transfer-in',
                 code: 'TRANSFER_IN',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM transfer_in WHERE date >= :startDate'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM transfer_in WHERE date >= :startDate'
             });
 
             const hc01 = createIndicator({
@@ -177,7 +177,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'tb-assessed',
                 code: 'TB_ASSESSED',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM tb_assessment WHERE assessed = 1'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM tb_assessment WHERE assessed = 1'
             });
 
             // HC02A = HC01 AND TB assessed
@@ -212,13 +212,13 @@ describe('Population SQL Compiler', () => {
 
             // Should have LEFT JOIN for A_AND_NOT_B
             expect(result.sql).toContain('LEFT JOIN B');
-            expect(result.sql).toContain('WHERE B.patient_id IS NULL');
+            expect(result.sql).toContain('WHERE B.client_id IS NULL');
 
             // Should not contain COUNT(*)
             expect(result.sql).not.toContain('COUNT(*)');
 
-            // All patient_id references should be preserved
-            expect(result.sql).toMatch(/patient_id/g);
+            // All client_id references should be preserved
+            expect(result.sql).toMatch(/client_id/g);
         });
     });
 
@@ -228,14 +228,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-a',
                 code: 'A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_a'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_a'
             });
 
             const indicatorB = createIndicator({
                 uuid: 'indicator-b',
                 code: 'B',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_b'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_b'
             });
 
             const composite = createIndicator({
@@ -260,7 +260,7 @@ describe('Population SQL Compiler', () => {
             const result = await compilePopulationSql(composite, getIndicator);
 
             expect(result.sql).toContain('LEFT JOIN B');
-            expect(result.sql).toContain('WHERE B.patient_id IS NULL');
+            expect(result.sql).toContain('WHERE B.client_id IS NULL');
         });
     });
 
@@ -270,14 +270,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-a',
                 code: 'A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_a'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_a'
             });
 
             const indicatorB = createIndicator({
                 uuid: 'indicator-b',
                 code: 'B',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_b'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_b'
             });
 
             const composite = createIndicator({
@@ -302,8 +302,8 @@ describe('Population SQL Compiler', () => {
             const result = await compilePopulationSql(composite, getIndicator);
 
             expect(result.sql).toContain('UNION');
-            expect(result.sql).toContain('SELECT patient_id FROM A');
-            expect(result.sql).toContain('SELECT patient_id FROM B');
+            expect(result.sql).toContain('SELECT client_id FROM A');
+            expect(result.sql).toContain('SELECT client_id FROM B');
         });
     });
 
@@ -339,14 +339,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'some-base',
                 code: 'BASE',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM base'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM base'
             });
 
             const someOtherBase = createIndicator({
                 uuid: 'some-other-base',
                 code: 'OTHER',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM other'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM other'
             });
 
             const indicators = new Map([
@@ -367,7 +367,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'base-a',
                 code: 'BASE_A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM base_a'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM base_a'
             });
 
             const indicatorC = createIndicator({
@@ -449,7 +449,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-a',
                 code: 'A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_a'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_a'
             });
 
             const composite = createIndicator({
@@ -490,7 +490,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-b',
                 code: 'B',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_b'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_b'
             });
 
             const indicators = new Map([['indicator-b', indicatorB]]);
@@ -508,14 +508,14 @@ describe('Population SQL Compiler', () => {
                 uuid: 'indicator-a',
                 code: 'A',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_a'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_a'
             });
 
             const indicatorB = createIndicator({
                 uuid: 'indicator-b',
                 code: 'B',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table_b'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table_b'
             });
 
             const composite = createIndicator({
@@ -550,7 +550,7 @@ describe('Population SQL Compiler', () => {
                 code: 'RETIRED',
                 kind: 'BASE',
                 retired: true,
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM retired_table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM retired_table'
             });
 
             const composite = createIndicator({
@@ -570,7 +570,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'active',
                 code: 'ACTIVE',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM active_table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM active_table'
             });
 
             const indicators = new Map([
@@ -590,14 +590,14 @@ describe('Population SQL Compiler', () => {
                 code: 'RETIRED',
                 kind: 'BASE',
                 retired: true,
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM retired_table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM retired_table'
             });
 
             const activeIndicator = createIndicator({
                 uuid: 'active',
                 code: 'ACTIVE',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM active_table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM active_table'
             });
 
             const composite = createIndicator({
@@ -628,19 +628,19 @@ describe('Population SQL Compiler', () => {
 
     describe('Scalar Count SQL Generation', () => {
         it('should wrap population SQL in COUNT query', () => {
-            const populationSql = 'SELECT DISTINCT patient_id FROM patients WHERE active = 1';
+            const populationSql = 'SELECT DISTINCT client_id FROM patients WHERE active = 1';
 
             const scalarSql = generateScalarCountSql(populationSql);
 
             expect(scalarSql).toContain('WITH base_population AS');
-            expect(scalarSql).toContain('COUNT(DISTINCT patient_id) AS total');
+            expect(scalarSql).toContain('COUNT(DISTINCT client_id) AS total');
             expect(scalarSql).toContain('FROM base_population');
         });
     });
 
     describe('Age/Sex Disaggregation SQL Generation', () => {
         it('should generate disaggregation SQL with correct structure', () => {
-            const populationSql = 'SELECT DISTINCT patient_id FROM patients WHERE active = 1';
+            const populationSql = 'SELECT DISTINCT client_id FROM patients WHERE active = 1';
 
             const disaggSql = generateAgeSexDisaggregationSql({
                 populationSql,
@@ -662,7 +662,7 @@ describe('Population SQL Compiler', () => {
         });
 
         it('should handle only female gender', () => {
-            const populationSql = 'SELECT DISTINCT patient_id FROM patients WHERE active = 1';
+            const populationSql = 'SELECT DISTINCT client_id FROM patients WHERE active = 1';
 
             const disaggSql = generateAgeSexDisaggregationSql({
                 populationSql,
@@ -676,7 +676,7 @@ describe('Population SQL Compiler', () => {
 
     describe('Edge Cases', () => {
         it('should handle empty genders array by defaulting to both', () => {
-            const populationSql = 'SELECT DISTINCT patient_id FROM patients WHERE active = 1';
+            const populationSql = 'SELECT DISTINCT client_id FROM patients WHERE active = 1';
 
             const disaggSql = generateAgeSexDisaggregationSql({
                 populationSql,
@@ -690,7 +690,7 @@ describe('Population SQL Compiler', () => {
         });
 
         it('should escape single quotes in age category code', () => {
-            const populationSql = 'SELECT DISTINCT patient_id FROM patients WHERE active = 1';
+            const populationSql = 'SELECT DISTINCT client_id FROM patients WHERE active = 1';
 
             const disaggSql = generateAgeSexDisaggregationSql({
                 populationSql,
@@ -708,7 +708,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'cached-indicator',
                 code: 'CACHED',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table'
             });
 
             const getIndicator = createMockGetIndicator(new Map());
@@ -730,7 +730,7 @@ describe('Population SQL Compiler', () => {
                 uuid: 'test-uuid',
                 code: 'TEST',
                 kind: 'BASE',
-                sqlTemplate: 'SELECT DISTINCT patient_id FROM table'
+                sqlTemplate: 'SELECT DISTINCT client_id FROM table'
             });
 
             const getIndicator = createMockGetIndicator(new Map());

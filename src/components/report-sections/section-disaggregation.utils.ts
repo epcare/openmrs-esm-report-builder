@@ -65,6 +65,9 @@ export function buildSectionDisaggregationSql(args: {
     const escapedCode = escapeSql(ageCategoryCode);
     const genderList = selectedGenders.map((g) => `'${g}'`).join(',');
 
+    // Get patient ID column from theme config
+    const pidCol = tryGetPatientIdColumnFromConfig(indicator);
+
     // Try to get population SQL from the indicator
     const populationSql = tryGetPopulationSql(indicator);
 
@@ -97,10 +100,10 @@ cnt AS (
   SELECT
     ag.age_group_id AS age_group_id,
     mdp.gender AS gender,
-    COUNT(DISTINCT base_pop.patient_id) AS value
+    COUNT(DISTINCT base_pop.${pidCol}) AS value
   FROM base_pop
   JOIN mamba_fact_patients_latest_patient_demographics mdp
-    ON mdp.patient_id = base_pop.patient_id
+    ON mdp.${pidCol} = base_pop.${pidCol}
   JOIN ag
     ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days
@@ -213,7 +216,7 @@ function tryGetPopulationSql(indicator: IndicatorDto): string | null {
     const fixed = withoutSemicolon.replace(/:stratDate\b/g, ':startDate');
 
     // Check if it's already a population query
-    if (/SELECT\s+DISTINCT\s+(?:\w+\.?patient_id|patient_id)/i.test(fixed)) {
+    if (/SELECT\s+DISTINCT\s+(?:\w+\.?client_id|client_id)/i.test(fixed)) {
         return fixed;
     }
 

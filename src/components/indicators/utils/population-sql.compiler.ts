@@ -6,7 +6,7 @@
  * parsing/modifying generated SQL queries.
  *
  * Key design principles:
- * 1. Every indicator (atomic or composite) compiles to population SQL returning patient_id
+ * 1. Every indicator (atomic or composite) compiles to population SQL returning client_id
  * 2. Scalar counts and disaggregations are wrappers around population SQL
  * 3. Nested composite indicators are handled recursively
  * 4. Circular dependencies are detected
@@ -20,8 +20,10 @@ import type { CompositeOperator } from '../types/composite-indicator.types';
  * Result of compiling an indicator to population SQL.
  */
 export type PopulationCompileResult = {
-    /** The population SQL that returns patient_id */
+    /** The population SQL that returns the patient ID column */
     sql: string;
+    /** The column name used for patient identification (e.g., 'client_id', 'patient_id', 'encounter_id') */
+    patientIdColumn: string;
     /** Any warnings or information about the compilation */
     warnings?: string[];
     /** Whether this indicator was retired (for informational purposes) */
@@ -132,9 +134,9 @@ type CompositeIndicatorConfig = {
 
 /**
  * Cache to avoid re-compiling the same indicator multiple times.
- * Map<indicatorUuid, populationSql>
+ * Map<indicatorUuid, PopulationCompileResult>
  */
-const compilationCache = new Map<string, string>();
+const compilationCache = new Map<string, PopulationCompileResult>();
 
 /**
  * Clear the compilation cache. Useful for testing or when indicators change.
@@ -158,7 +160,7 @@ export function clearCompilationCache(): void {
  * @param getIndicator - Function to fetch referenced indicators by UUID
  * @param visited - Set of already-visited indicator UUIDs (for cycle detection)
  * @param options - Compiler options
- * @returns Population SQL that returns patient_id
+ * @returns Population SQL that returns client_id
  */
 export async function compilePopulationSql(
     indicator: IndicatorDto,
@@ -170,7 +172,7 @@ export async function compilePopulationSql(
 
     // Check cache
     if (compilationCache.has(indicator.uuid)) {
-        return { sql: compilationCache.get(indicator.uuid)! };
+        return compilationCache.get(indicator.uuid)!;
     }
 
     // Check depth limit
@@ -210,11 +212,13 @@ export async function compilePopulationSql(
         // Composite indicator - compile recursively
         const result = await compileCompositePopulation(indicator, config, getIndicator, newVisited, options);
         result.warnings = [...warnings, ...(result.warnings || [])];
+        compilationCache.set(indicator.uuid, result);
         return result;
     } else if (indicator.kind === 'BASE') {
         // Base indicator - extract population SQL
         const result = compileBasePopulation(indicator, config);
         result.warnings = warnings;
+        compilationCache.set(indicator.uuid, result);
         return result;
     } else {
         // FINAL indicator or unsupported type
@@ -223,6 +227,7 @@ export async function compilePopulationSql(
         try {
             const result = compileBasePopulation(indicator, config);
             result.warnings = [...warnings, 'FINAL indicator treated as BASE'];
+            compilationCache.set(indicator.uuid, result);
             return result;
         } catch (e) {
             throw new AtomicIndicatorError(
@@ -302,6 +307,7 @@ async function compileCompositePopulation(
 
     return {
         sql,
+        patientIdColumn: resultA.patientIdColumn, // Use the patientIdColumn from operand A
         warnings: [...warnings, ...(resultA.warnings || []), ...(resultB.warnings || [])],
         retired: indicator.retired
     };
@@ -319,7 +325,7 @@ function combineWithOperator(
     populationSqlB: string,
     unit: 'Patients' | 'Encounters'
 ): string {
-    const idField = unit === 'Encounters' ? 'encounter_id' : 'patient_id';
+    const idField = unit === 'Encounters' ? 'encounter_id' : 'client_id';
 
     // Clean the SQL - remove trailing semicolons
     const cleanA = populationSqlA.trim().replace(/;+\s*$/, '');
@@ -335,7 +341,7 @@ function combineWithOperator(
     const bName = bHasWith ? 'operand_b_base' : 'B';
 
     if (operator === 'AND') {
-        // Intersection: A INNER JOIN B on patient_id
+        // Intersection: A INNER JOIN B on client_id
         return `
 WITH ${aName} AS (
 ${indent(cleanA, 0)}
@@ -387,7 +393,7 @@ WHERE ${bName}.${idField} IS NULL
  * Compile a base indicator's population SQL.
  *
  * For base indicators, we extract the population SQL from the sql_template
- * or from config_json fields. The population SQL should return patient_id.
+ * or from config_json fields. The population SQL should return the patient ID column.
  */
 function compileBasePopulation(
     indicator: IndicatorDto,
@@ -419,13 +425,14 @@ function compileBasePopulation(
 
     return {
         sql: populationSql,
+        patientIdColumn,
         retired: indicator.retired
     };
 }
 
 /**
  * Get the patient ID column from indicator config.
- * Defaults to 'patient_id' if not specified.
+ * Defaults to 'client_id' if not specified.
  */
 function getPatientIdColumnFromConfig(config: CompositeIndicatorConfig | null): string {
     try {
@@ -436,9 +443,9 @@ function getPatientIdColumnFromConfig(config: CompositeIndicatorConfig | null): 
             config?.baseIndicator?.themeConfig ||
             null;
         const pid = cfg?.patientIdColumn;
-        return pid ? String(pid) : 'patient_id';
+        return pid ? String(pid) : 'client_id';
     } catch {
-        return 'patient_id';
+        return 'client_id';
     }
 }
 
@@ -446,25 +453,31 @@ function getPatientIdColumnFromConfig(config: CompositeIndicatorConfig | null): 
  * Convert COUNT SQL to population SQL.
  *
  * This handles the case where a base indicator has COUNT(*) SQL
- * and needs to be converted to return patient_id instead.
+ * and needs to be converted to return patient_id or client_id instead.
+ *
+ * IMPORTANT: The output column is ALWAYS aliased as the patientIdColumn value
+ * (e.g., 'client_id' or 'patient_id') for consistency with downstream queries.
  */
-function convertCountToPopulation(sql: string, patientIdColumn: string = 'patient_id'): string {
+function convertCountToPopulation(sql: string, patientIdColumn: string = 'client_id'): string {
     const trimmed = sql.trim();
 
     // Remove any trailing semicolons first (they cause issues when used as CTE)
     const withoutSemicolon = trimmed.replace(/;+\s*$/, '');
 
-    // Check if it's already a population query (SELECT DISTINCT patient_id or client_id)
-    // The output should always be aliased as patient_id for consistency
-    if (/SELECT\s+DISTINCT\s+\w+\.?(?:patient_id|client_id)/i.test(withoutSemicolon)) {
-        // Ensure the output is aliased as patient_id
+    // Check if it's already a population query (SELECT DISTINCT with patient_id, client_id, or encounter_id)
+    // The output should always be aliased as patientIdColumn for consistency
+    const populationCheck = new RegExp(`SELECT\\\\s+DISTINCT\\\\s+\\\\w+\\\\.?\\\\(?:${patientIdColumn}\\\\|client_id\\\\|patient_id\\\\|encounter_id\\\\)`, 'i');
+    if (populationCheck.test(withoutSemicolon)) {
+        // Ensure the output is aliased correctly
         const fixed = fixCommonTypos(withoutSemicolon);
-        // If it's already aliasing correctly, return as-is
-        if (/AS\s+patient_id/i.test(fixed)) {
+        // If it's already aliasing correctly (AS patientIdColumn), return as-is
+        const aliasCheck = new RegExp(`AS\\\\s+${patientIdColumn}$`, 'i');
+        if (aliasCheck.test(fixed)) {
             return fixed;
         }
-        // Otherwise, add the alias
-        return fixed.replace(/SELECT\s+DISTINCT\s+(\w+\.?(?:patient_id|client_id))/i, 'SELECT DISTINCT $1 AS patient_id');
+        // Otherwise, fix the alias to use patientIdColumn
+        const replacePattern = /SELECT\s+DISTINCT\s+(\w+\.?(?:client_id|patient_id|encounter_id))/i;
+        return fixed.replace(replacePattern, `SELECT DISTINCT $1 AS ${patientIdColumn}`);
     }
 
     // Check if it's a COUNT query
@@ -475,9 +488,9 @@ function convertCountToPopulation(sql: string, patientIdColumn: string = 'patien
         return fixCommonTypos(withoutSemicolon);
     }
 
-    // Convert COUNT(*) to SELECT DISTINCT <patientIdColumn> AS patient_id
+    // Convert COUNT(*) to SELECT DISTINCT <patientIdColumn> AS patientIdColumn
     // Pattern: SELECT COUNT(*) AS total FROM <table> a ...
-    // We want: SELECT DISTINCT a.<patientIdColumn> AS patient_id FROM <table> a ...
+    // We want: SELECT DISTINCT a.<patientIdColumn> AS patientIdColumn FROM <table> a ...
 
     // Try to extract the table and alias from the FROM clause
     const fromMatch = withoutSemicolon.match(/FROM\s+(\S+)\s+(\S+)/i);
@@ -487,7 +500,7 @@ function convertCountToPopulation(sql: string, patientIdColumn: string = 'patien
         // Build population SQL
         const result = withoutSemicolon
             .replace(/SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s*/i, '')
-            .replace(/FROM\s+/i, `SELECT DISTINCT ${alias}.${patientIdColumn} AS patient_id FROM `);
+            .replace(/FROM\s+/i, `SELECT DISTINCT ${alias}.${patientIdColumn} AS ${patientIdColumn} FROM `);
 
         return fixCommonTypos(result);
     }
@@ -495,7 +508,7 @@ function convertCountToPopulation(sql: string, patientIdColumn: string = 'patien
     // If we can't parse it, try a simple replacement
     const result = withoutSemicolon.replace(
         /SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s+FROM\s+/i,
-        `SELECT DISTINCT ${patientIdColumn} AS patient_id FROM `
+        `SELECT DISTINCT ${patientIdColumn} AS ${patientIdColumn} FROM `
     );
 
     return fixCommonTypos(result);
@@ -537,7 +550,7 @@ WITH base_population AS (
 ${indent(clean, 0)}
 )
 SELECT
-    COUNT(DISTINCT patient_id) AS total
+    COUNT(DISTINCT client_id) AS total
 FROM base_population;
 `.trim();
 }
@@ -551,8 +564,9 @@ export function generateAgeSexDisaggregationSql(args: {
     populationSql: string;
     ageCategoryCode: string;
     genders: Array<'F' | 'M'>;
+    patientIdColumn?: string;
 }): string {
-    const { populationSql, ageCategoryCode, genders } = args;
+    const { populationSql, ageCategoryCode, genders, patientIdColumn = 'patient_id' } = args;
 
     const selectedGenders = (genders || []).length ? genders : (['F', 'M'] as Array<'F' | 'M'>);
 
@@ -583,10 +597,10 @@ cnt AS (
   SELECT
     ag.age_group_id AS age_group_id,
     mdp.gender AS gender,
-    COUNT(DISTINCT base_pop.patient_id) AS value
+    COUNT(DISTINCT base_pop.${patientIdColumn}) AS value
   FROM base_pop
   JOIN mamba_fact_patients_latest_patient_demographics mdp
-    ON mdp.patient_id = base_pop.patient_id
+    ON mdp.patient_id = base_pop.${patientIdColumn}
   JOIN ag
     ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days

@@ -218,7 +218,8 @@ export default function IndicatorRunPreviewModal({ open, indicatorUuid, onClose 
                     sql = generateAgeSexDisaggregationSql({
                         populationSql: compilerResult.sql,
                         ageCategoryCode: selectedAgeCategory,
-                        genders
+                        genders,
+                        patientIdColumn: compilerResult.patientIdColumn
                     });
                 } else {
                     // BASE indicator - apply age/gender disaggregation
@@ -239,7 +240,8 @@ export default function IndicatorRunPreviewModal({ open, indicatorUuid, onClose 
                     sql = generateAgeSexDisaggregationSql({
                         populationSql: compilerResult.sql,
                         ageCategoryCode: selectedAgeCategory,
-                        genders
+                        genders,
+                        patientIdColumn: compilerResult.patientIdColumn
                     });
                 }
 

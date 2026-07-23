@@ -41,6 +41,7 @@ type BaseIndicatorAuthoring = {
     conditions: IndicatorCondition[];
     customConditions?: CustomCondition[];
     excludeDateFilter?: boolean;
+    countDistinctPatientId?: boolean;
     sqlPreview: string;
 };
 
@@ -83,6 +84,7 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             conditions: Array.isArray(parsed.conditions) ? parsed.conditions : [],
             customConditions: Array.isArray(parsed.customConditions) ? parsed.customConditions : [],
             excludeDateFilter: parsed.excludeDateFilter === true,
+            countDistinctPatientId: parsed.countDistinctPatientId === true,
             sqlPreview: parsed.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -95,6 +97,7 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             conditions: Array.isArray(parsed.base.conditions) ? parsed.base.conditions : [],
             customConditions: Array.isArray(parsed.base.customConditions) ? parsed.base.customConditions : [],
             excludeDateFilter: parsed.base.excludeDateFilter === true,
+            countDistinctPatientId: parsed.base.countDistinctPatientId === true,
             sqlPreview: parsed.base.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -108,6 +111,7 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
             conditions: Array.isArray(b.conditions) ? b.conditions : [],
             customConditions: Array.isArray(b.customConditions) ? b.customConditions : [],
             excludeDateFilter: b.excludeDateFilter === true,
+            countDistinctPatientId: b.countDistinctPatientId === true,
             sqlPreview: b.sqlPreview ?? ind.sqlTemplate ?? '',
         };
     }
@@ -121,9 +125,10 @@ function buildAuthoring(
     conditions: IndicatorCondition[],
     customConditions: CustomCondition[],
     excludeDateFilter: boolean,
+    countDistinctPatientId: boolean,
     sqlPreview: string,
 ): BaseIndicatorAuthoring {
-    return { version: 1, themeUuid, themeConfig, conditions, customConditions, excludeDateFilter, sqlPreview };
+    return { version: 1, themeUuid, themeConfig, conditions, customConditions, excludeDateFilter, countDistinctPatientId, sqlPreview };
 }
 
 function defaultValueForTheme(tc: ThemeCondition) {
@@ -263,12 +268,14 @@ export default function CreateBaseIndicatorModal({
     const [customConditions, setCustomConditions] = React.useState<CustomCondition[]>([]);
 
     const [excludeDateFilter, setExcludeDateFilter] = React.useState(false);
+    const [countDistinctPatientId, setCountDistinctPatientId] = React.useState(false);
 
     const [conceptUi, setConceptUi] = React.useState<Record<string, SelectedConcept[]>>({});
     const [qaUi, setQaUi] = React.useState<Record<string, QAUiState>>({});
 
     const [sqlPreview, setSqlPreview] = React.useState('');
     const [sqlDirty, setSqlDirty] = React.useState(false);
+    const [sqlManuallyEdited, setSqlManuallyEdited] = React.useState(false);
 
     React.useEffect(() => {
         if (!open) return;
@@ -304,6 +311,7 @@ export default function CreateBaseIndicatorModal({
                 setPickedConditions(authoring.conditions ?? []);
                 setCustomConditions(authoring.customConditions ?? []);
                 setExcludeDateFilter(authoring.excludeDateFilter ?? false);
+                setCountDistinctPatientId(authoring.countDistinctPatientId ?? false);
                 setSqlPreview(authoring.sqlPreview ?? '');
             } else {
                 setThemeUuid(initial.themeUuid ?? '');
@@ -311,6 +319,7 @@ export default function CreateBaseIndicatorModal({
                 setPickedConditions([]);
                 setCustomConditions([]);
                 setExcludeDateFilter(false);
+                setCountDistinctPatientId(false);
                 setSqlPreview('');
             }
 
@@ -327,6 +336,7 @@ export default function CreateBaseIndicatorModal({
             setPickedConditions([]);
             setCustomConditions([]);
             setExcludeDateFilter(false);
+            setCountDistinctPatientId(false);
             setConceptUi({});
             setQaUi({});
             setSqlPreview('');
@@ -404,12 +414,16 @@ export default function CreateBaseIndicatorModal({
     React.useEffect(() => {
         if (!themeConfig) return;
 
+        // Don't auto-regenerate if user has manually edited the SQL
+        if (sqlManuallyEdited) return;
+
         if (isEdit && !sqlDirty) return;
 
-        const base = buildSqlPreview(themeConfig, excludeDateFilter);
+        const base = buildSqlPreview(themeConfig, excludeDateFilter, countDistinctPatientId);
         const withThemeConditions = applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions);
-        setSqlPreview(applyCustomConditions(withThemeConditions, customConditions));
-    }, [themeConfig, pickedConditions, customConditions, excludeDateFilter, isEdit, sqlDirty]);
+        const generatedSql = applyCustomConditions(withThemeConditions, customConditions);
+        setSqlPreview(generatedSql);
+    }, [themeConfig, pickedConditions, customConditions, excludeDateFilter, countDistinctPatientId, isEdit, sqlDirty, sqlManuallyEdited]);
 
     const canSave =
         Boolean(name.trim()) &&
@@ -422,7 +436,7 @@ export default function CreateBaseIndicatorModal({
         if (!canSave || !themeConfig) return;
 
         const preparedConditions = prepareConditionsForSave(themeConfig.conditions ?? [], pickedConditions, conceptUi, qaUi);
-        const authoring = buildAuthoring(themeUuid, themeConfig, preparedConditions, customConditions, excludeDateFilter, sqlPreview);
+        const authoring = buildAuthoring(themeUuid, themeConfig, preparedConditions, customConditions, excludeDateFilter, countDistinctPatientId, sqlPreview);
 
         const payload: Partial<IndicatorDto> = {
             name: name.trim(),
@@ -523,6 +537,33 @@ export default function CreateBaseIndicatorModal({
                                         />
                                     </div>
                                 ) : null}
+                                {themeConfig?.patientIdColumn ? (
+                                    <div style={{
+                                        padding: '1rem',
+                                        backgroundColor: 'var(--cds-background, #f4f4f4)',
+                                        borderRadius: '0.25rem',
+                                        border: '1px solid var(--cds-interactive-01, #0f62fe)'
+                                    }}>
+                                        <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                                            Patient Counting Method
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary, #525252)', marginBottom: '1rem' }}>
+                                            By default, the indicator counts all matching rows. Enable this option to count <strong>distinct patients only</strong> based on <code>{themeConfig.patientIdColumn}</code>.
+                                            This ensures each patient is counted only once, even if they have multiple matching records.
+                                        </div>
+                                        <Toggle
+                                            id="count-distinct-patients"
+                                            labelText="Count distinct patients"
+                                            labelA="Count all rows"
+                                            labelB="Count distinct patients"
+                                            toggled={countDistinctPatientId}
+                                            onToggle={(checked) => {
+                                                setCountDistinctPatientId(checked);
+                                                setSqlDirty(true);
+                                            }}
+                                        />
+                                    </div>
+                                ) : null}
                             </Stack>
                         ) : null}
 
@@ -559,7 +600,20 @@ export default function CreateBaseIndicatorModal({
                             </Stack>
                         ) : null}
 
-                        {active === 'sql' ? <IndicatorSqlPreviewSection sql={sqlPreview} /> : null}
+                        {active === 'sql' ? (
+                            <IndicatorSqlPreviewSection
+                                sql={sqlPreview}
+                                onChange={(newSql) => {
+                                    setSqlPreview(newSql);
+                                    setSqlManuallyEdited(true);
+                                }}
+                                onReset={() => {
+                                    setSqlManuallyEdited(false);
+                                    // Trigger regeneration by setting sqlDirty
+                                    setSqlDirty(true);
+                                }}
+                            />
+                        ) : null}
                     </Content>
                 </div>
             </Stack>

@@ -90,10 +90,10 @@ cnt AS (
   SELECT
     ag.age_group_id AS age_group_id,
     mdp.gender AS gender,
-    COUNT(DISTINCT base_pop.patient_id) AS value
+    COUNT(DISTINCT base_pop.${pidCol}) AS value
   FROM base_pop
   JOIN mamba_fact_patients_latest_patient_demographics mdp
-    ON mdp.patient_id = base_pop.patient_id
+    ON mdp.patient_id = base_pop.${pidCol}
   JOIN ag
     ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days
@@ -158,12 +158,14 @@ export async function buildFinalIndicatorSqlAsync({
         if (baseIndicator.kind === 'COMPOSITE') {
             const result = await compilePopulationSql(baseIndicator, getIndicator, new Set(), compilerOptions);
             const populationSql = result.sql;
+            const pidCol = tryGetPatientIdColumnFromConfig(baseIndicator);
 
             // Generate the disaggregation SQL using the compiled population SQL
             return generateAgeSexDisaggregationSql({
                 populationSql,
                 ageCategoryCode,
-                genders
+                genders,
+                patientIdColumn: pidCol
             });
         }
 

@@ -76,14 +76,14 @@ function normalizeArrayValue(v: any) {
     return arr.map((x) => String(x)).filter((x) => x.trim().length > 0);
 }
 
-export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: boolean = false) {
+export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: boolean = false, countDistinctPatientId: boolean = false) {
     const src = themeCfg.sourceTable;
     const pid = themeCfg.patientIdColumn;
     const dateCol = themeCfg.dateColumn;
 
     const lines: string[] = [];
     lines.push(`SELECT`);
-    lines.push(`  COUNT(*) AS total`);
+    lines.push(`  COUNT${countDistinctPatientId ? `(DISTINCT a.${pid})` : '(*)'} AS total`);
     lines.push(`FROM ${src} a`);
     lines.push(`JOIN ${DEMO_JOIN_TABLE} mdp`);
     lines.push(`  ON mdp.patient_id = a.${pid}`);
@@ -93,7 +93,6 @@ export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: bo
     if (!excludeDateFilter) {
         lines.push(`  a.${dateCol} >= ':startDate'`);
         lines.push(`  AND a.${dateCol} <  ':endDate'`);
-        lines.push(`  AND`);
     }
 
     lines.push(`  mdp.birthdate IS NOT NULL`);
@@ -106,10 +105,29 @@ export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: bo
 export function applyConditionClauses(baseSql: string, themeConditions: ThemeCondition[], picked: IndicatorCondition[]) {
     const sqlLines = baseSql.split('\n');
 
-    const demoBirthIdx = sqlLines.findIndex((l) => l.includes('mdp.birthdate IS NOT NULL'));
-    const insertAt = demoBirthIdx > -1 ? demoBirthIdx : sqlLines.length;
+    // Find WHERE clause and insert conditions after the last condition
+    const whereIdx = sqlLines.findIndex((l) => l.trim() === 'WHERE');
+    let insertAt = sqlLines.length; // Default to end if no WHERE found
+
+    if (whereIdx >= 0) {
+        // Find the last condition line before empty line, semicolon, or other SQL clauses
+        for (let i = whereIdx + 1; i < sqlLines.length; i++) {
+            const line = sqlLines[i]?.trim();
+            // Stop at empty line, semicolon, JOIN, ORDER BY, GROUP BY, LIMIT, etc.
+            if (!line || line === ';' || line.startsWith('JOIN') || line.startsWith('ORDER BY') ||
+                line.startsWith('GROUP BY') || line.startsWith('LIMIT') || line.startsWith('HAVING')) {
+                insertAt = i;
+                break;
+            }
+        }
+    }
 
     const clauses: string[] = [];
+
+    // All clauses get AND prefix since we're appending after existing conditions
+    const addClause = (clause: string) => {
+        clauses.push(`  AND ${clause}`);
+    };
 
     for (const tc of themeConditions ?? []) {
         const pc = picked.find((x) => x.key === tc.key);
@@ -152,8 +170,8 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
                     const col = qualifyColumn(questionColumn);
 
                     // For questions we keep original behavior: single => =, many => IN (...)
-                    if (arr.length === 1) clauses.push(`  AND ${col} = ${rendered}`);
-                    else clauses.push(`  AND ${col} IN (${rendered})`);
+                    if (arr.length === 1) addClause(`${col} = ${rendered}`);
+                    else addClause(`${col} IN (${rendered})`);
                 }
             }
 
@@ -176,8 +194,8 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
                     const col = qualifyColumn(answerColumn);
 
                     // ✅ Always bracket IN/NOT IN
-                    if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-                    else clauses.push(`  AND ${col} IN (${rendered})`);
+                    if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+                    else addClause(`${col} IN (${rendered})`);
                 }
             }
 
@@ -210,15 +228,15 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
             if (op === 'BETWEEN') {
                 if (arr.length === 2) {
                     const [v1, v2] = processedArr.map((x) => (isNumericList ? x : sqlQuote(x)));
-                    clauses.push(`  AND ${col} BETWEEN ${v1} AND ${v2}`);
+                    addClause(`${col} BETWEEN ${v1} AND ${v2}`);
                 }
                 // If BETWEEN doesn't have exactly 2 values, skip it (invalid)
                 continue;
             }
 
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-            else if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
-            else clauses.push(`  AND ${col} ${op} (${rendered})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+            else if (op === 'IN') addClause(`${col} IN (${rendered})`);
+            else addClause(`${col} ${op} (${rendered})`);
 
             continue;
         }
@@ -238,7 +256,7 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
                 const renderedEnd = isNumericEnd ? endVal : sqlQuote(String(endVal));
                 const col = qualifyColumn(tc.column);
 
-                clauses.push(`  AND ${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
+                addClause(`${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
             }
             continue;
         }
@@ -250,7 +268,7 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
         // ✅ IS NULL / IS NOT NULL - no value needed
         if (isNullCheckOperator(op)) {
-            clauses.push(`  AND ${col} ${op}`);
+            addClause(`${col} ${op}`);
             continue;
         }
 
@@ -264,13 +282,13 @@ export function applyConditionClauses(baseSql: string, themeConditions: ThemeCon
 
         // ✅ IN must always have brackets, even for scalar
         if (isInOperator(op)) {
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${renderedScalar})`);
-            else clauses.push(`  AND ${col} IN (${renderedScalar})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${renderedScalar})`);
+            else addClause(`${col} IN (${renderedScalar})`);
         } else if (op === 'BETWEEN') {
             // BETWEEN with scalar is invalid (requires 2 values), skip it
             continue;
         } else {
-            clauses.push(`  AND ${col} ${op} ${renderedScalar}`);
+            addClause(`${col} ${op} ${renderedScalar}`);
         }
     }
 
@@ -290,10 +308,29 @@ export async function applyConditionClausesAsync(
 ): Promise<string> {
     const sqlLines = baseSql.split('\n');
 
-    const demoBirthIdx = sqlLines.findIndex((l) => l.includes('mdp.birthdate IS NOT NULL'));
-    const insertAt = demoBirthIdx > -1 ? demoBirthIdx : sqlLines.length;
+    // Find WHERE clause and insert conditions after the last condition
+    const whereIdx = sqlLines.findIndex((l) => l.trim() === 'WHERE');
+    let insertAt = sqlLines.length; // Default to end if no WHERE found
+
+    if (whereIdx >= 0) {
+        // Find the last condition line before empty line, semicolon, or other SQL clauses
+        for (let i = whereIdx + 1; i < sqlLines.length; i++) {
+            const line = sqlLines[i]?.trim();
+            // Stop at empty line, semicolon, JOIN, ORDER BY, GROUP BY, LIMIT, etc.
+            if (!line || line === ';' || line.startsWith('JOIN') || line.startsWith('ORDER BY') ||
+                line.startsWith('GROUP BY') || line.startsWith('LIMIT') || line.startsWith('HAVING')) {
+                insertAt = i;
+                break;
+            }
+        }
+    }
 
     const clauses: string[] = [];
+
+    // All clauses get AND prefix since we're appending after existing conditions
+    const addClause = (clause: string) => {
+        clauses.push(`  AND ${clause}`);
+    };
 
     // Helper to resolve concept UUID to ID
     const resolveConceptId = async (uuid: string): Promise<string> => {
@@ -388,8 +425,8 @@ export async function applyConditionClausesAsync(
                     const rendered = processedArr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
                     const col = qualifyColumn(questionColumn);
 
-                    if (arr.length === 1) clauses.push(`  AND ${col} = ${rendered}`);
-                    else clauses.push(`  AND ${col} IN (${rendered})`);
+                    if (arr.length === 1) addClause(`${col} = ${rendered}`);
+                    else addClause(`${col} IN (${rendered})`);
                 }
             }
 
@@ -407,8 +444,8 @@ export async function applyConditionClausesAsync(
                     const rendered = processedArr.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
                     const col = qualifyColumn(answerColumn);
 
-                    if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-                    else clauses.push(`  AND ${col} IN (${rendered})`);
+                    if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+                    else addClause(`${col} IN (${rendered})`);
                 }
             }
 
@@ -435,14 +472,14 @@ export async function applyConditionClausesAsync(
             if (op === 'BETWEEN') {
                 if (arr.length === 2) {
                     const [v1, v2] = processedArr.map((x) => (isNumericList ? x : sqlQuote(x)));
-                    clauses.push(`  AND ${col} BETWEEN ${v1} AND ${v2}`);
+                    addClause(`${col} BETWEEN ${v1} AND ${v2}`);
                 }
                 continue;
             }
 
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-            else if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
-            else clauses.push(`  AND ${col} ${op} (${rendered})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+            else if (op === 'IN') addClause(`${col} IN (${rendered})`);
+            else addClause(`${col} ${op} (${rendered})`);
 
             continue;
         }
@@ -474,7 +511,7 @@ export async function applyConditionClausesAsync(
                 const renderedEnd = isNumericEnd ? processedEnd : sqlQuote(processedEnd);
                 const col = qualifyColumn(tc.column);
 
-                clauses.push(`  AND ${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
+                addClause(`${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
             }
             continue;
         }
@@ -486,7 +523,7 @@ export async function applyConditionClausesAsync(
 
         // IS NULL / IS NOT NULL - no value needed
         if (isNullCheckOperator(op)) {
-            clauses.push(`  AND ${col} ${op}`);
+            addClause(`${col} ${op}`);
             continue;
         }
 
@@ -507,12 +544,12 @@ export async function applyConditionClausesAsync(
         const renderedScalar = isNumeric ? processedScalar : sqlQuote(processedScalar);
 
         if (isInOperator(op)) {
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${renderedScalar})`);
-            else clauses.push(`  AND ${col} IN (${renderedScalar})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${renderedScalar})`);
+            else addClause(`${col} IN (${renderedScalar})`);
         } else if (op === 'BETWEEN') {
             continue;
         } else {
-            clauses.push(`  AND ${col} ${op} ${renderedScalar}`);
+            addClause(`${col} ${op} ${renderedScalar}`);
         }
     }
 
@@ -536,10 +573,30 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
     if (!customConditions || customConditions.length === 0) return baseSql;
 
     const sqlLines = baseSql.split('\n');
-    const demoBirthIdx = sqlLines.findIndex((l) => l.includes('mdp.birthdate IS NOT NULL'));
-    const insertAt = demoBirthIdx > -1 ? demoBirthIdx : sqlLines.length;
+
+    // Find WHERE clause and insert conditions after the last condition
+    const whereIdx = sqlLines.findIndex((l) => l.trim() === 'WHERE');
+    let insertAt = sqlLines.length; // Default to end if no WHERE found
+
+    if (whereIdx >= 0) {
+        // Find the last condition line before empty line, semicolon, or other SQL clauses
+        for (let i = whereIdx + 1; i < sqlLines.length; i++) {
+            const line = sqlLines[i]?.trim();
+            // Stop at empty line, semicolon, JOIN, ORDER BY, GROUP BY, LIMIT, etc.
+            if (!line || line === ';' || line.startsWith('JOIN') || line.startsWith('ORDER BY') ||
+                line.startsWith('GROUP BY') || line.startsWith('LIMIT') || line.startsWith('HAVING')) {
+                insertAt = i;
+                break;
+            }
+        }
+    }
 
     const clauses: string[] = [];
+
+    // All clauses get AND prefix since we're appending after existing conditions
+    const addClause = (clause: string) => {
+        clauses.push(`  AND ${clause}`);
+    };
 
     for (const cc of customConditions) {
         const col = qualifyColumn(cc.column);
@@ -549,7 +606,7 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
         // IS NULL / IS NOT NULL - no value needed
         if (isNullCheckOperator(op)) {
             if (v === true) {
-                clauses.push(`  AND ${col} ${op}`);
+                addClause(`${col} ${op}`);
             }
             continue;
         }
@@ -561,16 +618,30 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
             const isNumericList = v.every((x) => /^[0-9]+$/.test(String(x)));
             const rendered = v.map((x) => (isNumericList ? x : sqlQuote(String(x)))).join(',');
 
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-            else if (op === 'IN') clauses.push(`  AND ${col} IN (${rendered})`);
-            else clauses.push(`  AND ${col} ${op} (${rendered})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+            else if (op === 'IN') addClause(`${col} IN (${rendered})`);
+            else addClause(`${col} ${op} (${rendered})`);
             continue;
         }
 
-        // BETWEEN with { start, end } object
+        // BETWEEN with { start, end } object or JSON string
+        let betweenObj: { start: string; end: string } | null = null;
         if (typeof v === 'object' && v !== null && 'start' in v && 'end' in v) {
-            const startVal = v.start;
-            const endVal = v.end;
+            betweenObj = v as { start: string; end: string };
+        } else if (typeof v === 'string') {
+            try {
+                const parsed = JSON.parse(v);
+                if (parsed && typeof parsed === 'object' && 'start' in parsed && 'end' in parsed) {
+                    betweenObj = parsed;
+                }
+            } catch {
+                // Not valid JSON, continue to other handlers
+            }
+        }
+
+        if (betweenObj) {
+            const startVal = betweenObj.start;
+            const endVal = betweenObj.end;
 
             if (startVal !== null && startVal !== undefined && startVal !== '' &&
                 endVal !== null && endVal !== undefined && endVal !== '') {
@@ -581,7 +652,7 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
                 const renderedStart = isNumericStart ? startVal : sqlQuote(String(startVal));
                 const renderedEnd = isNumericEnd ? endVal : sqlQuote(String(endVal));
 
-                clauses.push(`  AND ${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
+                addClause(`${col} BETWEEN ${renderedStart} AND ${renderedEnd}`);
             }
             continue;
         }
@@ -598,8 +669,8 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
             const isNumericList = parts.every((x) => /^[0-9]+$/.test(x));
             const rendered = parts.map((x) => (isNumericList ? x : sqlQuote(x))).join(',');
 
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${rendered})`);
-            else clauses.push(`  AND ${col} IN (${rendered})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${rendered})`);
+            else addClause(`${col} IN (${rendered})`);
             continue;
         }
 
@@ -608,15 +679,15 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
         const renderedScalar = isNumeric ? sval : sqlQuote(sval);
 
         if (isInOperator(op)) {
-            if (op === 'NOT IN') clauses.push(`  AND ${col} NOT IN (${renderedScalar})`);
-            else clauses.push(`  AND ${col} IN (${renderedScalar})`);
+            if (op === 'NOT IN') addClause(`${col} NOT IN (${renderedScalar})`);
+            else addClause(`${col} IN (${renderedScalar})`);
         } else if (op === 'BETWEEN') {
             // BETWEEN with scalar is invalid
             continue;
         } else if (op === 'LIKE') {
-            clauses.push(`  AND ${col} LIKE ${renderedScalar}`);
+            addClause(`${col} LIKE ${renderedScalar}`);
         } else {
-            clauses.push(`  AND ${col} ${op} ${renderedScalar}`);
+            addClause(`${col} ${op} ${renderedScalar}`);
         }
     }
 
