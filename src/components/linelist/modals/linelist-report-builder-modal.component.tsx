@@ -48,32 +48,32 @@ import type {
   LinelistParameterDraft,
   VisualFilterState,
   FilterFieldType,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 import {
   draftToConfig,
   validateLinelistDraft,
   isLinelistDraftValid,
   isLinelistDraftReadyToPublish,
   generateLinelistWarnings,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 
 import {
   createLinelistReport,
   updateLinelistReport,
   configToSavePayload,
-} from '../../resources/linelist/linelist-reports.api';
-import type { LinelistReportDto } from '../../types/linelist-types';
-import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
-import { listThemes } from '../../resources/theme/data-theme.api';
-import type { DataTheme } from '../../types/theme/data-theme.types';
-import { useETLTables } from '../../hooks/theme';
+} from '../../../resources/linelist/linelist-reports.api';
+import type { LinelistReportDto } from '../../../types/linelist-types';
+import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
+import { listThemes } from '../../../resources/theme/data-theme.api';
+import type { DataTheme } from '../../../types/theme/data-theme.types';
+import { useETLTables } from '../../../hooks/theme';
 
-import CohortSQLEditor from './cohort-sql-editor.component';
-import ColumnSelector from './column-selector.component';
-import ColumnCategorySelector from './column-category-selector.component';
-import SortConfiguration from './sort-config.component';
-import ParameterEditor from './parameter-editor.component';
-import DisplayExportSettings from './display-export-settings.component';
+import CohortSQLEditor from '../config/cohort-sql-editor.component';
+import ColumnSelector from '../builder/column-selector.component';
+import ColumnCategorySelector from '../builder/column-category-selector.component';
+import SortConfiguration from '../config/sort-config.component';
+import ParameterEditor from '../config/parameter-editor.component';
+import DisplayExportSettings from '../config/display-export-settings.component';
 import styles from './linelist-report-builder-modal.scss';
 
 type Props = {

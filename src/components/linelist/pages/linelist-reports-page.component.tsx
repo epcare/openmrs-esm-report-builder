@@ -40,10 +40,10 @@ import {
   deleteLinelistReport,
   type LinelistReportDefinitionDto,
   parseLinelistConfig,
-} from '../../resources/linelist/linelist-reports.api';
-import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
-import { listDataThemes, type DataThemeDto } from '../../resources/theme/data-theme.api';
-import type { LinelistRowGrain } from '../../types/linelist-types';
+} from '../../../resources/linelist/linelist-reports.api';
+import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
+import { listDataThemes, type DataThemeDto } from '../../../resources/theme/data-theme.api';
+import type { LinelistRowGrain } from '../../../types/linelist-types';
 
 import styles from './linelist-reports-page.scss';
 

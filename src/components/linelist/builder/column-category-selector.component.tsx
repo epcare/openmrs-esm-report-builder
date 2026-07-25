@@ -20,10 +20,10 @@ import {
   Accordion,
   AccordionItem,
 } from '@carbon/react';
-import { TrashCan } from '@carbon/react/icons';
+import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn } from '@carbon/react/icons';
 import type {
   LinelistColumnDraft,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 import styles from './column-category-selector.scss';
 
 /**
@@ -34,31 +34,31 @@ const COLUMN_CATEGORIES = {
     id: 'calculated',
     name: 'Calculated Fields',
     description: 'Fields calculated from other data (Age, BMI, etc.)',
-    icon: '🧮',
+    icon: Function,
   },
   attributes: {
     id: 'attributes',
     name: 'Person Attributes',
     description: 'Custom person attributes (Telephone, Civil Status, etc.)',
-    icon: '🏷️',
+    icon: TagIcon,
   },
   identifiers: {
     id: 'identifiers',
     name: 'Patient Identifiers',
     description: 'Patient identification numbers (Clinic Number, EID Number, etc.)',
-    icon: '🆔',
+    icon: Hashtag,
   },
   demographics: {
     id: 'demographics',
     name: 'Demographics',
     description: 'Built-in demographic fields (Name, Gender, Birth Date, etc.)',
-    icon: '👤',
+    icon: User,
   },
   other: {
     id: 'other',
     name: 'Other Fields',
     description: 'ETL table columns and other fields',
-    icon: '📊',
+    icon: ChartColumn,
   },
 } as const;
 
@@ -181,7 +181,7 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
                   key={category.id}
                   title={
                     <div className={styles.categoryHeader}>
-                      <span className={styles.categoryIcon}>{category.icon}</span>
+                      <span className={styles.categoryIcon}>{category.icon && <category.icon size={16} />}</span>
                       <span className={styles.categoryName}>{category.name}</span>
                       <Tag size="sm" type="cool-gray">{count}</Tag>
                     </div>

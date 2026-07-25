@@ -41,12 +41,12 @@ import type {
   FilterCondition,
   PopulationMode,
   LogicalOperator,
-} from '../../types/linelist-types';
-import type { IndicatorDto } from '../../resources/indicator/indicators.api';
-import type { IndicatorOption } from '../indicators/types/composite-indicator.types';
-import IndicatorSearchSelect from '../indicators/indicator-search-select.component';
-import JsonPreview from './json-preview.component';
-import ColumnCategorySelector from './column-category-selector.component';
+} from '../../../types/linelist-types';
+import type { IndicatorDto } from '../../../resources/indicator/indicators.api';
+import type { IndicatorOption } from '../../indicators/types/composite-indicator.types';
+import IndicatorSearchSelect from '../../indicators/indicator-search-select.component';
+import JsonPreview from '../shared/json-preview.component';
+import ColumnCategorySelector from '../builder/column-category-selector.component';
 import styles from './query-config-panel.scss';
 
 type Props = {

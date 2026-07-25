@@ -29,7 +29,7 @@ import { TrashCan, Add, ChevronUp, ChevronDown } from '@carbon/react/icons';
 import type {
   LinelistParameterDraft,
   LinelistParameterType,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 import styles from './parameter-editor.scss';
 
 type Props = {

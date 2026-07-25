@@ -23,9 +23,9 @@ import LegacyReportsPage from '../components/legacy-reports/legacy-reports-page.
 import LegacyReportDetailPage from '../components/legacy-reports/legacy-report-detail-page.component';
 import LegacyReportEditorPage from '../components/legacy-reports/legacy-report-editor-page.component';
 
-import LinelistReportsPage from '../components/linelist/linelist-reports-page.component';
-import LinelistBuilderWorkspace from '../components/linelist/linelist-builder-workspace.component';
-import LinelistRunReport from '../components/linelist/linelist-run-report.component';
+import LinelistReportsPage from '../components/linelist/pages/linelist-reports-page.component';
+import LinelistBuilderWorkspace from '../components/linelist/builder/linelist-builder-workspace.component';
+import LinelistRunReport from '../components/linelist/pages/linelist-run-report.component';
 
 const ReportBuilderRoutes: React.FC = () => {
     return (

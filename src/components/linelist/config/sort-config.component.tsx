@@ -21,7 +21,7 @@ import {
   TableCell,
 } from '@carbon/react';
 import { TrashCan, Add, ChevronUp, ChevronDown } from '@carbon/react/icons';
-import type { LinelistSortConfig, LinelistColumnDraft } from '../../types/linelist-types';
+import type { LinelistSortConfig, LinelistColumnDraft } from '../../../types/linelist-types';
 import styles from './sort-config.scss';
 
 type Props = {

@@ -18,19 +18,19 @@ import {
   Dropdown,
   Toggle,
 } from '@carbon/react';
-// Icons imported as needed
+import { User, Tag as TagIcon, Function, Hashtag } from '@carbon/react/icons';
 
-import { useETLTables } from '../../hooks/theme';
-import { useETLTableMeta } from '../../hooks/theme';
-import { useDataThemes } from '../../hooks/theme';
+import { useETLTables } from '../../../hooks/theme';
+import { useETLTableMeta } from '../../../hooks/theme';
+import { useDataThemes } from '../../../hooks/theme';
 // TableColumn type imported as needed
-import type { FilterFieldType } from '../../types/linelist-types';
-import type { DataTheme } from '../../types/theme/data-theme.types';
+import type { FilterFieldType } from '../../../types/linelist-types';
+import type { DataTheme } from '../../../types/theme/data-theme.types';
 import type {
   EtlStructure,
-} from '../../types/etl/etl-types';
-import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../resources/person-attribute-type/person-attribute-type.api';
-import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../resources/patient-identifier-type/patient-identifier-type.api';
+} from '../../../types/etl/etl-types';
+import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../resources/person-attribute-type/person-attribute-type.api';
+import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../resources/patient-identifier-type/patient-identifier-type.api';
 import styles from './data-catalogue.scss';
 
 /**
@@ -43,14 +43,14 @@ const FIELD_GROUPS = [
     name: 'Demographics',
     description: 'Patient demographic information',
     fieldPatterns: ['given_name', 'family_name', 'person_name', 'sex', 'gender', 'birth_date', 'age', 'death_date'],
-    icon: '👤',
+    icon: User,
   },
   {
     id: 'api-person-attributes',
     name: 'Person Attributes',
     description: 'Custom person attributes from OpenMRS (Telephone, Civil Status, etc.)',
     fieldPatterns: [], // No pattern matching - populated via API
-    icon: '🏷️',
+    icon: TagIcon,
     isApiDriven: true, // Flag for API-driven groups
   },
   {
@@ -58,14 +58,14 @@ const FIELD_GROUPS = [
     name: 'Calculated Fields',
     description: 'Fields calculated from other data',
     fieldPatterns: ['age', 'bmi'],
-    icon: '🧮',
+    icon: Function,
   },
   {
     id: 'api-patient-identifiers',
     name: 'Patient Identifiers',
     description: 'Patient identification numbers from OpenMRS (Clinic No, National ID, etc.)',
     fieldPatterns: [], // No pattern matching - populated via API
-    icon: '🆔',
+    icon: Hashtag,
     isApiDriven: true, // Flag for API-driven groups
   },
   {
@@ -73,7 +73,7 @@ const FIELD_GROUPS = [
     name: 'Person Name',
     description: 'Patient name components',
     fieldPatterns: ['given_name', 'family_name', 'middle_name', 'person_name'],
-    icon: '👤',
+    icon: User,
   },
   {
     id: 'openmrs-address',
@@ -547,7 +547,7 @@ const DataCatalogue: React.FC<Props> = ({
     }
 
     // Import the detection function dynamically to avoid circular deps
-    import('../../types/etl/etl-types').then(({ detectEtlStructure }) => {
+    import('../../../types/etl/etl-types').then(({ detectEtlStructure }) => {
       const columnNames = columns.map((c) => c.name);
       const detected = detectEtlStructure(table, columnNames);
       setEtlStructure(detected);
@@ -807,7 +807,7 @@ const DataCatalogue: React.FC<Props> = ({
                   key={group.id}
                   title={
                     <div className={styles.groupHeader}>
-                      <span className={styles.groupIcon}>{group.icon}</span>
+                      <span className={styles.groupIcon}>{group.icon && <group.icon size={16} />}</span>
                       <span className={styles.groupName}>{group.name}</span>
                       <Tag size="sm" type="gray">{groupFields.length}</Tag>
                     </div>

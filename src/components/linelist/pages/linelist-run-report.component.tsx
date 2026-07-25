@@ -37,8 +37,8 @@ import {
   getLinelistReport,
   parseLinelistConfig,
   evaluateLinelistReport,
-} from '../../resources/linelist/linelist-reports.api';
-import type { LinelistReportDto, LinelistParameter } from '../../types/linelist-types';
+} from '../../../resources/linelist/linelist-reports.api';
+import type { LinelistReportDto, LinelistParameter } from '../../../types/linelist-types';
 
 import styles from './linelist-run-report.scss';
 

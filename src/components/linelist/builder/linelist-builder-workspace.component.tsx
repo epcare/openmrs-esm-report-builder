@@ -37,29 +37,29 @@ import type {
   LinelistColumnDraft,
   FilterFieldType,
   FilterOperator,
-} from '../../types/linelist-types';
-import type { EtlStructure } from '../../types/etl/etl-types';
+} from '../../../types/linelist-types';
+import type { EtlStructure } from '../../../types/etl/etl-types';
 import {
   draftToConfig,
   isLinelistDraftReadyToPublish,
   generateLinelistWarnings,
   createEmptyDraft,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 
 import {
   createLinelistReport,
   updateLinelistReport,
   configToSavePayload,
-} from '../../resources/linelist/linelist-reports.api';
-import type { LinelistReportDto } from '../../types/linelist-types';
-import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
-import { listThemes } from '../../resources/theme/data-theme.api';
-import { useDataTheme } from '../../hooks/theme';
-import { useIndicatorsByTheme } from '../../hooks/indicator';
-import type { DataTheme, ThemeField } from '../../types/theme/data-theme.types';
+} from '../../../resources/linelist/linelist-reports.api';
+import type { LinelistReportDto } from '../../../types/linelist-types';
+import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
+import { listThemes } from '../../../resources/theme/data-theme.api';
+import { useDataTheme } from '../../../hooks/theme';
+import { useIndicatorsByTheme } from '../../../hooks/indicator';
+import type { DataTheme, ThemeField } from '../../../types/theme/data-theme.types';
 
 import DataCatalogue from './data-catalogue.component';
-import QueryConfigPanel from './query-config-panel.component';
+import QueryConfigPanel from '../config/query-config-panel.component';
 import type { CatalogueField } from './data-catalogue.component';
 import styles from './linelist-builder-workspace.scss';
 
@@ -157,7 +157,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
       setLoading(true);
       setError(null);
 
-      import('../../resources/linelist/linelist-reports.api')
+      import('../../../resources/linelist/linelist-reports.api')
         .then(({ getLinelistReport }) => getLinelistReport(reportId))
         .then((report: LinelistReportDto) => {
           setInitialReport(report);
@@ -537,19 +537,12 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
           <Button
             kind="ghost"
             size="sm"
+            hasIconOnly
             renderIcon={ChevronLeft}
+            iconDescription="Back"
             onClick={handleBack}
-          >
-            Back
-          </Button>
-          <div className={styles.breadcrumb}>
-            <span>Linelist reports / </span>
-            <span className={styles.breadcrumbCurrent}>
-              {mode === 'create' ? 'New linelist report' : draft.name || 'Untitled Report'}
-            </span>
-          </div>
+          />
         </div>
-
         <div className={styles.headerCenter}>
           <TextInput
             id="report-name"
@@ -558,21 +551,20 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
             onChange={(e) => updateDraft({ name: e.target.value })}
             placeholder="Report name"
             className={styles.nameInput}
-            size="md"
+            size="sm"
           />
-          <Tag type={draft.status === 'PUBLISHED' ? 'green' : 'gray'}>
+          <Tag size="sm" type={draft.status === 'PUBLISHED' ? 'green' : 'gray'}>
             {draft.status === 'PUBLISHED' ? 'Published' : 'Draft'}
           </Tag>
           {draft.unsavedChanges && (
-            <Tag type="blue">Unsaved changes</Tag>
+            <Tag size="sm" type="blue">Unsaved</Tag>
           )}
         </div>
-
-        <div className={styles.headerRight}>
+        <div className={styles.headerRight} >
           <ButtonSet>
             <Button
               kind="ghost"
-              size="md"
+              size="sm"
               renderIcon={Save}
               onClick={handleSave}
               disabled={saving || !draft.unsavedChanges}
@@ -581,22 +573,22 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
             </Button>
             <Button
               kind="primary"
-              size="md"
+              size="sm"
               renderIcon={Send}
               onClick={handlePublish}
               disabled={publishing || !isReady}
             >
               {publishing ? 'Publishing...' : 'Publish'}
             </Button>
-            <OverflowMenu size="sm" renderIcon={OverflowMenuHorizontal} align="right">
-              <OverflowMenuItem itemText="Save as" />
-              <OverflowMenuItem itemText="Export JSON" />
-              <OverflowMenuItem itemText="Import JSON" />
-              <OverflowMenuItem itemText="Validate" />
-              <OverflowMenuItem itemText="View history" />
-              <OverflowMenuItem itemText="Retire" />
-            </OverflowMenu>
           </ButtonSet>
+          <OverflowMenu size="sm" renderIcon={OverflowMenuHorizontal} align="right">
+            <OverflowMenuItem itemText="Save as" />
+            <OverflowMenuItem itemText="Export JSON" />
+            <OverflowMenuItem itemText="Import JSON" />
+            <OverflowMenuItem itemText="Validate" />
+            <OverflowMenuItem itemText="View history" />
+            <OverflowMenuItem itemText="Retire" />
+          </OverflowMenu>
         </div>
       </header>
 

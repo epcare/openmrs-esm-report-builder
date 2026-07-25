@@ -24,45 +24,37 @@
 
 /* Header */
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 2rem;
   background-color: #ffffff;
   border-bottom: 1px solid #e0e0e0;
-  min-height: 64px;
+  min-height: 56px;
   gap: 1.5rem;
-
-  @media (max-width: 1023px) {
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
+  overflow: hidden;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex: 0 0 auto;
+  min-width: 40px;
 }
 
 .headerCenter {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex: 1;
+  gap: 0.5rem;
   min-width: 0;
-
-  @media (max-width: 1023px) {
-    order: 3;
-    width: 100%;
-  }
+  overflow: hidden;
 }
 
 .headerRight {
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  gap: 0.75rem;
+  width: 500px;
 }
 
 .breadcrumb {
@@ -79,12 +71,10 @@
 }
 
 .nameInput {
-  min-width: 200px;
-  max-width: 300px;
-
-  @media (max-width: 1023px) {
-    max-width: 100%;
-  }
+  min-width: 120px;
+  max-width: 200px;
+  flex: 1;
+  min-width: 0;
 }
 
 .notification {

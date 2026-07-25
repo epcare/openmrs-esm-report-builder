@@ -19,7 +19,7 @@ import {
 } from '@carbon/react';
 import type {
   LinelistReportDraft,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 import styles from './display-export-settings.scss';
 
 type ExportFormat = 'CSV' | 'XLSX' | 'PDF';

@@ -22,7 +22,7 @@ import type {
   FilterOperator,
   LogicalOperator,
   VisualFilterState,
-} from '../../types/linelist-types';
+} from '../../../types/linelist-types';
 import styles from './visual-filter-builder.scss';
 
 /**
