@@ -6,9 +6,8 @@
  */
 
 import type { IndicatorPopulationConfig, PopulationConfiguration } from '../types/indicator-population.types';
-import type { DataThemeConfig, ThemeCondition } from '../../indicators/types/data-theme-config.types';
-import type { IndicatorCondition } from '../../indicators/types/indicator-types';
-import { buildSqlPreview, applyConditionClauses } from '../../indicators/utils/indicator-sql.utils';
+import type { DataThemeConfig } from '../../indicators/types/data-theme-config.types';
+import { applyConditionClauses } from '../../indicators/utils/indicator-sql.utils';
 
 /**
  * Convert a single indicator rule to SQL WHERE clause
@@ -18,8 +17,6 @@ function convertIndicatorRuleToWhere(
   rule: IndicatorPopulationConfig,
   themeConfig: DataThemeConfig
 ): string {
-  const { sourceTable, patientIdColumn, dateColumn } = themeConfig;
-
   // Start with base SQL for the indicator
   const baseSql = buildSqlBaseQuery(themeConfig);
 
@@ -71,10 +68,10 @@ function buildSqlBaseQuery(themeConfig: DataThemeConfig): string {
   lines.push(`  DISTINCT ${sourceTable}.${patientIdColumn} AS patient_id`);
 
   // Add joins if defined
-  const joinTables = joins?.map((j) => {
-    const match = j.joinSql.match(/JOIN\s+(\S+)/i);
-    return match ? match[1] : j.alias;
-  });
+  // const joinTables = joins?.map((j) => {
+  //   const match = j.joinSql.match(/JOIN\s+(\S+)/i);
+  //   return match ? match[1] : j.alias;
+  // });
 
   lines.push(`FROM ${sourceTable}`);
 
@@ -182,7 +179,7 @@ export function combineIndicatorRules(
 
   // Build the combined query
   const lines: string[] = [];
-  const { sourceTable, patientIdColumn } = themeConfig;
+  const { sourceTable } = themeConfig;
 
   lines.push('SELECT DISTINCT base.patient_id');
   lines.push(`FROM ${sourceTable} base`);

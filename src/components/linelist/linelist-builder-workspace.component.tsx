@@ -103,7 +103,8 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   // Available fields from data catalogue (for visual filter builder)
   const [availableFields, setAvailableFields] = useState<Array<{ name: string; label: string; type: FilterFieldType }>>([]);
 
-  // ETL structure for selected data source
+  // ETL structure for selected data source (for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [etlStructure, setEtlStructure] = useState<EtlStructure | null>(null);
 
   // Theme fields for population filters
@@ -292,6 +293,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   /**
    * Handle removing a column
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRemoveColumn = useCallback((columnId: string) => {
     // Clear any error message
     setSaveError(null);

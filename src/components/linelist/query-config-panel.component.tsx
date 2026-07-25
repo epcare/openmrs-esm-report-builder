@@ -11,7 +11,7 @@
  * - Display & Export
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Stack,
   Button,
@@ -34,7 +34,6 @@ import {
   TrashCan,
   Document,
   Code,
-  Menu,
 } from '@carbon/react/icons';
 import type {
   LinelistReportDraft,
@@ -42,7 +41,6 @@ import type {
   FilterCondition,
   PopulationMode,
   LogicalOperator,
-  LinelistColumnDraft,
 } from '../../types/linelist-types';
 import type { IndicatorDto } from '../../resources/indicator/indicators.api';
 import type { IndicatorOption } from '../indicators/types/composite-indicator.types';
@@ -101,9 +99,9 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(new Set(['population']));
   const [populationMode, setPopulationMode] = useState<PopulationMode>(draft.populationMode || 'SQL');
 
-  // Drag and drop state for columns
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Drag and drop state for columns (for future use)
+  // const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  // const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   /**
    * Toggle section expansion
@@ -266,35 +264,35 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
   const conditions = draft.visualFilter?.rootGroup?.conditions || [];
 
   /**
-   * Drag and drop handlers for columns
+   * Drag and drop handlers for columns (for future use)
    */
-  const handleDragStart = useCallback((index: number) => {
-    setDraggedIndex(index);
-  }, []);
+  // const handleDragStart = useCallback((index: number) => {
+  //   setDraggedIndex(index);
+  // }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-    setDragOverIndex(index);
-  }, [draggedIndex]);
+  // const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+  //   e.preventDefault();
+  //   if (draggedIndex === null || draggedIndex === index) return;
+  //   setDragOverIndex(index);
+  // }, [draggedIndex]);
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }, []);
+  // const handleDragEnd = useCallback(() => {
+  //   setDraggedIndex(null);
+  //   setDragOverIndex(null);
+  // }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === dropIndex) return;
+  // const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+  //   e.preventDefault();
+  //   if (draggedIndex === null || draggedIndex === dropIndex) return;
 
-    // Create new columns array with reordered items
-    const newColumns = [...draft.columns];
-    const [removed] = newColumns.splice(draggedIndex, 1);
-    newColumns.splice(dropIndex, 0, removed);
+  //   // Create new columns array with reordered items
+  //   const newColumns = [...draft.columns];
+  //   const [removed] = newColumns.splice(draggedIndex, 1);
+  //   newColumns.splice(dropIndex, 0, removed);
 
-    onDraftChange({ columns: newColumns });
-    handleDragEnd();
-  }, [draft.columns, draggedIndex, onDraftChange, handleDragEnd]);
+  //   onDraftChange({ columns: newColumns });
+  //   handleDragEnd();
+  // }, [draft.columns, draggedIndex, onDraftChange, handleDragEnd]);
 
   return (
     <div className={styles.container}>
