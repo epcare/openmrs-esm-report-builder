@@ -83,7 +83,7 @@ export default function IndicatorSearchSelect({
                 abortControllerRef.current = ac;
 
                 const indicators = await listIndicators(
-                    { q: '', kind: undefined, v: 'default', includeRetired: false },
+                    { q: '', kind: undefined, v: 'full', includeRetired: false },
                     ac.signal,
                 );
 
@@ -119,7 +119,7 @@ export default function IndicatorSearchSelect({
                     {
                         q: searchQuery,
                         kind: undefined,
-                        v: 'default',
+                        v: 'full',
                         includeRetired: false,
                     },
                     ac.signal,

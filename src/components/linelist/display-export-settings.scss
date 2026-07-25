@@ -1,0 +1,78 @@
+.container {
+  padding: 1rem 0;
+}
+
+.section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #161616;
+}
+
+.description {
+  font-size: 0.875rem;
+  line-height: 1.125;
+  color: #525252;
+  margin-bottom: 1.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #161616;
+}
+
+.helperText {
+  font-size: 0.75rem;
+  line-height: 1;
+  color: #525252;
+  margin-top: 0.25rem;
+}
+
+.exportFormats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+
+  .cds--toggle {
+    margin: 0;
+  }
+}
+
+.selectedFormats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f4f4f4;
+  border-radius: 0.25rem;
+
+  .selectedLabel {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #161616;
+  }
+
+  .noSelection {
+    font-size: 0.875rem;
+    color: #da1e28;
+  }
+
+  .cds--tag {
+    margin: 0;
+  }
+}

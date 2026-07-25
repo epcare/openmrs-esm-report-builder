@@ -1,0 +1,76 @@
+.container {
+  width: 100%;
+}
+
+.modeToggle {
+  padding: 1rem;
+  background-color: #f4f4f4;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.visualBuilder {
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+}
+
+.helperText {
+  font-size: 0.875rem;
+  color: #525252;
+  margin-bottom: 1rem;
+}
+
+.filterGroup {
+  margin-bottom: 1rem;
+}
+
+.nestedGroup {
+  margin-left: 1.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid #e0e0e0;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+
+  .cds--select {
+    min-width: 100px;
+  }
+
+  > span {
+    font-weight: 600;
+    color: #525252;
+    margin-left: 0.5rem;
+  }
+}
+
+.groupContent {
+  padding-left: 0.5rem;
+}
+
+.conditionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+
+  .cds--select,
+  .cds--text-input {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .cds--toggle {
+    margin: 0;
+  }
+
+  .cds--btn {
+    flex-shrink: 0;
+  }
+}

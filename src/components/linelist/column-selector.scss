@@ -1,0 +1,100 @@
+.column-selector-container {
+  padding: 1rem 0;
+}
+
+.column-selector-error {
+  margin-bottom: 1rem;
+}
+
+.column-selector-table-selector {
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.column-selector-section-title {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.column-selector-column-list {
+  margin-top: 1rem;
+}
+
+.column-selector-helper-text {
+  font-size: 0.875rem;
+  color: #525252;
+  margin-bottom: 0.5rem;
+}
+
+.column-selector-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.column-selector-chips button {
+  margin-right: 0;
+}
+
+.column-selector-column-type {
+  font-size: 0.75rem;
+  color: #525252;
+  margin-left: 0.25rem;
+}
+
+.column-selector-empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #525252;
+  font-size: 0.875rem;
+}
+
+.column-selector-sql-templates {
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.column-selector-template-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.column-selector-template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.column-selector-table {
+  margin-top: 1.5rem;
+}
+
+.column-selector-order-cell {
+  width: 50px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.column-selector-actions-cell {
+  width: 200px;
+}
+
+.column-selector-expanded-row {
+  background-color: #f4f4f4;
+}
+
+.column-selector-expanded-content {
+  padding: 1rem;
+}
+
+.transformationSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}

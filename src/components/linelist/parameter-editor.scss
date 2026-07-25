@@ -1,0 +1,64 @@
+.container {
+  width: 100%;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #525252;
+}
+
+.quickAdd {
+  padding: 1rem;
+  background-color: #f4f4f4;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.parametersTable {
+  margin-top: 1rem;
+}
+
+.orderCell {
+  width: 2rem;
+  text-align: center;
+  font-weight: 600;
+  color: #525252;
+}
+
+.actionsCell {
+  width: 12rem;
+  white-space: nowrap;
+
+  .cds--btn-set {
+    display: flex;
+    gap: 0.25rem;
+  }
+}
+
+.expandedRow {
+  background-color: #f4f4f4;
+
+  td {
+    padding: 1rem !important;
+  }
+}
+
+.expandedContent {
+  width: 100%;
+}
+
+.helperText {
+  font-size: 0.875rem;
+  color: #525252;
+  margin-top: 0.25rem;
+}
+
+.emptyState {
+  padding: 2rem;
+  text-align: center;
+  background-color: #f4f4f4;
+  border-radius: 0.5rem;
+  color: #525252;
+}

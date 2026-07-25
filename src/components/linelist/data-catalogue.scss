@@ -1,0 +1,247 @@
+/**
+ * Data Catalogue Component Styles
+ */
+
+.catalogue {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.datasetControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.etlIndicator {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e8f4f8 100%);
+  border: 1px solid #b3e5fc;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.etlTypeBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #00897b;
+}
+
+.etlTypeIcon {
+  font-size: 1.25rem;
+}
+
+.etlTypeLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+.etlDescription {
+  color: #455a64;
+  line-height: 1.4;
+
+  strong {
+    color: #00897b;
+  }
+}
+
+.etlHint {
+  padding-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: #607d8b;
+  font-style: italic;
+}
+
+.dropdown {
+  width: 100%;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 0.5rem;
+
+  button {
+    flex: 1;
+  }
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.fieldGroups {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.accordion {
+  [class*='Accordion__container'] {
+    background-color: transparent;
+    border: none;
+  }
+
+  [class*='Accordion__item'] {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background-color: #ffffff;
+    overflow: hidden;
+  }
+
+  [class*='Accordion__title'] {
+    padding: 0.75rem 1rem;
+  }
+
+  [class*='Accordion__content'] {
+    padding: 0;
+  }
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.groupIcon {
+  font-size: 1.125rem;
+}
+
+.groupName {
+  flex: 1;
+  font-weight: 500;
+  color: #333;
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.fieldItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.75rem;
+  background-color: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+
+  &[data-selected="true"] {
+    background-color: #f5f5f5;
+    border-color: #d0d0d0;
+    opacity: 0.7;
+
+    .fieldActions {
+      button {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    &:hover {
+      background-color: #f5f5f5;
+    }
+  }
+}
+
+.fieldInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.fieldName {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  word-break: break-word;
+}
+
+.fieldMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+
+  [class*='Tag'] {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+  }
+}
+
+.fieldActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-left: 0.75rem;
+
+  button {
+    min-width: 60px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+.summary {
+  padding: 0.75rem 0;
+  border-top: 1px solid #e0e0e0;
+  color: #666;
+  font-size: 0.875rem;
+  text-align: center;
+}

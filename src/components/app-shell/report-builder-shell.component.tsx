@@ -14,6 +14,7 @@ import {
     Layers,
     Play,
     Settings,
+    List,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -68,6 +69,14 @@ const ReportBuilderShell: React.FC = () => {
                             onClick={() => navigate('/run')}
                         >
                             Run Reports
+                        </SideNavLink>
+
+                        <SideNavLink
+                            renderIcon={List}
+                            isActive={isActive('/linelist')}
+                            onClick={() => navigate('/linelist')}
+                        >
+                            Linelist Reports
                         </SideNavLink>
 
                         <SideNavMenu

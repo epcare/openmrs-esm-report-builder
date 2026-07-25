@@ -1,0 +1,85 @@
+/**
+ * JSON Preview Component Styles
+ */
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon {
+  color: #00897b;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.code {
+  font-size: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+
+  :global {
+    .cds--copy-button {
+      background: transparent;
+    }
+
+    pre {
+      margin: 0;
+      padding: 0.75rem;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      line-height: 1.5;
+      font-size: 0.75rem;
+    }
+
+    code {
+      font-family: inherit;
+    }
+  }
+}
+
+.validation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+
+  :global {
+    .cds--tag--red {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+
+    .cds--tag--green {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .cds--tag--blue {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+  }
+}

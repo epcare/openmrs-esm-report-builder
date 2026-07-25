@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Tile } from '@carbon/react';
-import { Add, ChartColumn, Play, Report, Document } from '@carbon/icons-react';
+import { Add, ChartColumn, Play, Report, Document, List } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -117,6 +117,31 @@ const ReportBuilderLandingPage: React.FC = () => {
                 onClick={() => navigate('/legacy-reports')}
               >
                 {t('viewLegacyReports', 'View legacy reports')}
+              </Button>
+            </div>
+          </Tile>
+
+          <Tile className={styles.card}>
+            <div className={styles.cardIllustration} aria-hidden>
+              <div className={styles.illCircle}>
+                <List size={56} />
+              </div>
+            </div>
+
+            <h3 className={styles.cardTitle}>{t('linelistReports', 'Linelist Reports')}</h3>
+            <p className={styles.cardBody}>
+              {t('linelistReportsHint', 'Create and manage patient list reports that return individual patient records.')}
+            </p>
+
+            <div className={styles.cardActions}>
+              <Button
+                kind="primary"
+                size="lg"
+                renderIcon={List}
+                className={styles.cardButton}
+                onClick={() => navigate('/linelist')}
+              >
+                {t('viewLinelistReports', 'View linelist reports')}
               </Button>
             </div>
           </Tile>

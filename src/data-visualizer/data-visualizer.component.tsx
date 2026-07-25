@@ -17,6 +17,7 @@ import {
   SendAlt,
   DocumentDownload,
   Save,
+  List as ListIcon,
 } from "@carbon/react/icons";
 import {
   Accordion,
@@ -80,7 +81,7 @@ import dayjs from "dayjs";
 import { showModal, showNotification, showToast } from "@openmrs/esm-framework";
 import ModifierComponent from "./components/popover/modifier-panel";
 
-type ChartType = "list" | "pivot" | "aggregate";
+type ChartType = "list" | "pivot" | "aggregate" | "linelist";
 type ReportingDuration = "fixed" | "relative";
 export type CQIReportingCohort =
   | "Patients with encounters"
@@ -245,6 +246,14 @@ const DataVisualizer: React.FC = () => {
 
   const handleSelectedReport = ({ selectedItem }) => {
     setSelectedReport(selectedItem ?? null);
+
+    // Detect linelist reports by reportType
+    if (selectedItem?.reportType === 'LINE_LIST' || selectedItem?.reportType === 'linelist') {
+      setChartType('linelist');
+    } else if (chartType === 'linelist') {
+      // Reset chart type if not a linelist report
+      setChartType('list');
+    }
   };
 
   const handleChartTypeChange = ({ name }) => {
@@ -1242,17 +1251,17 @@ const DataVisualizer: React.FC = () => {
           <ContentSwitcher
             size={`md`}
             selectedIndex={
-              chartType === "pivot" ? 1 : chartType === "aggregate" ? 2 : 0
+              chartType === "linelist" ? 3 : chartType === "pivot" ? 1 : chartType === "aggregate" ? 2 : 0
             }
             onChange={handleChartTypeChange}
           >
-            <Switch name="list" disabled={chartType === "aggregate"}>
+            <Switch name="list" disabled={chartType === "aggregate" || chartType === "linelist"}>
               <div className={styles.switch}>
                 <Catalog />
                 <span>Patient list</span>
               </div>
             </Switch>
-            <Switch name="pivot" disabled={chartType === "aggregate"}>
+            <Switch name="pivot" disabled={chartType === "aggregate" || chartType === "linelist"}>
               <div className={styles.switch}>
                 <CrossTab />
                 <span>Pivot table</span>
@@ -1262,6 +1271,12 @@ const DataVisualizer: React.FC = () => {
               <div className={styles.switch}>
                 <ImageService />
                 <span>Aggregate Report</span>
+              </div>
+            </Switch>
+            <Switch name="linelist" disabled={chartType !== "linelist"}>
+              <div className={styles.switch}>
+                <ListIcon />
+                <span>Linelist</span>
               </div>
             </Switch>
           </ContentSwitcher>
@@ -1400,6 +1415,25 @@ const DataVisualizer: React.FC = () => {
                 </h3>
               </section>
               <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+            </div>
+          )}
+
+          {chartType === "linelist" && !loading && (
+            <div className={styles.reportContainer}>
+              <h3 className={styles.listHeading}>
+                {reportName} ({dayjs(startDate).format("DD/MM/YYYY")} -{" "}
+                {dayjs(endDate).format("DD/MM/YYYY")})
+              </h3>
+              <div className={styles.reportDataTable}>
+                <DataList
+                  columns={tableHeaders}
+                  data={data}
+                  report={{
+                    type: "dynamic",
+                    name: selectedReport?.label ?? "",
+                  }}
+                />
+              </div>
             </div>
           )}
 

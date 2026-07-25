@@ -1,0 +1,294 @@
+.container {
+  width: 100%;
+  background: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.section {
+  border-bottom: 1px solid #e5e7eb;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.sectionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &:focus {
+    outline: 2px solid #00897b;
+    outline-offset: -2px;
+  }
+}
+
+.sectionHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #374151;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sectionHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+}
+
+.sectionContent {
+  padding: 0 1rem 1rem;
+  background: #f8f9fa;
+}
+
+/* Dataset Info */
+.datasetInfo {
+  padding: 0.75rem 0;
+}
+
+.datasetRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+}
+
+.datasetLabel {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.datasetValue {
+  color: #374151;
+  font-weight: 400;
+}
+
+/* Population Section */
+.populationHeader {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.75rem;
+}
+
+.populationModeSelector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.modeLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.populationLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+}
+
+.populationHint {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.rowIcon {
+  color: #00897b;
+  flex-shrink: 0;
+}
+
+.negateToggle {
+  display: flex;
+  align-items: center;
+  min-width: 120px;
+
+  .cds--toggle {
+    margin: 0;
+  }
+
+  .cds--toggle__label {
+    font-size: 0.875rem;
+  }
+}
+
+.indicatorSearch {
+  flex: 1;
+  min-width: 250px;
+
+  .cds--combo-box {
+    width: 100%;
+  }
+
+  .cds--label {
+    display: none;
+  }
+}
+
+.conditionsStack {
+  padding: 0.5rem 0;
+}
+
+.conditionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  position: relative;
+
+  .cds--select {
+    min-width: 140px;
+    flex: 1;
+  }
+
+  .cds--text-input {
+    min-width: 120px;
+    flex: 1;
+  }
+
+  .cds--btn {
+    flex-shrink: 0;
+  }
+}
+
+.andText {
+  position: absolute;
+  bottom: -4px;
+  right: 3rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Placeholder Content */
+.placeholderContent {
+  padding: 1.5rem 0;
+  text-align: center;
+
+  p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+}
+
+.placeholderSubtext {
+  color: #9ca3af !important;
+  font-size: 0.8125rem !important;
+  margin-top: 0.25rem;
+}
+
+.columnsList {
+  padding: 0.5rem 0;
+}
+
+.columnItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: #f5f5f5;
+    border-color: #d0d0d0;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.dragHandle {
+  color: #9ca3af;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  cursor: grab;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: #6b7280;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.columnInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.columnName {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  word-break: break-word;
+}
+
+.columnMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.columnOrder {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.columnConfig {
+  margin-top: 0.25rem;
+
+  code {
+    font-size: 0.75rem;
+    color: #6b7280;
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+}
+
+/* Teal accent for interactive elements */
+:global {
+  .cds--tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+}

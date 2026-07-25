@@ -23,6 +23,10 @@ import LegacyReportsPage from '../components/legacy-reports/legacy-reports-page.
 import LegacyReportDetailPage from '../components/legacy-reports/legacy-report-detail-page.component';
 import LegacyReportEditorPage from '../components/legacy-reports/legacy-report-editor-page.component';
 
+import LinelistReportsPage from '../components/linelist/linelist-reports-page.component';
+import LinelistBuilderWorkspace from '../components/linelist/linelist-builder-workspace.component';
+import LinelistRunReport from '../components/linelist/linelist-run-report.component';
+
 const ReportBuilderRoutes: React.FC = () => {
     return (
         <Routes>
@@ -60,6 +64,12 @@ const ReportBuilderRoutes: React.FC = () => {
 
                 {/* Data themes now accessed under Admin */}
                 <Route path="/admin/themes" element={<DataThemesPage />} />
+
+                {/* Linelist Reports */}
+                <Route path="/linelist" element={<LinelistReportsPage />} />
+                <Route path="/linelist/new" element={<LinelistBuilderWorkspace />} />
+                <Route path="/linelist/edit/:reportId" element={<LinelistBuilderWorkspace />} />
+                <Route path="/linelist/run/:reportId" element={<LinelistRunReport />} />
 
                 {/* Optional backward compatibility */}
                 <Route path="/themes" element={<Navigate to="/admin/themes" replace />} />

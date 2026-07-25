@@ -1,0 +1,136 @@
+.page {
+  padding: 3rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+
+.header {
+  margin-bottom: 3rem;
+
+  .reportInfo {
+    margin-top: 1rem;
+  }
+
+  .title {
+    font-size: 2rem;
+    font-weight: 400;
+    line-height: 1.25;
+    margin-bottom: 0.5rem;
+  }
+
+  .description {
+    font-size: 0.875rem;
+    line-height: 1.125;
+    color: #525252;
+    margin-bottom: 0.75rem;
+  }
+
+  .meta {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+.parametersSection {
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: #f4f4f4;
+  border-radius: 0.5rem;
+
+  .parametersHeader {
+    margin-bottom: 2rem;
+  }
+
+  .parametersTitle {
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+
+  .parametersDescription {
+    font-size: 0.875rem;
+    line-height: 1.125;
+    color: #525252;
+  }
+
+  .parametersGrid {
+    margin-bottom: 2rem;
+  }
+
+  .parameterField {
+    padding: 0 0.5rem;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-start;
+  }
+}
+
+.resultsSection {
+  .resultsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .resultsInfo {
+    .resultsTitle {
+      font-size: 1.5rem;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      font-size: 0.875rem;
+      color: #525252;
+
+      strong {
+        color: #161616;
+      }
+    }
+  }
+
+  .exportActions {
+    flex-shrink: 0;
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 4.5rem 3rem;
+  max-width: 500px;
+  margin: 3rem auto;
+
+  svg {
+    color: #525252;
+    margin-bottom: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    line-height: 1.25;
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    font-size: 0.875rem;
+    line-height: 1.125;
+    color: #525252;
+    margin-bottom: 1.25rem;
+  }
+}
