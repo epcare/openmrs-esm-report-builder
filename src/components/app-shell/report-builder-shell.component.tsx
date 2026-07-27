@@ -44,7 +44,7 @@ const ReportBuilderShell: React.FC = () => {
                             isActive={isActive('/reports') || isActive('/new') || isActive('/edit')}
                             onClick={() => navigate('/reports')}
                         >
-                            Reports
+                            Aggregate Reports
                         </SideNavLink>
 
                         <SideNavLink

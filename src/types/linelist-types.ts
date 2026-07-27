@@ -10,11 +10,34 @@
  */
 
 /**
+ * Data source configuration in report definition
+ * Defines which datasources are used and their roles
+ */
+export type DataSourceConfig = {
+  uuid: string; // Data source/table UUID or name
+  name: string; // Display name
+  type: 'ETL' | 'SQL' | 'REFERENCE' | 'INDICATOR' | 'CORE'; // Source type
+  role: 'PRIMARY' | 'SECONDARY' | 'REFERENCE'; // Role in the report
+
+  /**
+   * Columns selected from this datasource
+   * Maps column names to their definitions
+   */
+  columns?: Record<string, {
+    name: string;
+    type: string;
+    sourceTable: string;
+  }>;
+};
+
+/**
  * Linelist report definition configuration
  * This is stored in the configJson field of a report definition
+ *
+ * Version 2: Supports multiple data sources
  */
 export type LinelistReportDefinitionConfig = {
-  version: 1;
+  version: 1 | 2; // Version for migration support
   type: 'LINE_LIST';
 
   /**
@@ -22,7 +45,14 @@ export type LinelistReportDefinitionConfig = {
    */
   categoryUuid?: string;
   themeUuid?: string;
-  dataSourceUuid?: string;
+
+  /**
+   * Version 1: Single data source (legacy)
+   * Version 2: Multiple data sources
+   */
+  dataSourceUuid?: string; // V1 only - deprecated, use dataSources
+  dataSources?: DataSourceConfig[]; // V2 - array of data sources
+
   rowGrain?: LinelistRowGrain;
   templateId?: string;
 
@@ -49,6 +79,20 @@ export type LinelistReportDefinitionConfig = {
    */
   orderBy?: string;
   orderDirection?: 'ASC' | 'DESC';
+
+  /**
+   * Builder metadata - persisted so the editor can reconstruct the draft
+   * when re-opening for edit. Ignored by the backend at run time.
+   */
+  buildMethod?: 'SQL_BUILDER' | 'VISUAL_FILTER' | 'INDICATOR_BASED';
+  indicatorRules?: Array<{
+    id: string;
+    indicatorUuid: string;
+    name: string;
+    conditions?: Array<{ key: string; operator?: string; value: any }>;
+    logicalOperator?: 'AND' | 'OR';
+    negate?: boolean;
+  }>;
 
   /**
    * Optional row limit for safety
@@ -348,30 +392,114 @@ export type PopulationMode = 'SQL' | 'INDICATOR' | 'HYBRID';
 
 /**
  * Draft state for linelist report builder UI
+ * Version 2.0 - Supports multiple data sources and full builder tracking
  */
 export type LinelistReportDraft = {
-  // Basic info
+  // === VERSION ===
+  version: 2; // Contract version for migration support
+
+  // === BASIC INFO ===
   name: string;
   description?: string;
   code?: string;
 
-  // Current panel in the builder modal
+  // Current panel in the builder UI
   currentPanel: LinelistBuilderPanel;
 
-  // Report configuration
+  // Report categorization
   categoryUuid?: string; // Required - report category
   themeUuid?: string; // Required - data theme
-  dataSourceUuid?: string; // Required - ETL data source
   rowGrain?: LinelistRowGrain; // Required - what one row represents
   templateId?: string; // Optional - starting template
 
-  // Population configuration
-  populationMode?: PopulationMode; // How population is defined
+  // === DATA SOURCES (v2 - Multiple sources supported) ===
+  dataSources: DataSourceInfo[];
 
-  // Cohort SQL (for SQL mode or as final output)
-  cohortSql: string;
+  // === LEGACY PROPERTIES (for backward compatibility during migration) ===
+  /** @deprecated Use dataSources array instead */
+  dataSourceUuid?: string;
+  /** @deprecated Use population.sqlTemplate instead */
+  cohortSql?: string;
+  /** @deprecated Use population.indicatorRules instead */
+  indicatorRules?: any[];
+  /** @deprecated Use population.visualFilter instead */
+  visualFilter?: any;
+  /** @deprecated Not used in V2 */
+  populationMode?: string;
+  /** @deprecated Not used in V2 */
+  dataSetName?: string;
+  /** UI state flag for unsaved changes */
+  unsavedChanges?: boolean;
+  /** Convenience property - aliases to metadata.status */
+  status?: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
+  /** Embedded validation errors (for UI display convenience) */
+  errors?: any;
 
-  // Indicator-based population rules (for INDICATOR mode)
+  // === POPULATION (COHORT) DEFINITION ===
+  population: PopulationDefinition;
+
+  // === COLUMNS ===
+  columns: LinelistColumnDraft[];
+
+  // === PARAMETERS ===
+  parameters: LinelistParameterDraft[];
+
+  // === SORTING ===
+  sortConfig: LinelistSortConfig[];
+
+  // === ROW LIMIT ===
+  limit?: number;
+
+  // === DISPLAY SETTINGS ===
+  displaySettings: DisplaySettings;
+
+  // === VALIDATION STATE ===
+  validation: ValidationState;
+
+  // === METADATA ===
+  metadata: BuilderMetadata;
+};
+
+/**
+ * Data source information with role and configuration
+ */
+export type DataSourceInfo = {
+  uuid: string; // Data source UUID
+  name: string; // Display name
+  type: 'ETL' | 'SQL' | 'REFERENCE' | 'INDICATOR' | 'CORE'; // Source type
+  role: 'PRIMARY' | 'SECONDARY' | 'REFERENCE'; // Role in the report
+  tables?: string[]; // Tables used from this source
+  joinConfig?: DataSourceJoinConfig; // How this source joins to primary
+};
+
+/**
+ * Data source join configuration
+ */
+export type DataSourceJoinConfig = {
+  joinType: 'LEFT_JOIN' | 'INNER_JOIN' | 'FULL_JOIN';
+  joinCondition: string; // Field name to join on
+  joinSql?: string; // Custom join SQL if needed
+};
+
+/**
+ * Population (cohort) definition
+ * Captures both the result and the build process
+ */
+export type PopulationDefinition = {
+  // Which data source is the base
+  baseDataSourceUuid: string;
+
+  // How the population was built
+  buildMethod: 'SQL_BUILDER' | 'VISUAL_FILTER' | 'INDICATOR_BASED';
+
+  // SQL Builder state
+  sqlTemplate: string;
+  parameterReferences: string[];
+
+  // Visual Filter (if used)
+  visualFilter?: VisualFilterState;
+
+  // Indicator-based (if used)
   indicatorRules?: Array<{
     id: string;
     indicatorUuid: string;
@@ -385,35 +513,174 @@ export type LinelistReportDraft = {
     negate?: boolean;
   }>;
 
-  // Visual filter builder state
-  visualFilter?: VisualFilterState;
+  // Build history for reproducibility
+  buildHistory?: PopulationBuildStep[];
+};
 
-  // Column definitions
-  columns: LinelistColumnDraft[];
+/**
+ * Population build step for tracking construction history
+ */
+export type PopulationBuildStep = {
+  timestamp: string; // ISO timestamp
+  action: string; // What was done
+  description: string; // Human-readable description
+  configSnapshot?: any; // Optional state at this point
+};
 
-  // Parameter definitions
-  parameters: LinelistParameterDraft[];
+/**
+ * Display settings configuration
+ */
+export type DisplaySettings = {
+  defaultPageSize: number;
+  freezeFirstColumn: boolean;
+  freezeHeader: boolean;
+  dateDisplayFormat: string;
+  nullDisplayValue: string;
+  maxInteractiveRows: number;
+  maxExportRows: number;
+  allowedExports: Array<'CSV' | 'XLSX' | 'PDF' | 'HTML'>;
+  includeParametersInExportHeader: boolean;
+  includeGeneratedTimestamp: boolean;
+};
 
-  // Dataset name (default: "PATIENT_LIST")
-  dataSetName: string;
-
-  // Sorting
-  sortConfig: LinelistSortConfig[];
-
-  // Row limit
-  limit?: number;
-
-  // Validation errors
+/**
+ * Validation state
+ */
+export type ValidationState = {
   errors: LinelistValidationErrors;
+  warnings: LinelistValidationWarnings;
+  lastValidated: string; // ISO timestamp
+};
 
-  // Display and export settings
-  displaySettings?: any;
+/**
+ * Builder metadata
+ */
+export type BuilderMetadata = {
+  createdAt: string; // ISO timestamp when draft was created
+  lastModified: string; // ISO timestamp of last change
+  lastModifiedBy?: string; // User who last modified
+  buildMethod: 'NEW' | 'TEMPLATE' | 'DUPLICATE' | 'IMPORT' | 'EDIT';
+  sourceReportUuid?: string; // If duplicated/imported, the source
+  version: number; // For migration support
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
+};
 
-  // Report status
-  status?: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
+/**
+ * Column draft for builder UI
+ * Version 2.0 - With full source tracking
+ */
+export type LinelistColumnDraft = {
+  id: string; // Unique ID for React keys
+  name: string; // Display name
+  description?: string; // Optional description
 
-  // Unsaved changes flag
-  unsavedChanges?: boolean;
+  // === SOURCE INFORMATION ===
+  source: ColumnSource;
+
+  // === DATA DEFINITION ===
+  dataDefinitionType: keyof LinelistDataDefinitionMap;
+  dataDefinitionConfig: Record<string, any>;
+
+  /** @deprecated Use dataDefinitionConfig instead */
+  config?: Record<string, any>;
+
+  // === ADDITION INFO ===
+  additionInfo: ColumnAdditionInfo;
+
+  // === DISPLAY ===
+  display: ColumnDisplaySettings;
+
+  // === SORT ORDER ===
+  sortOrder: number;
+
+  // === REPEAT RESOLUTION ===
+  repeatResolution?: LinelistRepeatResolution;
+
+  // === TRANSFORMATIONS ===
+  transformations?: LinelistColumnTransformation[];
+};
+
+/**
+ * Column source information
+ */
+export type ColumnSource = {
+  dataSourceUuid: string; // Which data source
+  dataSourceName: string; // Display name
+  table: string; // Source table
+  field: string; // Source field
+  fieldType: string; // Original field type
+  attributeTypeUuid?: string; // For person attributes
+  identifierTypeUuid?: string; // For identifiers
+};
+
+/**
+ * Column addition information
+ */
+export type ColumnAdditionInfo = {
+  addedVia: 'DRAG_DROP' | 'SQL_BUILDER' | 'VISUAL_SELECTOR' | 'IMPORT' | 'CALCULATED';
+  addedAt: string; // ISO timestamp
+  addedBy?: string; // User who added
+  orderAdded: number; // Sequence in which this was added
+};
+
+/**
+ * Column display settings
+ */
+export type ColumnDisplaySettings = {
+  width: number;
+  align: 'left' | 'center' | 'right';
+  sortable: boolean;
+  filterable: boolean;
+  format?: 'text' | 'date' | 'number' | 'coded' | 'boolean';
+  formatConfig?: Record<string, any>;
+};
+
+/**
+ * Enhanced column draft with full builder details
+ * Extends the base column draft with construction metadata
+ */
+export type LinelistColumnDraftExtended = LinelistColumnDraft & {
+  /**
+   * Source tracking - where this column came from
+   */
+  sourceInfo?: {
+    dataSourceUuid: string; // Which data source
+    dataSourceName: string; // Display name of data source
+    table: string; // Source table (e.g., "mamba_fact_patients_latest")
+    field: string; // Source field name in the table
+    fieldPath?: string; // Full path if nested (e.g., "address.city")
+    fieldType: string; // Original field type (TEXT, NUMBER, DATE, etc.)
+  };
+
+  /**
+   * How this column was added to the report
+   */
+  additionInfo?: {
+    addedVia: 'DRAG_DROP' | 'SQL_BUILDER' | 'VISUAL_SELECTOR' | 'IMPORT';
+    addedAt: string; // ISO timestamp
+    addedBy?: string; // User who added
+    orderAdded: number; // Sequence in which this was added
+  };
+
+  /**
+   * Transformation pipeline - all transformations applied
+   * Preserves the order and configuration of each transformation
+   */
+  transformationPipeline?: Array<{
+    type: string; // Transformation type
+    config: Record<string, any>; // Transformation configuration
+    enabled: boolean; // Whether this transformation is active
+    order: number; // Order in pipeline
+  }>;
+
+  /**
+   * Preview/sample data for this column (for UX)
+   */
+  previewData?: {
+    sampleValues: string[]; // Example values from actual data
+    nullCount?: number; // How many nulls in sample
+    uniqueCount?: number; // How many unique values
+  };
 };
 
 /**
@@ -426,20 +693,6 @@ export type LinelistRowGrain =
   | 'PROGRAM_ENROLLMENT'
   | 'APPOINTMENT'
   | 'ORDER';
-
-/**
- * Column draft for builder UI
- * Simplified version of LinelistColumnDefinition for editing
- */
-export type LinelistColumnDraft = {
-  id: string; // Unique ID for React keys
-  name: string; // Display name
-  dataDefinitionType: keyof LinelistDataDefinitionMap;
-  config: Record<string, any>;
-  sortOrder: number;
-  repeatResolution?: LinelistRepeatResolution; // How to handle multi-value fields
-  transformations?: LinelistColumnTransformation[]; // Value transformations pipeline
-};
 
 /**
  * Repeat resolution strategy for fields that can return multiple values
@@ -611,9 +864,9 @@ export type LinelistValidationErrors = {
   name?: string;
   categoryUuid?: string;
   themeUuid?: string;
-  dataSourceUuid?: string;
+  dataSources?: string;
   rowGrain?: string;
-  cohortSql?: string;
+  population?: string;
   columns?: string;
   general?: string;
 };
@@ -622,9 +875,11 @@ export type LinelistValidationErrors = {
  * Validation warnings for linelist draft (non-blocking)
  */
 export type LinelistValidationWarnings = {
-  cohortSql?: string;
+  population?: string;
   columns?: string;
   performance?: string;
+  category?: string;
+  theme?: string;
 };
 
 /**
@@ -633,13 +888,23 @@ export type LinelistValidationWarnings = {
 export function generateLinelistWarnings(draft: LinelistReportDraft): LinelistValidationWarnings {
   const warnings: LinelistValidationWarnings = {};
 
+  // Warn about missing category (recommended but not required)
+  if (!draft.categoryUuid?.trim()) {
+    warnings.category = 'No category selected. Reports are easier to find when organized into categories.';
+  }
+
+  // Warn about missing theme (recommended but not required)
+  if (!draft.themeUuid?.trim()) {
+    warnings.theme = 'No data theme selected. Using a theme helps organize indicators and fields.';
+  }
+
   // SQL warnings
-  if (draft.cohortSql?.trim()) {
-    const upperSql = draft.cohortSql.toUpperCase();
+  if (draft.population.sqlTemplate?.trim()) {
+    const upperSql = draft.population.sqlTemplate.toUpperCase();
 
     // Recommend DISTINCT for patient grain
     if (draft.rowGrain === 'PATIENT' && !upperSql.includes('DISTINCT')) {
-      warnings.cohortSql = 'Consider using SELECT DISTINCT to avoid duplicate patients';
+      warnings.population = 'Consider using SELECT DISTINCT to avoid duplicate patients';
     }
 
     // Check for potential performance issues
@@ -734,13 +999,15 @@ function convertCountSqlToPopulationSql(countSql: string): string {
     const columnRef = distinctMatch[1];
     const afterSelect = sql.substring(distinctMatch[0].length);
     if (columnRef.includes('.')) {
-      return `SELECT DISTINCT ${columnRef} AS client_id ${afterSelect}`.trim();
+      // Extract column name from table.column reference
+      const colName = columnRef.split('.')[1];
+      return `SELECT DISTINCT ${columnRef} AS ${colName} ${afterSelect}`.trim();
     }
     // Extract table alias from FROM clause
     const fromPattern = /FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:AS\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\b/i;
     const fromMatch = afterSelect.match(fromPattern);
     const tableAlias = fromMatch ? fromMatch[2] : 'a';
-    return `SELECT DISTINCT ${tableAlias}.${columnRef} AS client_id ${afterSelect}`.trim();
+    return `SELECT DISTINCT ${tableAlias}.${columnRef} AS ${columnRef} ${afterSelect}`.trim();
   }
 
   // Case 2: Composite WITH ... SELECT COUNT(*) FROM (...) X
@@ -757,11 +1024,31 @@ function convertCountSqlToPopulationSql(countSql: string): string {
   const simpleMatch = sql.match(simplePattern);
   if (simpleMatch) {
     const afterCount = sql.substring(simpleMatch[0].length);
-    // Extract table alias
+    // Extract table alias and detect patient_id column name
     const fromPattern = /FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:AS\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\b/i;
     const fromMatch = afterCount.match(fromPattern);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableAlias = fromMatch ? fromMatch[2] : 'a';
-    return `SELECT DISTINCT ${tableAlias}.patient_id AS client_id ${afterCount}`.trim();
+
+    // Detect the patient_id column name from the WHERE clause or JOIN conditions
+    // Common column names: patient_id, client_id, person_id
+    const columnPatterns = [
+      /\b(?:${tableAlias}\.)?(patient_id|client_id|person_id)\b/i,
+      // Also check JOIN conditions for column references
+      /ON\s+\w+\.(?:patient_id|client_id|person_id)\s*=\s*${tableAlias}\.(patient_id|client_id|person_id)/i,
+    ];
+
+    let patientIdColumnName = 'patient_id'; // default
+    for (const pattern of columnPatterns) {
+      const match = afterCount.match(pattern);
+      if (match) {
+        patientIdColumnName = match[1] || match[2] || 'patient_id';
+        break;
+      }
+    }
+
+    // Use the detected column name consistently
+    return `SELECT DISTINCT ${tableAlias}.${patientIdColumnName} AS client_id ${afterCount}`.trim();
   }
 
   // Fallback: couldn't parse, return as-is (will likely fail in backend)
@@ -827,17 +1114,141 @@ export function draftToConfig(
   draft: LinelistReportDraft,
   indicators?: Map<string, { sqlTemplate?: string | null; configJson?: string | null }>
 ): LinelistReportDefinitionConfig {
+
+  /**
+   * Build data sources array from draft columns.
+   * Groups columns by their ACTUAL source table (extracted from the SQL
+   * expression) so the data source list accurately reflects where each
+   * column's data comes from.
+   */
+  const buildDataSources = (): DataSourceConfig[] => {
+    const sourceMap = new Map<string, DataSourceConfig>();
+
+    // Determine the primary data source uuid (for role assignment)
+    // If no PRIMARY is set in draft, we'll assign one after building the map
+    const primaryDsUuid = draft.dataSources.find(ds => ds.role === 'PRIMARY')?.uuid || '';
+    let hasAssignedPrimary = !!primaryDsUuid;
+
+    /**
+     * Extract the actual source table from a column's SQL expression.
+     * - Simple reference like `table`.`column`  → returns the table name
+     * - Custom query (SELECT ... / contains :patientId) → returns 'custom_sql'
+     * - Cannot determine → returns 'unknown'
+     */
+    const extractSourceTable = (sql?: string): string => {
+      if (!sql) return 'unknown';
+      const trimmed = sql.trim();
+      // Custom SQL query (per-row subquery)
+      if (/^SELECT\s/i.test(trimmed) || /:(patientId|client_id)\b/i.test(trimmed)) {
+        return 'custom_sql';
+      }
+      // Simple table.column reference (with or without backticks)
+      const match = trimmed.match(/`?(\w+)`?\.\s*`?\w+`?/);
+      return match ? match[1] : 'unknown';
+    };
+
+    // Always include core OpenMRS sources if used
+    const hasPersonAttributes = draft.columns.some(col =>
+      col.dataDefinitionType === 'PERSON_ATTRIBUTE'
+    );
+    const hasIdentifiers = draft.columns.some(col =>
+      col.dataDefinitionType === 'IDENTIFIER'
+    );
+
+    if (hasPersonAttributes) {
+      sourceMap.set('person_attributes', {
+        uuid: 'person_attributes',
+        name: 'Person Attributes',
+        type: 'CORE',
+        role: 'REFERENCE',
+      });
+    }
+
+    if (hasIdentifiers) {
+      sourceMap.set('patient_identifiers', {
+        uuid: 'patient_identifiers',
+        name: 'Patient Identifiers',
+        type: 'CORE',
+        role: 'REFERENCE',
+      });
+    }
+
+    // Track the first non-REFERENCE source for default PRIMARY assignment
+    let firstNonReferenceSource: string | null = null;
+
+    // Group columns by their actual source table
+    draft.columns.forEach(col => {
+      if (col.dataDefinitionType === 'PERSON_ATTRIBUTE' || col.dataDefinitionType === 'IDENTIFIER') {
+        return; // Already handled above
+      }
+
+      // Resolve the real source table
+      let table: string;
+      if (col.dataDefinitionType === 'CALCULATION') {
+        table = 'calculated';
+      } else {
+        // For SQL columns, derive the table from the SQL expression
+        table = extractSourceTable(col.dataDefinitionConfig?.sql);
+      }
+
+      // The data source uuid IS the table name (accurate grouping)
+      const dsUuid = table;
+      const isPrimary = dsUuid === primaryDsUuid;
+      const dsType = dsUuid === 'custom_sql'
+        ? 'SQL'
+        : dsUuid === 'calculated'
+          ? 'SQL'
+          : dsUuid.startsWith('mamba_') ? 'ETL' : 'SQL';
+
+      if (!sourceMap.has(dsUuid)) {
+        sourceMap.set(dsUuid, {
+          uuid: dsUuid,
+          name: dsUuid,
+          type: dsType as DataSourceConfig['type'],
+          role: isPrimary ? 'PRIMARY' : 'SECONDARY',
+          columns: {},
+        });
+        // Track the first non-REFERENCE source for default PRIMARY assignment
+        // (CORE sources like person_attributes/patient_identifiers are already handled above)
+        if (!hasAssignedPrimary && !firstNonReferenceSource) {
+          firstNonReferenceSource = dsUuid;
+        }
+      }
+
+      const ds = sourceMap.get(dsUuid);
+      if (ds && ds.columns) {
+        ds.columns[col.name] = {
+          name: col.name,
+          type: col.source?.fieldType || 'UNKNOWN',
+          sourceTable: table,
+        };
+      }
+    });
+
+    // If no primary was assigned and we have a non-REFERENCE source, make it PRIMARY
+    if (!hasAssignedPrimary && firstNonReferenceSource) {
+      const ds = sourceMap.get(firstNonReferenceSource);
+      if (ds) {
+        ds.role = 'PRIMARY';
+        hasAssignedPrimary = true;
+      }
+    }
+
+    return Array.from(sourceMap.values());
+  };
   /**
    * Build population SQL from indicator rules
    */
   const buildIndicatorPopulationSql = (): string => {
-    if (!draft.indicatorRules || draft.indicatorRules.length === 0) {
-      return draft.cohortSql || '';
+    // Check both locations for indicator rules (population.indicatorRules or legacy top-level)
+    const indicatorRules = draft.population.indicatorRules || draft.indicatorRules;
+    if (!indicatorRules || indicatorRules.length === 0) {
+      return draft.population.sqlTemplate || '';
     }
 
     const populationSqlParts: PopulationSqlPart[] = [];
 
-    for (const rule of draft.indicatorRules) {
+    for (const rule of indicatorRules) {
       if (!rule.indicatorUuid || !indicators?.has(rule.indicatorUuid)) {
         continue;
       }
@@ -861,7 +1272,7 @@ export function draftToConfig(
     }
 
     if (populationSqlParts.length === 0) {
-      return draft.cohortSql || '';
+      return draft.population.sqlTemplate || '';
     }
 
     // Combine population SQL parts with AND/OR logic
@@ -876,15 +1287,15 @@ export function draftToConfig(
       case 'HYBRID': {
         // Combine existing cohort SQL with indicator SQL
         const indicatorSql = buildIndicatorPopulationSql();
-        if (indicatorSql && draft.cohortSql) {
+        if (indicatorSql && draft.population.sqlTemplate) {
           return `SELECT DISTINCT base.patient_id AS client_id
-FROM (${draft.cohortSql}) base
+FROM (${draft.population.sqlTemplate}) base
 INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_id`;
         }
-        return indicatorSql || draft.cohortSql || '';
+        return indicatorSql || draft.population.sqlTemplate || '';
       }
       default:
-        return draft.cohortSql || '';
+        return draft.population.sqlTemplate || '';
     }
   };
 
@@ -896,12 +1307,31 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
     .map((col) => {
       const columnDef: LinelistColumnDefinition = {
         name: col.name,
-        dataDefinition: buildDataDefinition(col.dataDefinitionType, col.config),
+        dataDefinition: buildDataDefinition(col.dataDefinitionType, col.dataDefinitionConfig),
       };
 
       // Add repeat resolution if configured
       if (col.repeatResolution) {
         (columnDef as any).repeatResolution = col.repeatResolution;
+      } else {
+        // For SQL columns that may return multiple values, add default repeat resolution
+        // if one isn't already configured. This prevents backend compilation errors.
+        const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
+          /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
+
+        if (isPotentiallyRepeated) {
+          // Use the SQL's ORDER BY field if present, otherwise use a default
+          const sql = col.dataDefinitionConfig.sql || '';
+          const orderByMatch = sql.match(/ORDER BY\s+([a-z_][a-z0-9_]*)/i);
+          const orderByField = orderByMatch ? orderByMatch[1] : 'encounter_date';
+
+          (columnDef as any).repeatResolution = {
+            strategy: 'LATEST',
+            orderBy: orderByField,
+            restrictToPeriod: false,
+            ignoreVoided: true,
+          };
+        }
       }
 
       return columnDef;
@@ -927,17 +1357,31 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
       ];
 
   const config: LinelistReportDefinitionConfig = {
-    version: 1,
+    version: 2, // Use version 2 for multi-datasource support
     type: 'LINE_LIST',
     categoryUuid: draft.categoryUuid,
     themeUuid: draft.themeUuid,
-    dataSourceUuid: draft.dataSourceUuid,
+    // Include both for compatibility - new code uses dataSources
+    dataSourceUuid: draft.dataSources.find(ds => ds.role === 'PRIMARY')?.uuid,
+    dataSources: buildDataSources(),
     rowGrain: draft.rowGrain,
     templateId: draft.templateId,
     parameters: finalParameters,
+    // Preserve builder metadata in configJson so the editor can reconstruct
+    // the draft (selected indicators, build method) when re-opening for edit.
+    // Read indicatorRules from both the new (population) and legacy (top-level)
+    // fields — the UI writes to the top-level field.
+    // Derive buildMethod from whether indicators are actually present, since the
+    // UI may not always keep population.buildMethod in sync.
+    indicatorRules: draft.population.indicatorRules || draft.indicatorRules,
+    buildMethod: ((draft.population.indicatorRules || draft.indicatorRules || []).length > 0)
+      ? 'INDICATOR_BASED'
+      : (draft.population.buildMethod || 'SQL_BUILDER'),
     baseCohortDefinition: {
       type: 'SQL',
-      name: draft.populationMode === 'INDICATOR' ? 'Indicator-based Patient Cohort' : 'Patient Cohort',
+      name: draft.population.buildMethod === 'INDICATOR_BASED'
+        ? 'Indicator-based Patient Cohort'
+        : 'Patient Cohort',
       config: {
         sql: finalCohortSql,
       },
@@ -1018,28 +1462,37 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
     errors.name = 'Name is required';
   }
 
-  if (!draft.categoryUuid?.trim()) {
-    errors.categoryUuid = 'Category is required';
-  }
+  // Category and theme are recommended but not required for compilation
+  // They're more for organizing/publishing reports
+  // Commented out to allow compilation without these fields
+  // if (!draft.categoryUuid?.trim()) {
+  //   errors.categoryUuid = 'Category is required';
+  // }
+  // if (!draft.themeUuid?.trim()) {
+  //   errors.themeUuid = 'Data theme is required';
+  // }
 
-  if (!draft.themeUuid?.trim()) {
-    errors.themeUuid = 'Data theme is required';
-  }
-
-  if (!draft.dataSourceUuid?.trim()) {
-    errors.dataSourceUuid = 'Data source is required';
+  // Validate data sources (v2 - at least one primary data source required)
+  if (!draft.dataSources || draft.dataSources.length === 0) {
+    errors.dataSources = 'At least one data source is required';
+  } else {
+    const hasPrimary = draft.dataSources.some(ds => ds.role === 'PRIMARY');
+    if (!hasPrimary) {
+      errors.dataSources = 'A primary data source is required';
+    }
   }
 
   if (!draft.rowGrain?.trim()) {
     errors.rowGrain = 'Row grain is required';
   }
 
-  if (!draft.cohortSql?.trim()) {
-    errors.cohortSql = 'Cohort SQL is required';
+  // Validate population SQL (v2 - in population.sqlTemplate)
+  if (!draft.population.sqlTemplate?.trim()) {
+    errors.population = 'Population SQL is required';
   } else {
     // Check for required parameters
-    if (!draft.cohortSql.includes(':startDate') || !draft.cohortSql.includes(':endDate')) {
-      errors.cohortSql = 'Cohort SQL must include :startDate and :endDate parameters';
+    if (!draft.population.sqlTemplate.includes(':startDate') || !draft.population.sqlTemplate.includes(':endDate')) {
+      errors.population = 'Population SQL must include :startDate and :endDate parameters';
     }
   }
 
@@ -1059,21 +1512,29 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
       errors.columns = 'Columns must have unique identifiers';
     }
 
-    // Check for repeated fields without resolution strategy
-    const hasRepeatedFieldWithoutResolution = draft.columns.some((col) => {
+    // Check for repeated fields without resolution strategy (v2 - using dataDefinitionConfig.sql)
+    const repeatedColumnsWithoutResolution: string[] = [];
+    draft.columns.forEach((col) => {
       // SQL columns that select from one-to-many tables might need resolution
       const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
-        /appointment|observation|encounter|program_enrollment|visit/i.test(col.config.sql || '');
+        /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
 
       // Check if repeatResolution is configured
       const hasResolution = col.repeatResolution?.strategy && col.repeatResolution.strategy !== 'NONE';
 
-      // Report as unresolved if potentially repeated and no resolution strategy
-      return isPotentiallyRepeated && !hasResolution;
+      // Check if SQL already handles multiple values with LIMIT 1
+      const sql = col.dataDefinitionConfig.sql || '';
+      const hasLimitOne = /\bLIMIT\s+1\b/i.test(sql);
+
+      // Collect columns that are potentially repeated and have no resolution strategy
+      // and don't have LIMIT 1 in their SQL
+      if (isPotentiallyRepeated && !hasResolution && !hasLimitOne) {
+        repeatedColumnsWithoutResolution.push(col.name);
+      }
     });
 
-    if (hasRepeatedFieldWithoutResolution) {
-      errors.columns = 'Some columns may return multiple values per row. Please configure repeat resolution.';
+    if (repeatedColumnsWithoutResolution.length > 0) {
+      errors.columns = `Columns that may return multiple values per row: ${repeatedColumnsWithoutResolution.join(', ')}. Please configure repeat resolution for each.`;
     }
   }
 
@@ -1088,25 +1549,25 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
     }
   }
 
-  // Check for basic SQL syntax validation
-  if (draft.cohortSql?.trim()) {
-    const upperSql = draft.cohortSql.toUpperCase().trim();
+  // Check for basic SQL syntax validation (v2 - using population.sqlTemplate)
+  if (draft.population.sqlTemplate?.trim()) {
+    const upperSql = draft.population.sqlTemplate.toUpperCase().trim();
 
     // Check for SELECT statement
     if (!upperSql.includes('SELECT')) {
-      errors.cohortSql = 'SQL must include a SELECT statement';
+      errors.population = 'SQL must include a SELECT statement';
     }
 
     // Check for patient_id or client_id column
     if (!upperSql.includes('PATIENT_ID') && !upperSql.includes('CLIENT_ID')) {
-      errors.cohortSql = 'SQL must select patient_id or client_id column';
+      errors.population = 'SQL must select patient_id or client_id column';
     }
 
     // Recommend DISTINCT for patient grain
     if (draft.rowGrain === 'PATIENT' && !upperSql.includes('DISTINCT')) {
       // This is a warning, not an error - we could add a warnings object
       // For now, we'll add it to errors but it won't block save in draft mode
-      // errors.cohortSql = 'Consider using SELECT DISTINCT to avoid duplicate patients';
+      // errors.population = 'Consider using SELECT DISTINCT to avoid duplicate patients';
     }
   }
 
@@ -1122,15 +1583,15 @@ export function isLinelistDraftValid(draft: LinelistReportDraft): boolean {
 }
 
 /**
- * Check if a linelist draft is ready to publish
+ * Check if a linelist draft is ready to compile
  * This includes stricter validation than draft validation
  *
- * Publishing requires:
+ * Compiling requires:
  * - All draft validations pass
  * - No unresolved repeated fields (will be fully enforced in Task 3)
  * - SQL definitions would pass server validation (placeholder for server validation)
  */
-export function isLinelistDraftReadyToPublish(draft: LinelistReportDraft): boolean {
+export function isLinelistDraftReadyToCompile(draft: LinelistReportDraft): boolean {
   const errors = validateLinelistDraft(draft);
   const warnings = generateLinelistWarnings(draft);
 
@@ -1142,18 +1603,20 @@ export function isLinelistDraftReadyToPublish(draft: LinelistReportDraft): boole
   // Check for unresolved repeated fields
   const hasUnresolvedRepeatedFields = draft.columns.some((col) => {
     const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
-      /appointment|observation|encounter|program_enrollment|visit/i.test(col.config.sql || '');
+      /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
     // Check if a valid resolution strategy is configured
     const hasValidResolution = col.repeatResolution?.strategy &&
       col.repeatResolution.strategy !== 'NONE';
-    return isPotentiallyRepeated && !hasValidResolution;
+    // Check if SQL already handles multiple values with LIMIT 1
+    const hasLimitOne = /\bLIMIT\s+1\b/i.test(col.dataDefinitionConfig.sql || '');
+    return isPotentiallyRepeated && !hasValidResolution && !hasLimitOne;
   });
 
   if (hasUnresolvedRepeatedFields) {
     return false;
   }
 
-  // Check for critical performance warnings that should block publishing
+  // Check for critical performance warnings that should block compiling
   if (warnings.performance?.includes('Many SQL columns') && draft.columns.length > 20) {
     return false;
   }
@@ -1162,34 +1625,75 @@ export function isLinelistDraftReadyToPublish(draft: LinelistReportDraft): boole
 }
 
 /**
- * Create an empty linelist report draft with default values
+ * @deprecated Use isLinelistDraftReadyToCompile instead
+ */
+export function isLinelistDraftReadyToPublish(draft: LinelistReportDraft): boolean {
+  return isLinelistDraftReadyToCompile(draft);
+}
+
+/**
+ * Create an empty linelist report draft with default values (v2)
  */
 export function createEmptyDraft(): LinelistReportDraft {
+  const now = new Date().toISOString();
+
   return {
+    version: 2,
     name: '',
     description: '',
     code: '',
     currentPanel: 'basics',
     categoryUuid: '',
     themeUuid: '',
-    dataSourceUuid: '',
     rowGrain: 'PATIENT',
     templateId: '',
-    cohortSql: '',
-    visualFilter: {
-      rootGroup: {
-        id: 'root',
-        logicalOperator: 'AND',
-        conditions: [],
+
+    // Data sources (v2 - array, not single)
+    dataSources: [],
+
+    // Population definition
+    population: {
+      baseDataSourceUuid: '',
+      buildMethod: 'SQL_BUILDER',
+      sqlTemplate: '',
+      parameterReferences: [],
+      visualFilter: {
+        rootGroup: {
+          id: 'root',
+          logicalOperator: 'AND',
+          conditions: [],
+          nestedGroups: [],
+        },
+        useVisualBuilder: false,
       },
-      useVisualBuilder: false,
+      buildHistory: [],
     },
+
     columns: [],
-    parameters: [],
-    dataSetName: 'PATIENT_LIST',
+    // Default parameters: every linelist report uses a date range
+    parameters: [
+      {
+        id: 'param-startDate',
+        name: 'startDate',
+        label: 'Start Date',
+        type: 'DATE',
+        required: true,
+        defaultValue: '',
+        displayOrder: 0,
+      },
+      {
+        id: 'param-endDate',
+        name: 'endDate',
+        label: 'End Date',
+        type: 'DATE',
+        required: true,
+        defaultValue: '',
+        displayOrder: 1,
+      },
+    ],
     sortConfig: [],
-    limit: undefined,
-    errors: {},
+    limit: 1000,
+
     displaySettings: {
       defaultPageSize: 25,
       freezeFirstColumn: true,
@@ -1198,11 +1702,23 @@ export function createEmptyDraft(): LinelistReportDraft {
       nullDisplayValue: '—',
       maxInteractiveRows: 500,
       maxExportRows: 100000,
-      allowedExports: ['CSV', 'XLSX'],
+      allowedExports: ['CSV', 'XLSX', 'PDF'],
       includeParametersInExportHeader: true,
       includeGeneratedTimestamp: true,
     },
-    status: 'DRAFT',
-    unsavedChanges: false,
+
+    validation: {
+      errors: {},
+      warnings: {},
+      lastValidated: now,
+    },
+
+    metadata: {
+      createdAt: now,
+      lastModified: now,
+      buildMethod: 'NEW',
+      version: 2,
+      status: 'DRAFT',
+    },
   };
 }

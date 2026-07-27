@@ -95,6 +95,16 @@
   }
 }
 
+.customColumnSection {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+
+  button {
+    width: 100%;
+  }
+}
+
 .empty {
   display: flex;
   align-items: center;

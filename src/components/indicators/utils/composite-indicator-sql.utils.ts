@@ -15,7 +15,7 @@ export type CountSqlSource =
 
 export function idFieldForUnit(unit: 'Patients' | 'Encounters', overrideColumn?: string) {
     if (overrideColumn) return overrideColumn;
-    return unit === 'Encounters' ? 'encounter_id' : 'patient_id';
+    return unit === 'Encounters' ? 'encounter_id' : 'client_id';
 }
 
 /**
@@ -141,6 +141,7 @@ export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Pa
         const afterSelect = noSemi.substring(distinctMatch[0].length);
 
         // If column is already qualified (e.g., "a.client_id"), use it as-is
+        // Always add the AS alias for consistency
         if (columnRef.includes('.')) {
             return `SELECT DISTINCT ${columnRef} AS ${idField} ${afterSelect}`.trim();
         }
@@ -162,7 +163,7 @@ export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Pa
 
         return `
 ${prefix}
-SELECT DISTINCT pop.${idField} AS ${idField}
+SELECT DISTINCT pop.${idField}
 FROM (
 ${inner}
 ) pop

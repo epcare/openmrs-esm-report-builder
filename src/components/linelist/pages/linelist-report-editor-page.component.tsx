@@ -34,24 +34,32 @@ const LinelistReportEditorPage: React.FC<Props> = () => {
    * Load report for editing
    */
   useEffect(() => {
-    if (reportId && reportId !== 'new') {
-      setLoading(true);
-      setError(null);
-
-      getLinelistReport(reportId)
-        .then((report) => {
-          setInitialReport(report);
-          setMode('edit');
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Failed to load report');
-        })
-        .finally(() => setLoading(false));
-    } else {
+    // For create mode, don't show loading at all - open modal immediately
+    if (!reportId || reportId === 'new') {
       setMode('create');
       setInitialReport(null);
       setLoading(false);
+      setError(null);
+      return;
     }
+
+    // For edit mode, load the report first
+    setLoading(true);
+    setError(null);
+
+    getLinelistReport(reportId)
+      .then((report) => {
+        console.error('🔴 LOADED REPORT DATA:', report?.name, report);
+        console.log('Loaded report data:', report);
+        setInitialReport(report);
+        setMode('edit');
+      })
+      .catch((err) => {
+        console.error('Failed to load report:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load report');
+        setInitialReport(null);
+      })
+      .finally(() => setLoading(false));
   }, [reportId]);
 
   /**
@@ -73,7 +81,13 @@ const LinelistReportEditorPage: React.FC<Props> = () => {
   if (loading) {
     return (
       <div className={styles.page}>
-        <div className={styles.loading}>Loading report...</div>
+        <div className={styles.header}>
+          <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
+            Back to Linelist Reports
+          </Button>
+          <h1 className={styles.title}>Loading Linelist Report...</h1>
+        </div>
+        <div className={styles.loading}>Loading report data...</div>
       </div>
     );
   }
@@ -81,13 +95,21 @@ const LinelistReportEditorPage: React.FC<Props> = () => {
   if (error && !initialReport) {
     return (
       <div className={styles.page}>
+        <div className={styles.header}>
+          <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
+            Back to Linelist Reports
+          </Button>
+          <h1 className={styles.title}>Error</h1>
+        </div>
         <InlineNotification kind="error" title="Error" subtitle={error} />
-        <Button kind="secondary" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
-          Back to Linelist Reports
-        </Button>
       </div>
     );
   }
+
+  // Modal should only open when:
+  // 1. Create mode (no data needed), OR
+  // 2. Edit mode AND data is loaded (initialReport exists)
+  const canOpenModal = mode === 'create' || (mode === 'edit' && initialReport !== null);
 
   return (
     <div className={styles.page}>
@@ -101,7 +123,7 @@ const LinelistReportEditorPage: React.FC<Props> = () => {
       </div>
 
       <LinelistReportBuilderModal
-        open={modalOpen}
+        open={modalOpen && canOpenModal}
         mode={mode}
         initialReport={initialReport}
         onClose={handleClose}

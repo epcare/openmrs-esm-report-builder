@@ -65,7 +65,7 @@ function buildSqlBaseQuery(themeConfig: DataThemeConfig): string {
   const lines: string[] = [];
 
   lines.push('SELECT');
-  lines.push(`  DISTINCT ${sourceTable}.${patientIdColumn} AS patient_id`);
+  lines.push(`  DISTINCT ${sourceTable}.${patientIdColumn}`);
 
   // Add joins if defined
   // const joinTables = joins?.map((j) => {
@@ -141,7 +141,7 @@ export function convertIndicatorRule(rule: IndicatorPopulationConfig, themeConfi
   // Handle negation (NOT)
   if (rule.negate) {
     // Wrap in NOT EXISTS subquery
-    finalSql = `SELECT patient_id\nFROM (\n${finalSql}) AS matches\nWHERE 1=0`;
+    finalSql = `SELECT ${themeConfig.patientIdColumn}\nFROM (\n${finalSql}) AS matches\nWHERE 1=0`;
   }
 
   return finalSql;
@@ -179,16 +179,16 @@ export function combineIndicatorRules(
 
   // Build the combined query
   const lines: string[] = [];
-  const { sourceTable } = themeConfig;
+  const { sourceTable, patientIdColumn } = themeConfig;
 
-  lines.push('SELECT DISTINCT base.patient_id');
+  lines.push(`SELECT DISTINCT base.${patientIdColumn}`);
   lines.push(`FROM ${sourceTable} base`);
 
   // Positive matches with UNION/INTERSECT
   if (subqueries.length > 0) {
     if (rules[0]?.logicalOperator === 'OR') {
       // OR means UNION
-      lines.push('WHERE base.patient_id IN (');
+      lines.push(`WHERE base.${patientIdColumn} IN (`);
       lines.push(subqueries.map((q) => `  (${q})`).join('\n  UNION\n'));
       lines.push(')');
     } else {
@@ -196,7 +196,7 @@ export function combineIndicatorRules(
       // For simplicity, use nested EXISTS
       subqueries.forEach((q, idx) => {
         const alias = `match${idx}`;
-        lines.push(`  AND EXISTS (${q.replace(/SELECT/g, `SELECT 1 FROM ${sourceTable} ${alias} WHERE ${alias}.patient_id = base.patient_id AND`)})`);
+        lines.push(`  AND EXISTS (${q.replace(/SELECT/g, `SELECT 1 FROM ${sourceTable} ${alias} WHERE ${alias}.${patientIdColumn} = base.${patientIdColumn} AND`)})`);
       });
     }
   }

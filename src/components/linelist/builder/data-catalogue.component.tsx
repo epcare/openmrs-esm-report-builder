@@ -15,22 +15,21 @@ import {
   Accordion,
   AccordionItem,
   InlineNotification,
-  Dropdown,
   Toggle,
 } from '@carbon/react';
 import { User, Tag as TagIcon, Function, Hashtag } from '@carbon/react/icons';
 
-import { useETLTables } from '../../../hooks/theme';
+// import { useETLTables } from '../../../hooks/theme';
 import { useETLTableMeta } from '../../../hooks/theme';
-import { useDataThemes } from '../../../hooks/theme';
+// import { useDataThemes } from '../../../hooks/theme';
 // TableColumn type imported as needed
-import type { FilterFieldType } from '../../../types/linelist-types';
-import type { DataTheme } from '../../../types/theme/data-theme.types';
+import type { FilterFieldType, DataSourceInfo } from '../../../types/linelist-types';
 import type {
   EtlStructure,
 } from '../../../types/etl/etl-types';
 import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../resources/person-attribute-type/person-attribute-type.api';
 import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../resources/patient-identifier-type/patient-identifier-type.api';
+import CustomSqlColumnModal, { type CustomSqlColumnConfig } from './custom-sql-column-modal.component';
 import styles from './data-catalogue.scss';
 
 /**
@@ -371,16 +370,24 @@ function isPotentiallyRepeated(fieldName: string): boolean {
 }
 
 type Props = {
-  table: string;
+  /** Legacy: Single table name (deprecated, use dataSources) */
+  table?: string;
+  /** Multiple datasources to browse columns from */
+  dataSources?: DataSourceInfo[];
   themeUuid?: string;
   onAddToColumns: (field: CatalogueField) => void;
   onAddToFilters: (field: CatalogueField) => void;
   onTableChange?: (table: string) => void;
+  onDataSourcesChange?: (dataSources: DataSourceInfo[]) => void;
   onThemeChange?: (themeUuid: string) => void;
   onFieldsAvailable?: (fields: CatalogueField[]) => void; // Callback to expose available fields to parent
   onEtlStructureDetected?: (structure: EtlStructure) => void; // Callback when ETL structure is detected
   selectedFields?: string[]; // Field IDs that are already selected
   disabled?: boolean;
+  /** Callback to add a custom SQL column */
+  onAddCustomSqlColumn?: (config: CustomSqlColumnConfig) => void;
+  /** The patient/client ID column alias used by the base cohort SQL */
+  idColumnAlias?: 'client_id' | 'patient_id';
 };
 
 /**
@@ -395,24 +402,33 @@ export type CatalogueField = {
   table: string;
   isRepeated: boolean;
   description?: string;
+  /** Which datasource this field comes from */
+  dataSourceUuid?: string;
+  /** Display name of the datasource */
+  dataSourceName?: string;
 };
 
 const DataCatalogue: React.FC<Props> = ({
-  table,
-  themeUuid,
+  table: legacyTable,
+  dataSources: propDataSources,
+  // themeUuid,
   onAddToColumns,
   onAddToFilters,
-  onTableChange,
-  onThemeChange,
+  // onTableChange,
+  // onDataSourcesChange,
+  // onThemeChange,
   onFieldsAvailable,
   onEtlStructureDetected,
   selectedFields = [],
   disabled = false,
+  onAddCustomSqlColumn,
+  idColumnAlias = 'client_id',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [etlStructure, setEtlStructure] = useState<EtlStructure | null>(null);
+  const [customSqlModalOpen, setCustomSqlModalOpen] = useState(false);
 
   // State for API-fetched data
   const [personAttributeTypes, setPersonAttributeTypes] = useState<Array<PersonAttributeTypeDto>>([]);
@@ -421,17 +437,31 @@ const DataCatalogue: React.FC<Props> = ({
   const [apiDataError, setApiDataError] = useState<string | null>(null);
 
   // Get available tables
-  const { tables, loading: tablesLoading, error: tablesError } = useETLTables(true);
+  // const { tables, loading: tablesLoading, error: tablesError } = useETLTables(true);
 
   // Get available data themes
-  const { themes, loading: themesLoading, error: themesError } = useDataThemes('');
+  // const { themes, loading: themesLoading, error: themesError } = useDataThemes('');
 
-  // Get columns for selected table
+  // Use new dataSources prop or fall back to legacy single table
+  const dataSources = useMemo(() => {
+    return propDataSources || (legacyTable ? [{
+      uuid: legacyTable,
+      name: legacyTable,
+      type: 'ETL',
+      role: 'PRIMARY',
+      tables: [],
+    }] : []);
+  }, [propDataSources, legacyTable]);
+
+  // Get the primary datasource for single-table mode compatibility
+  const primaryTable = dataSources.find(ds => ds.role === 'PRIMARY')?.uuid || legacyTable || '';
+
+  // Get columns for selected table (primary datasource)
   const {
     columns,
     loading: columnsLoading,
     error: columnsError,
-  } = useETLTableMeta(table, Boolean(table));
+  } = useETLTableMeta(primaryTable, Boolean(primaryTable));
 
   // Fetch person attribute types and patient identifier types on mount
   useEffect(() => {
@@ -512,13 +542,15 @@ const DataCatalogue: React.FC<Props> = ({
         const groupId = categorizeField(column.name) || 'uncategorized';
 
         const field: CatalogueField = {
-          id: `${table}.${column.name}`,
+          id: `${primaryTable}.${column.name}`,
           name: column.name,
           label: formatFieldLabel(column.name),
           type: mapColumnTypeToFilterFieldType(column.type),
-          source: getFieldType(column.name, table),
-          table: table,
+          source: getFieldType(column.name, primaryTable),
+          table: primaryTable,
           isRepeated: isPotentiallyRepeated(column.name),
+          dataSourceUuid: dataSources.find(ds => ds.uuid === primaryTable)?.uuid || primaryTable,
+          dataSourceName: dataSources.find(ds => ds.uuid === primaryTable)?.name || primaryTable,
         };
 
         groups[groupId].push(field);
@@ -526,7 +558,7 @@ const DataCatalogue: React.FC<Props> = ({
     }
 
     return groups;
-  }, [columns, table, personAttributeTypes, patientIdentifierTypes]);
+  }, [columns, primaryTable, personAttributeTypes, patientIdentifierTypes, dataSources]);
 
   /**
    * Expose all available fields to parent component
@@ -542,21 +574,21 @@ const DataCatalogue: React.FC<Props> = ({
    * Detect ETL structure when table/columns change
    */
   useEffect(() => {
-    if (!table || !columns || columns.length === 0) {
+    if (!primaryTable || !columns || columns.length === 0) {
       return;
     }
 
     // Import the detection function dynamically to avoid circular deps
     import('../../../types/etl/etl-types').then(({ detectEtlStructure }) => {
       const columnNames = columns.map((c) => c.name);
-      const detected = detectEtlStructure(table, columnNames);
+      const detected = detectEtlStructure(primaryTable, columnNames);
       setEtlStructure(detected);
 
       if (onEtlStructureDetected) {
         onEtlStructureDetected(detected);
       }
     });
-  }, [table, columns, onEtlStructureDetected]);
+  }, [primaryTable, columns, onEtlStructureDetected]);
 
   /**
    * Filter fields based on search term and selection toggle
@@ -638,56 +670,12 @@ const DataCatalogue: React.FC<Props> = ({
     setExpandedGroups(new Set());
   }, []);
 
-  const isLoading = tablesLoading || columnsLoading || themesLoading || apiDataLoading;
-  const error = tablesError || columnsError || themesError || apiDataError;
+  const isLoading = columnsLoading || apiDataLoading;
+  const error = columnsError || apiDataError;
   const totalFields = Object.values(filteredGroupedFields).reduce((sum, fields) => sum + fields.length, 0);
 
   return (
     <div className={styles.catalogue}>
-      {/* Data theme and source dropdowns */}
-      <div className={styles.datasetControls}>
-        {onThemeChange && (
-          <div className={styles.dropdown}>
-            <Dropdown
-              id="data-theme"
-              titleText="Data theme"
-              label="Data theme"
-              size="sm"
-              items={themes || []}
-              itemToString={(theme: DataTheme) => theme?.name || ''}
-              selectedItem={themes?.find((t) => t.uuid === themeUuid)}
-              onChange={(selected) => {
-                const theme = selected.selectedItem as DataTheme;
-                if (theme) {
-                  onThemeChange(theme.uuid);
-                }
-              }}
-              disabled={disabled || themesLoading}
-            />
-          </div>
-        )}
-        {onTableChange && (
-          <div className={styles.dropdown}>
-            <Dropdown
-              id="etl-source"
-              titleText="Data source"
-              label="Data source"
-              size="sm"
-              items={tables || []}
-              itemToString={(table: string) => table || 'Select a table'}
-              selectedItem={tables?.find((t) => t === table)}
-              onChange={(selected) => {
-                const selectedTable = selected.selectedItem as string;
-                if (selectedTable) {
-                  onTableChange(selectedTable);
-                }
-              }}
-              disabled={disabled || tablesLoading}
-            />
-          </div>
-        )}
-      </div>
-
       {/* ETL Structure Indicator */}
       {etlStructure && (
         <div className={styles.etlIndicator}>
@@ -750,6 +738,20 @@ const DataCatalogue: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Add Custom SQL Column */}
+      {onAddCustomSqlColumn && (
+        <div className={styles.customColumnSection}>
+          <Button
+            kind="secondary"
+            size="sm"
+            onClick={() => setCustomSqlModalOpen(true)}
+            disabled={disabled}
+          >
+            + Custom SQL Column
+          </Button>
+        </div>
+      )}
+
       {/* Available/Selected toggle */}
       {selectedFields.length > 0 && (
         <div className={styles.toggleContainer}>
@@ -779,8 +781,8 @@ const DataCatalogue: React.FC<Props> = ({
       {/* Empty state */}
       {!isLoading && !error && totalFields === 0 && (
         <div className={styles.empty}>
-          {table ? (
-            <p>No fields found for table: {table}</p>
+          {primaryTable ? (
+            <p>No fields found for table: {primaryTable}</p>
           ) : (
             <p>Select a data source to view available fields</p>
           )}
@@ -831,6 +833,9 @@ const DataCatalogue: React.FC<Props> = ({
                             <div className={styles.fieldMeta}>
                               {isSelected && (
                                 <Tag size="sm" type="green">Selected</Tag>
+                              )}
+                              {field.dataSourceName && (
+                                <Tag size="sm" type="cool-gray">{field.dataSourceName}</Tag>
                               )}
                               <Tag size="sm" type="blue">{field.type}</Tag>
                               <Tag size="sm" type="gray">{field.source}</Tag>
@@ -897,6 +902,9 @@ const DataCatalogue: React.FC<Props> = ({
                             {isSelected && (
                               <Tag size="sm" type="green">Selected</Tag>
                             )}
+                            {field.dataSourceName && (
+                              <Tag size="sm" type="cool-gray">{field.dataSourceName}</Tag>
+                            )}
                             <Tag size="sm" type="blue">{field.type}</Tag>
                             <Tag size="sm" type="gray">{field.source}</Tag>
                             {field.isRepeated && (
@@ -938,6 +946,17 @@ const DataCatalogue: React.FC<Props> = ({
         <div className={styles.summary}>
           {totalFields} field{totalFields !== 1 ? 's' : ''} available
         </div>
+      )}
+
+      {/* Custom SQL Column Modal */}
+      {onAddCustomSqlColumn && (
+        <CustomSqlColumnModal
+          open={customSqlModalOpen}
+          onClose={() => setCustomSqlModalOpen(false)}
+          onSave={onAddCustomSqlColumn}
+          existingColumnNames={[]}
+          idColumnAlias={idColumnAlias}
+        />
       )}
     </div>
   );

@@ -13,8 +13,9 @@ import type {
   LinelistReportDto,
   LinelistReportDefinitionConfig,
 } from '../../types/linelist-types';
+import { compileToBackendConfig } from '../../types/linelist/compile-config';
 
-const RESOURCE = '/reportbuilder/reportdefinition';
+const RESOURCE = '/reportbuilder/report';
 
 type RestList<T> = { results?: T[] } & Record<string, any>;
 
@@ -241,6 +242,24 @@ export type LinelistEvaluationResult = {
   error?: string;
 };
 
+/**
+ * Compile linelist report payload
+ */
+export type CompileLinelistReportPayload = {
+  reportUuid: string;
+};
+
+/**
+ * Compile linelist report result
+ */
+export type CompileLinelistReportResult = {
+  reportUuid: string;
+  reportDefinitionUuid?: string;
+  reportDefinitionName?: string;
+  reportDesignPath?: string;
+  compiled?: boolean;
+};
+
 export async function evaluateLinelistReport(
   params: LinelistEvaluationParams,
   signal?: AbortSignal
@@ -283,17 +302,82 @@ export async function evaluateLinelistReport(
 }
 
 /**
+ * Compile a linelist report
+ *
+ * Uses the same /reportbuilder/reportcompile endpoint as aggregate reports.
+ * This generates the runtime report definition from the saved linelist report.
+ *
+ * @param reportUuid - The UUID of the saved linelist report to compile
+ * @param signal - AbortSignal for cancellation
+ * @returns Compile result with report definition UUID and status
+ */
+export async function compileLinelistReport(
+  reportUuid: string,
+  signal?: AbortSignal
+): Promise<CompileLinelistReportResult> {
+  const payload: CompileLinelistReportPayload = { reportUuid };
+  return omrsPost<CompileLinelistReportResult>('/reportbuilder/reportcompile', payload, signal);
+}
+
+/**
+ * Builder-specific metadata stored in metaJson so the editor can reconstruct
+ * the full draft (indicators selected, build method, display settings, etc.)
+ * when re-opening a report for editing.
+ */
+export type LinelistBuilderMeta = {
+  themeUuid?: string;
+  buildMethod?: 'SQL_BUILDER' | 'VISUAL_FILTER' | 'INDICATOR_BASED';
+  /** Indicator rules used to build the population (for INDICATOR_BASED mode) */
+  indicatorRules?: Array<{
+    id: string;
+    indicatorUuid: string;
+    name: string;
+    conditions?: Array<{ key: string; operator?: string; value: any }>;
+    logicalOperator?: 'AND' | 'OR';
+    negate?: boolean;
+  }>;
+};
+
+/**
  * Convert LinelistReportDefinitionConfig to SaveLinelistReportPayload
+ *
+ * Compiles the builder's intermediate config into the backend's expected format.
+ * The builder state needed for editing (indicators, build method, data sources)
+ * is preserved inside the configJson under a `_builder` key and also in metaJson.
+ *
+ * @param config - The builder's intermediate configuration
+ * @param meta - Report name/description/code
+ * @param builderMeta - Builder state (indicators, build method) for edit reconstruction
  */
 export function configToSavePayload(
   config: LinelistReportDefinitionConfig,
-  meta: { name: string; description?: string; code?: string }
+  meta: { name: string; description?: string; code?: string; categoryUuid?: string },
+  builderMeta?: LinelistBuilderMeta
 ): SaveLinelistReportPayload {
+  // Compile to the backend's final format
+  const compiled = compileToBackendConfig(config, meta);
+
+  // Preserve builder state inside configJson (under _builder) so the editor
+  // can reconstruct the draft on re-open. The backend ignores this key.
+  const configWithBuilder = {
+    ...compiled,
+    _builder: {
+      dataSources: config.dataSources,
+      rowGrain: config.rowGrain,
+      templateId: config.templateId,
+      buildMethod: builderMeta?.buildMethod || config.buildMethod,
+      indicatorRules: builderMeta?.indicatorRules || config.indicatorRules,
+      themeUuid: builderMeta?.themeUuid || config.themeUuid,
+      categoryUuid: config.categoryUuid,
+    },
+  };
+
   return {
     name: meta.name,
     description: meta.description,
     code: meta.code,
     reportType: 'LINE_LIST',
-    configJson: JSON.stringify(config),
+    configJson: JSON.stringify(configWithBuilder),
+    metaJson: builderMeta ? JSON.stringify(builderMeta) : undefined,
   };
 }

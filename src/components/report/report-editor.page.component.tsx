@@ -32,6 +32,7 @@ import {
   type ReportDto,
 } from '../../resources/report/reports.api';
 import { listSections } from '../../resources/report-section/report-sections.api';
+import CompileSetupModal, { type CompileSetupResult } from '../shared/compile-setup-modal.component';
 
 type TabKey = 'details' | 'definition' | 'design';
 type BuilderMode = 'create' | 'edit';
@@ -43,6 +44,8 @@ type ReportFormState = {
   code: string;
   sections: ReportDefinitionDraft['sections'];
   design: ReportDesignDraft;
+  categoryUuid: string;
+  themeUuid: string;
 };
 
 type SectionDtoLike = {
@@ -60,6 +63,8 @@ function buildEmptyForm(): ReportFormState {
     code: '',
     sections: [],
     design: createEmptyReportDesignDraft(),
+    categoryUuid: '',
+    themeUuid: '',
   };
 }
 
@@ -73,10 +78,16 @@ function slugifyCode(name: string): string {
 
 function parseSavedReportToForm(report: ReportDto): ReportFormState {
   let parsed: any = {};
+  let metaParsed: any = {};
   try {
     parsed = report.configJson ? JSON.parse(report.configJson) : {};
   } catch {
     parsed = {};
+  }
+  try {
+    metaParsed = report.metaJson ? JSON.parse(report.metaJson) : {};
+  } catch {
+    metaParsed = {};
   }
 
   const definition = parsed?.definition ?? {};
@@ -90,6 +101,8 @@ function parseSavedReportToForm(report: ReportDto): ReportFormState {
     code: report.code ?? parsed?.code ?? '',
     sections: Array.isArray(definition?.sections) ? definition.sections : legacySections,
     design: design ?? createEmptyReportDesignDraft(),
+    categoryUuid: metaParsed?.categoryUuid ?? parsed?.categoryUuid ?? '',
+    themeUuid: metaParsed?.themeUuid ?? parsed?.themeUuid ?? '',
   };
 }
 
@@ -122,6 +135,9 @@ export default function ReportEditorPage() {
   const [saveSuccess, setSaveSuccess] = React.useState<string | null>(null);
   const [compileError, setCompileError] = React.useState<string | null>(null);
   const [compileSuccess, setCompileSuccess] = React.useState<string | null>(null);
+
+  // Compile setup modal state
+  const [showCompileSetupModal, setShowCompileSetupModal] = React.useState(false);
 
   React.useEffect(() => {
     const ac = new AbortController();
@@ -265,6 +281,9 @@ export default function ReportEditorPage() {
           sections: form.sections ?? [],
         },
         design: form.design,
+        // Include category and theme in config
+        categoryUuid: form.categoryUuid,
+        themeUuid: form.themeUuid,
       };
 
       const payload = {
@@ -272,6 +291,11 @@ export default function ReportEditorPage() {
         description: authoringJson.description,
         code: authoringJson.code,
         configJson: JSON.stringify(authoringJson, null, 2),
+        // Also store in metaJson for easier access
+        metaJson: JSON.stringify({
+          categoryUuid: form.categoryUuid,
+          themeUuid: form.themeUuid,
+        }),
       };
 
       const result =
@@ -302,6 +326,13 @@ export default function ReportEditorPage() {
       setCompileSuccess(null);
       setSaveError(null);
 
+      // Check if category is set
+      if (!form.categoryUuid) {
+        setShowCompileSetupModal(true);
+        setCompiling(false);
+        return;
+      }
+
       let targetUuid = savedReport?.uuid || reportId || null;
 
       if (!targetUuid) {
@@ -325,7 +356,57 @@ export default function ReportEditorPage() {
     } finally {
       setCompiling(false);
     }
-  }, [handleDraftSave, reportId, savedReport?.uuid]);
+  }, [form.categoryUuid, handleDraftSave, reportId, savedReport?.uuid]);
+
+  const handleCompileSetupConfirm = React.useCallback(async (result: CompileSetupResult) => {
+    setShowCompileSetupModal(false);
+
+    // Update the form with selected category
+    setForm((prev) => ({
+      ...prev,
+      categoryUuid: result.categoryUuid,
+    }));
+
+    // Save the updated form
+    let targetUuid = savedReport?.uuid || reportId || null;
+
+    if (!targetUuid) {
+      try {
+        const saved = await handleDraftSave();
+        targetUuid = saved?.uuid ?? null;
+      } catch (e: any) {
+        setSaveError(e?.message ?? 'Failed to save report');
+        return;
+      }
+    }
+
+    if (!targetUuid) {
+      setCompileError('Cannot compile: Report must be saved first');
+      return;
+    }
+
+    setCompiling(true);
+    setCompileError(null);
+    setCompileSuccess(null);
+
+    try {
+      const compiledResult = await compileReport(targetUuid);
+
+      setCompileSuccess(
+          compiledResult?.reportDefinitionUuid
+              ? `Compiled successfully. Runtime report UUID: ${compiledResult.reportDefinitionUuid}`
+              : 'Compiled successfully.',
+      );
+    } catch (e: any) {
+      setCompileError(e?.message ?? 'Failed to compile report');
+    } finally {
+      setCompiling(false);
+    }
+  }, [savedReport?.uuid, reportId, handleDraftSave]);
+
+  const handleCompileSetupCancel = React.useCallback(() => {
+    setShowCompileSetupModal(false);
+  }, []);
 
   const handleCancel = React.useCallback(() => {
     setForm(buildEmptyForm());
@@ -461,6 +542,15 @@ export default function ReportEditorPage() {
           )}
         </pre>
         </div>
+
+        {/* Compile Setup Modal */}
+        <CompileSetupModal
+          open={showCompileSetupModal}
+          currentCategoryUuid={form.categoryUuid}
+          onConfirm={handleCompileSetupConfirm}
+          onClose={handleCompileSetupCancel}
+          reportType="aggregate"
+        />
       </>
   );
 }
