@@ -53,6 +53,47 @@ type Props = {
 };
 
 /**
+ * Create a new column draft with all required v2 fields
+ * This ensures all columns have proper source tracking even when created manually
+ */
+function createNewColumnDraft(
+  name: string,
+  dataDefinitionType: ColumnDataType,
+  dataDefinitionConfig: Record<string, any>,
+  sortOrder: number
+): LinelistColumnDraft {
+  const now = new Date().toISOString();
+
+  return {
+    id: `col-${Date.now()}`,
+    name,
+    description: '',
+    source: {
+      dataSourceUuid: '', // Will be filled in by parent
+      dataSourceName: '',
+      table: '',
+      field: name,
+      fieldType: 'UNKNOWN',
+    },
+    dataDefinitionType,
+    dataDefinitionConfig,
+    additionInfo: {
+      addedVia: 'SQL_BUILDER',
+      addedAt: now,
+      orderAdded: sortOrder,
+    },
+    display: {
+      width: 150,
+      align: 'left',
+      sortable: true,
+      filterable: true,
+      format: 'text',
+    },
+    sortOrder,
+  };
+}
+
+/**
  * Available data definition types with descriptions
  */
 const DATA_DEFINITION_TYPES: Array<{
@@ -103,7 +144,7 @@ const DATA_DEFINITION_TYPES: Array<{
  * Common SQL column templates
  */
 const SQL_TEMPLATES: Record<string, string> = {
-  'patient_id': 'patient_id',
+  'client_id': 'client_id',
   'given_name': 'given_name',
   'family_name': 'family_name',
   'gender': 'gender',
@@ -276,15 +317,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
    * Add a new column based on selected table column
    */
   const addColumnFromTable = (tableColumn: TableColumn) => {
-    const newColumn: LinelistColumnDraft = {
-      id: `col-${Date.now()}`,
-      name: tableColumn.name,
-      dataDefinitionType: 'SQL',
-      config: {
-        sql: tableColumn.name,
-      },
-      sortOrder: columns.length,
-    };
+    const newColumn = createNewColumnDraft(
+      tableColumn.name,
+      'SQL',
+      { sql: tableColumn.name },
+      columns.length
+    );
     onChange([...columns, newColumn]);
   };
 
@@ -292,15 +330,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
    * Add a custom column
    */
   const addCustomColumn = () => {
-    const newColumn: LinelistColumnDraft = {
-      id: `col-${Date.now()}`,
-      name: '',
-      dataDefinitionType: 'SQL',
-      config: {
-        sql: '',
-      },
-      sortOrder: columns.length,
-    };
+    const newColumn = createNewColumnDraft(
+      '',
+      'SQL',
+      { sql: '' },
+      columns.length
+    );
     onChange([...columns, newColumn]);
   };
 
@@ -370,10 +405,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             id={`sql-${column.id}`}
             labelText="SQL Expression"
             placeholder="e.g., patient_id, given_name, TIMESTAMPDIFF(YEAR, birthdate, :endDate)"
-            value={column.config.sql || ''}
+            value={column.dataDefinitionConfig.sql || ''}
             onChange={(e) =>
               updateColumn(column.id, {
-                config: { ...column.config, sql: (e.target as HTMLInputElement).value },
+                dataDefinitionConfig: { ...column.dataDefinitionConfig, sql: (e.target as HTMLInputElement).value },
               })
             }
             disabled={disabled}
@@ -387,10 +422,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               id={`identifier-uuid-${column.id}`}
               labelText="Identifier Type UUID"
               placeholder="e.g., 05a0e144-1f5d-11e8-b646-0e37ffca28c8"
-              value={column.config.identifierTypeUuid || ''}
+              value={column.dataDefinitionConfig.identifierTypeUuid || ''}
               onChange={(e) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, identifierTypeUuid: (e.target as HTMLInputElement).value },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, identifierTypeUuid: (e.target as HTMLInputElement).value },
                 })
               }
               disabled={disabled}
@@ -398,10 +433,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             <Toggle
               id={`preferred-${column.id}`}
               labelText="Preferred identifier"
-              toggled={column.config.preferred || false}
+              toggled={column.dataDefinitionConfig.preferred || false}
               onToggle={(checked) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, preferred: checked },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, preferred: checked },
                 })
               }
               disabled={disabled}
@@ -414,10 +449,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
           <Select
             id={`name-type-${column.id}`}
             labelText="Name Type"
-            value={column.config.type || 'FULL_NAME'}
+            value={column.dataDefinitionConfig.type || 'FULL_NAME'}
             onChange={(e) =>
               updateColumn(column.id, {
-                config: { ...column.config, type: (e.target as HTMLSelectElement).value },
+                dataDefinitionConfig: { ...column.dataDefinitionConfig, type: (e.target as HTMLSelectElement).value },
               })
             }
             disabled={disabled}
@@ -435,10 +470,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             id={`attribute-uuid-${column.id}`}
             labelText="Attribute Type UUID"
             placeholder="e.g., 8c860e40-1f5d-11e8-b646-0e37ffca28c8"
-            value={column.config.attributeTypeUuid || ''}
+            value={column.dataDefinitionConfig.attributeTypeUuid || ''}
             onChange={(e) =>
               updateColumn(column.id, {
-                config: { ...column.config, attributeTypeUuid: (e.target as HTMLInputElement).value },
+                dataDefinitionConfig: { ...column.dataDefinitionConfig, attributeTypeUuid: (e.target as HTMLInputElement).value },
               })
             }
             disabled={disabled}
@@ -451,10 +486,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             <Select
               id={`calculation-type-${column.id}`}
               labelText="Calculation Type"
-              value={column.config.calculation || 'AGE'}
+              value={column.dataDefinitionConfig.calculation || 'AGE'}
               onChange={(e) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, calculation: (e.target as HTMLSelectElement).value },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, calculation: (e.target as HTMLSelectElement).value },
                 })
               }
               disabled={disabled}
@@ -467,10 +502,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             <Toggle
               id={`on-date-${column.id}`}
               labelText="Calculate as of end date"
-              toggled={column.config.onDate || false}
+              toggled={column.dataDefinitionConfig.onDate || false}
               onToggle={(checked) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, onDate: checked },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, onDate: checked },
                 })
               }
               disabled={disabled}
@@ -485,10 +520,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               id={`address-field-${column.id}`}
               labelText="Address Field"
               placeholder="e.g., city_village, state_province"
-              value={column.config.field || ''}
+              value={column.dataDefinitionConfig.field || ''}
               onChange={(e) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, field: (e.target as HTMLInputElement).value },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, field: (e.target as HTMLInputElement).value },
                 })
               }
               disabled={disabled}
@@ -496,10 +531,10 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
             <Select
               id={`address-type-${column.id}`}
               labelText="Address Type"
-              value={column.config.type || 'PERSON_ADDRESS'}
+              value={column.dataDefinitionConfig.type || 'PERSON_ADDRESS'}
               onChange={(e) =>
                 updateColumn(column.id, {
-                  config: { ...column.config, type: (e.target as HTMLSelectElement).value },
+                  dataDefinitionConfig: { ...column.dataDefinitionConfig, type: (e.target as HTMLSelectElement).value },
                 })
               }
               disabled={disabled}
@@ -646,13 +681,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: key,
-                  dataDefinitionType: 'SQL',
-                  config: { sql },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  key,
+                  'SQL',
+                  { sql },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -745,13 +779,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
                 kind="ghost"
                 size="sm"
                 onClick={() => {
-                  const newColumn: LinelistColumnDraft = {
-                    id: `col-${Date.now()}`,
-                    name: key,
-                    dataDefinitionType: 'PERSON_ATTRIBUTE',
-                    config: { attributeTypeUuid: template.uuid },
-                    sortOrder: columns.length,
-                  };
+                  const newColumn = createNewColumnDraft(
+                    key,
+                    'PERSON_ATTRIBUTE',
+                    { attributeTypeUuid: template.uuid },
+                    columns.length
+                  );
                   onChange([...columns, newColumn]);
                 }}
                 disabled={disabled}
@@ -772,13 +805,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
                 kind="ghost"
                 size="sm"
                 onClick={() => {
-                  const newColumn: LinelistColumnDraft = {
-                    id: `col-${Date.now()}`,
-                    name: template.label,
-                    dataDefinitionType: 'IDENTIFIER',
-                    config: { identifierTypeUuid: template.uuid, preferred: false },
-                    sortOrder: columns.length,
-                  };
+                  const newColumn = createNewColumnDraft(
+                    template.label,
+                    'IDENTIFIER',
+                    { identifierTypeUuid: template.uuid, preferred: false },
+                    columns.length
+                  );
                   onChange([...columns, newColumn]);
                 }}
                 disabled={disabled}
@@ -797,13 +829,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: 'Patient Name',
-                  dataDefinitionType: 'PERSON_NAME',
-                  config: { type: 'FULL_NAME' },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  'Patient Name',
+                  'PERSON_NAME',
+                  { type: 'FULL_NAME' },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -814,13 +845,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: 'Given Name',
-                  dataDefinitionType: 'PERSON_NAME',
-                  config: { type: 'GIVEN_NAME' },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  'Given Name',
+                  'PERSON_NAME',
+                  { type: 'GIVEN_NAME' },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -831,13 +861,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: 'Family Name',
-                  dataDefinitionType: 'PERSON_NAME',
-                  config: { type: 'FAMILY_NAME' },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  'Family Name',
+                  'PERSON_NAME',
+                  { type: 'FAMILY_NAME' },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -855,13 +884,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: 'Age',
-                  dataDefinitionType: 'CALCULATION',
-                  config: { calculation: 'AGE', onDate: true },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  'Age',
+                  'CALCULATION',
+                  { calculation: 'AGE', onDate: true },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -872,13 +900,12 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
               kind="ghost"
               size="sm"
               onClick={() => {
-                const newColumn: LinelistColumnDraft = {
-                  id: `col-${Date.now()}`,
-                  name: 'Age (Months)',
-                  dataDefinitionType: 'CALCULATION',
-                  config: { calculation: 'AGE_IN_MONTHS', onDate: true },
-                  sortOrder: columns.length,
-                };
+                const newColumn = createNewColumnDraft(
+                  'Age (Months)',
+                  'CALCULATION',
+                  { calculation: 'AGE_IN_MONTHS', onDate: true },
+                  columns.length
+                );
                 onChange([...columns, newColumn]);
               }}
               disabled={disabled}
@@ -993,7 +1020,7 @@ export default function ColumnSelector({ columns, onChange, disabled = false, er
                                     onChange={(e) =>
                                       updateColumn(col.id, {
                                         dataDefinitionType: (e.target as HTMLSelectElement).value as ColumnDataType,
-                                        config: {},
+                                        dataDefinitionConfig: {},
                                       })
                                     }
                                     disabled={disabled}

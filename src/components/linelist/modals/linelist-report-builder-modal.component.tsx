@@ -48,12 +48,14 @@ import type {
   LinelistParameterDraft,
   VisualFilterState,
   FilterFieldType,
+  // LinelistDataDefinitionMap,
 } from '../../../types/linelist-types';
 import {
   draftToConfig,
   validateLinelistDraft,
   isLinelistDraftValid,
-  isLinelistDraftReadyToPublish,
+  isLinelistDraftReadyToCompile,
+  // isLinelistDraftReadyToPublish,
   generateLinelistWarnings,
 } from '../../../types/linelist-types';
 
@@ -61,6 +63,7 @@ import {
   createLinelistReport,
   updateLinelistReport,
   configToSavePayload,
+  compileLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto } from '../../../types/linelist-types';
 import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
@@ -88,16 +91,34 @@ type Props = {
  * Default draft state
  */
 const defaultDraft: LinelistReportDraft = {
+  version: 2,
   name: '',
   description: '',
   code: '',
   currentPanel: 'basics',
   categoryUuid: '',
   themeUuid: '',
-  dataSourceUuid: '',
+  dataSourceUuid: '', // @deprecated - use dataSources instead
+  dataSources: [],
   rowGrain: 'PATIENT',
   templateId: '',
-  cohortSql: '',
+  cohortSql: '', // @deprecated - use population.sqlTemplate instead
+  population: {
+    baseDataSourceUuid: '',
+    buildMethod: 'SQL_BUILDER',
+    sqlTemplate: '',
+    parameterReferences: [],
+    visualFilter: {
+      rootGroup: {
+        id: 'root',
+        logicalOperator: 'AND',
+        conditions: [],
+        nestedGroups: [],
+      },
+      useVisualBuilder: false,
+    },
+    buildHistory: [],
+  },
   visualFilter: {
     rootGroup: {
       id: 'root',
@@ -108,11 +129,56 @@ const defaultDraft: LinelistReportDraft = {
   },
   columns: [],
   parameters: [],
-  dataSetName: 'PATIENT_LIST',
+  dataSetName: 'PATIENT_LIST', // @deprecated
   sortConfig: [],
   limit: 1000,
-  errors: {},
+  displaySettings: {
+    defaultPageSize: 25,
+    freezeFirstColumn: true,
+    freezeHeader: true,
+    dateDisplayFormat: 'dd MMM yyyy',
+    nullDisplayValue: '—',
+    maxInteractiveRows: 500,
+    maxExportRows: 100000,
+    allowedExports: ['CSV', 'XLSX', 'PDF'],
+    includeParametersInExportHeader: true,
+    includeGeneratedTimestamp: true,
+  },
+  validation: {
+    errors: {},
+    warnings: {},
+    lastValidated: new Date().toISOString(),
+  },
+  metadata: {
+    createdAt: new Date().toISOString(),
+    lastModified: new Date().toISOString(),
+    buildMethod: 'NEW',
+    version: 2,
+    status: 'DRAFT',
+  },
+  errors: {}, // Embedded validation errors
 };
+
+/**
+ * Extract table and field from a SQL reference
+ * Parses patterns like `table.field`, `table`.`field`, table.field
+ */
+function extractTableAndFieldFromSql(sql: string): { table: string; field: string } | null {
+  if (!sql) return null;
+
+  // Match patterns like: `table`.`field`, table.field, `table`.field, table.`field`
+  const match = sql.match(/`?(\w+)`?\.\s*`?(\w+)`?/);
+  if (match) {
+    return { table: match[1], field: match[2] };
+  }
+
+  // For custom SQL (SELECT statements), return null
+  if (/^\s*SELECT\s/i.test(sql) || /:patientId\b/i.test(sql)) {
+    return null;
+  }
+
+  return null;
+}
 
 /**
  * Convert LinelistReportDto to LinelistReportDraft for editing
@@ -142,11 +208,55 @@ function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
 
   if (dataSet?.columns) {
     dataSet.columns.forEach((col, idx) => {
+      const dataDef = (col.dataDefinition as any) || {};
+      const dataDefConfig = dataDef.config || {};
+      const dataDefType = dataDef.type || 'SQL';
+
+      // Extract table and field from SQL if available
+      const sql = dataDefConfig.sql || '';
+      const tableFieldInfo = extractTableAndFieldFromSql(sql);
+
+      // Determine data source info
+      const dataSourceUuid = tableFieldInfo?.table || (config as any).dataSourceUuid || '';
+      const dataSourceName = tableFieldInfo?.table || (config as any).dataSourceUuid || '';
+      const table = tableFieldInfo?.table || 'unknown';
+      const field = tableFieldInfo?.field || col.name;
+
+      // Map data definition type to field type
+      const fieldTypeMap: Record<string, string> = {
+        'IDENTIFIER': 'IDENTIFIER',
+        'PERSON_NAME': 'TEXT',
+        'PERSON_ATTRIBUTE': 'TEXT',
+        'CALCULATION': 'NUMBER',
+        'PERSON_ADDRESS': 'TEXT',
+        'SQL': 'TEXT',
+      };
+      const fieldType = fieldTypeMap[dataDefType] || 'TEXT';
+
       columns.push({
         id: `col-${idx}`,
         name: col.name,
-        dataDefinitionType: (col.dataDefinition as any).type || 'SQL',
-        config: (col.dataDefinition as any).config || {},
+        dataDefinitionType: dataDefType,
+        dataDefinitionConfig: dataDefConfig,
+        config: dataDefConfig, // @deprecated
+        source: {
+          dataSourceUuid,
+          dataSourceName,
+          table,
+          field,
+          fieldType,
+        },
+        additionInfo: {
+          addedVia: 'IMPORT',
+          addedAt: new Date().toISOString(),
+          orderAdded: idx,
+        },
+        display: {
+          width: 150,
+          align: 'left',
+          sortable: true,
+          filterable: true,
+        },
         sortOrder: idx,
         repeatResolution: (col as any).repeatResolution,
       });
@@ -205,6 +315,10 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [panelValidation, setPanelValidation] = useState<Record<string, boolean>>({});
+  const [compiling, setCompiling] = useState(false);
+  const [compileError, setCompileError] = useState<string | null>(null);
+  const [compileSuccess, setCompileSuccess] = useState<string | null>(null);
+  const [savedReportUuid, setSavedReportUuid] = useState<string | null>(null);
 
   // Data for dropdowns
   const [categories, setCategories] = useState<ReportCategoryDto[]>([]);
@@ -233,11 +347,15 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
     if (open) {
       if (mode === 'edit' && initialReport) {
         setDraft(reportDtoToDraft(initialReport));
+        setSavedReportUuid(initialReport.uuid); // Initialize savedReportUuid in edit mode
       } else {
         setDraft({ ...defaultDraft });
+        setSavedReportUuid(null); // Reset for create mode
       }
       setSaveError(null);
       setPanelValidation({});
+      setCompileError(null);
+      setCompileSuccess(null);
     }
   }, [open, mode, initialReport]);
 
@@ -265,10 +383,10 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
 
     switch (panel) {
       case 'basics':
-        valid = !errors.name && !errors.categoryUuid && !errors.themeUuid && !errors.dataSourceUuid && !errors.rowGrain;
+        valid = !errors.name && !errors.categoryUuid && !errors.themeUuid && !errors.dataSources && !errors.rowGrain;
         break;
       case 'cohort':
-        valid = !errors.cohortSql;
+        valid = !errors.population;
         break;
       case 'columns':
         valid = !errors.columns;
@@ -315,9 +433,44 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
   }, [draft.currentPanel, goToPanel]);
 
   /**
-   * Save the report
+   * Save the report (stays open for compile)
    */
   const handleSave = useCallback(async () => {
+    if (!isLinelistDraftValid(draft)) {
+      setSaveError('Please fix all validation errors before saving');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const config = draftToConfig(draft);
+      const payload = configToSavePayload(config, {
+        name: draft.name,
+        description: draft.description,
+        code: draft.code,
+      });
+
+      let result;
+      if (mode === 'create') {
+        result = await createLinelistReport(payload);
+      } else {
+        result = await updateLinelistReport(initialReport?.uuid || '', payload);
+      }
+
+      setSavedReportUuid(result?.uuid || null);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save report');
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, mode, initialReport?.uuid]);
+
+  /**
+   * Save and close (original behavior)
+   */
+  const handleSaveAndClose = useCallback(async () => {
     if (!isLinelistDraftValid(draft)) {
       setSaveError('Please fix all validation errors before saving');
       return;
@@ -347,7 +500,35 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
     } finally {
       setSaving(false);
     }
-  }, [draft, mode, initialReport, onSaved, onClose]);
+  }, [draft, mode, initialReport?.uuid, onSaved, onClose]);
+
+  /**
+   * Compile the report (only available after save)
+   */
+  const handleCompile = useCallback(async () => {
+    if (!savedReportUuid) {
+      setCompileError('Please save the report first before compiling');
+      return;
+    }
+
+    setCompiling(true);
+    setCompileError(null);
+    setCompileSuccess(null);
+
+    try {
+      const result = await compileLinelistReport(savedReportUuid);
+
+      setCompileSuccess(
+        result?.reportDefinitionUuid
+          ? `Compiled successfully. Runtime report UUID: ${result.reportDefinitionUuid}`
+          : 'Compiled successfully.'
+      );
+    } catch (error) {
+      setCompileError(error instanceof Error ? error.message : 'Failed to compile report');
+    } finally {
+      setCompiling(false);
+    }
+  }, [savedReportUuid]);
 
   /**
    * Get panel step number
@@ -386,7 +567,7 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
           <CohortPanel
             draft={draft}
             onChange={updateDraft}
-            error={errors.cohortSql}
+            error={errors.population}
           />
         );
 
@@ -537,6 +718,24 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
               className={styles.notification}
             />
           )}
+          {compileError && (
+            <InlineNotification
+              kind="error"
+              title="Compile Error"
+              subtitle={compileError}
+              onClose={() => setCompileError(null)}
+              className={styles.notification}
+            />
+          )}
+          {compileSuccess && (
+            <InlineNotification
+              kind="success"
+              title="Compiled"
+              subtitle={compileSuccess}
+              onClose={() => setCompileSuccess(null)}
+              className={styles.notification}
+            />
+          )}
 
           {renderPanel()}
         </Content>
@@ -544,24 +743,42 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
 
       {/* Footer Actions */}
       <ButtonSet className={styles.footer}>
-        <Button kind="secondary" onClick={onClose} disabled={saving}>
-          Cancel
+        <Button kind="secondary" onClick={onClose} disabled={saving || compiling}>
+          {savedReportUuid ? 'Close' : 'Cancel'}
         </Button>
         <Button
           kind="ghost"
           onClick={goToPrevPanel}
-          disabled={!canGoPrev || saving}
+          disabled={!canGoPrev || saving || compiling}
         >
           Previous
         </Button>
         {isLastPanel ? (
-          <Button
-            kind="primary"
-            onClick={handleSave}
-            disabled={!isLinelistDraftValid(draft) || saving}
-          >
-            {saving ? 'Saving...' : (mode === 'create' ? 'Create Report' : 'Save Changes')}
-          </Button>
+          <>
+            <Button
+              kind="primary"
+              onClick={handleSaveAndClose}
+              disabled={!isLinelistDraftValid(draft) || saving || compiling}
+            >
+              {saving ? 'Saving...' : (mode === 'create' ? 'Create Report' : 'Save and Close')}
+            </Button>
+            <Button
+              kind="secondary"
+              onClick={handleSave}
+              disabled={!isLinelistDraftValid(draft) || saving || compiling}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            {savedReportUuid && (
+              <Button
+                kind="primary"
+                onClick={handleCompile}
+                disabled={compiling || !isLinelistDraftReadyToCompile(draft)}
+              >
+                {compiling ? 'Compiling...' : 'Compile'}
+              </Button>
+            )}
+          </>
         ) : (
           <Button
             kind="primary"
@@ -596,6 +813,8 @@ function BasicsPanel({
   themes,
   tables,
 }: BasicsPanelProps) {
+  console.log('BasicsPanel render, draft.name:', draft.name, 'draft.categoryUuid:', draft.categoryUuid, 'draft.themeUuid:', draft.themeUuid);
+
   const rowGrainOptions: Array<{ value: LinelistRowGrain; label: string; description: string }> = [
     { value: 'PATIENT', label: 'Patient', description: 'One row per patient' },
     { value: 'ENCOUNTER', label: 'Encounter', description: 'One row per encounter/visit' },
@@ -1080,7 +1299,7 @@ function ReviewPanel({
   themes,
 }: ReviewPanelProps) {
   const warnings = generateLinelistWarnings(draft);
-  const isReadyToPublish = isLinelistDraftReadyToPublish(draft);
+  const isReadyToCompile = isLinelistDraftReadyToCompile(draft);
 
   // Helper to get display names
   const getCategoryName = () => categories.find((c) => c.uuid === draft.categoryUuid)?.name || '-';
@@ -1131,19 +1350,19 @@ function ReviewPanel({
         />
       )}
 
-      {isValid && !isReadyToPublish && (
+      {isValid && !isReadyToCompile && (
         <InlineNotification
           kind="warning"
-          title="Not Ready to Publish"
-          subtitle="Report has validation issues that must be resolved before publishing."
+          title="Not Ready to Compile"
+          subtitle="Report has validation issues that must be resolved before compiling."
           lowContrast
         />
       )}
 
-      {isValid && isReadyToPublish && (
+      {isValid && isReadyToCompile && (
         <InlineNotification
           kind="success"
-          title="Ready to Publish"
+          title="Ready to Compile"
           subtitle="Your linelist report configuration is complete and valid."
           lowContrast
         />

@@ -12,7 +12,7 @@
  * 5. Other - ETL table columns and other fields
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   Stack,
   Button,
@@ -20,11 +20,12 @@ import {
   Accordion,
   AccordionItem,
 } from '@carbon/react';
-import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn } from '@carbon/react/icons';
+import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn, Edit } from '@carbon/react/icons';
 import type {
   LinelistColumnDraft,
 } from '../../../types/linelist-types';
 import styles from './column-category-selector.scss';
+import EditColumnModal from './edit-column-modal.component';
 
 /**
  * Category definitions for organizing columns
@@ -72,6 +73,10 @@ type Props = {
 };
 
 export default function ColumnCategorySelector({ columns, onChange, disabled = false, error }: Props) {
+  // Edit modal state
+  const [editingColumn, setEditingColumn] = useState<LinelistColumnDraft | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
   /**
    * Categorize a column based on its dataDefinitionType and config
    */
@@ -86,7 +91,7 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
 
     if (col.dataDefinitionType === 'PERSON_ATTRIBUTE') {
       // Check if it's a built-in demographic attribute (Sex, Birth Date)
-      const isBuiltInDemographic = col.config.type === 'GENDER' || col.config.type === 'BIRTHDATE';
+      const isBuiltInDemographic = col.dataDefinitionConfig.type === 'GENDER' || col.dataDefinitionConfig.type === 'BIRTHDATE';
       if (isBuiltInDemographic) {
         return 'demographics';
       }
@@ -134,6 +139,36 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
     const updatedColumns = columns.filter((c) => c.id !== columnId);
     onChange(updatedColumns);
   }, [columns, onChange]);
+
+  /**
+   * Edit a column
+   */
+  const editColumn = useCallback((column: LinelistColumnDraft) => {
+    setEditingColumn(column);
+    setShowEditModal(true);
+  }, []);
+
+  /**
+   * Save edited column
+   */
+  const saveColumn = useCallback((updatedColumn: LinelistColumnDraft) => {
+    const index = columns.findIndex(c => c.id === updatedColumn.id);
+    if (index !== -1) {
+      const updatedColumns = [...columns];
+      updatedColumns[index] = updatedColumn;
+      onChange(updatedColumns);
+    }
+    setShowEditModal(false);
+    setEditingColumn(null);
+  }, [columns, onChange]);
+
+  /**
+   * Cancel editing
+   */
+  const cancelEdit = useCallback(() => {
+    setShowEditModal(false);
+    setEditingColumn(null);
+  }, []);
 
   const totalColumns = columns.length;
 
@@ -195,8 +230,20 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
                         <div key={col.id} className={styles.columnItem}>
                           <span className={styles.columnOrder}>{col.sortOrder + 1}.</span>
                           <span className={styles.columnName}>{col.name}</span>
+                          {col.source?.dataSourceName && (
+                            <Tag size="sm" type="cool-gray">{col.source.dataSourceName}</Tag>
+                          )}
                           <Tag size="sm" type="gray">{col.dataDefinitionType}</Tag>
                           <div className={styles.columnActions}>
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              hasIconOnly
+                              renderIcon={Edit}
+                              onClick={() => editColumn(col)}
+                              disabled={disabled}
+                              iconDescription="Edit column"
+                            />
                             <Button
                               kind="ghost"
                               size="sm"
@@ -216,6 +263,14 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
             })}
           </Accordion>
         )}
+
+        {/* Edit Column Modal */}
+        <EditColumnModal
+          open={showEditModal}
+          column={editingColumn}
+          onSave={saveColumn}
+          onClose={cancelEdit}
+        />
       </Stack>
     </div>
   );

@@ -471,9 +471,18 @@ function convertCountToPopulation(sql: string, patientIdColumn: string = 'client
         // Ensure the output is aliased correctly
         const fixed = fixCommonTypos(withoutSemicolon);
         // If it's already aliasing correctly (AS patientIdColumn), return as-is
-        const aliasCheck = new RegExp(`AS\\\\s+${patientIdColumn}$`, 'i');
+        const aliasCheck = new RegExp(`AS\\\\s+${patientIdColumn}$`, 'im');
         if (aliasCheck.test(fixed)) {
             return fixed;
+        }
+        // Check if the column already matches patientIdColumn (no alias needed)
+        // e.g., "SELECT DISTINCT a.client_id" when patientIdColumn is "client_id"
+        const columnMatch = fixed.match(/SELECT\s+DISTINCT\s+(\w+\.?\w*)\s*$/im);
+        if (columnMatch) {
+            const columnName = columnMatch[1].split('.').pop(); // Get just column name without alias
+            if (columnName === patientIdColumn) {
+                return fixed; // No alias needed when column name matches
+            }
         }
         // Otherwise, fix the alias to use patientIdColumn
         const replacePattern = /SELECT\s+DISTINCT\s+(\w+\.?(?:client_id|patient_id|encounter_id))/i;
@@ -600,7 +609,7 @@ cnt AS (
     COUNT(DISTINCT base_pop.${patientIdColumn}) AS value
   FROM base_pop
   JOIN mamba_fact_patients_latest_patient_demographics mdp
-    ON mdp.patient_id = base_pop.${patientIdColumn}
+    ON mdp.${patientIdColumn} = base_pop.${patientIdColumn}
   JOIN ag
     ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days

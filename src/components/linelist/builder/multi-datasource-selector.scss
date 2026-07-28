@@ -1,0 +1,161 @@
+@use '@carbon/styles/scss/type' as *;
+@use '@carbon/styles/scss/colors' as *;
+@use '@carbon/styles/scss/spacing' as *;
+@use '@carbon/styles/scss/theme' as *;
+
+.container {
+  padding: $spacing-04;
+}
+
+.header {
+  margin-bottom: $spacing-03;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+  margin-bottom: $spacing-02;
+
+  h4 {
+    @include type-style('heading-01');
+    margin: 0;
+  }
+}
+
+.headerDescription {
+  @include type-style('body-01');
+  color: $text-secondary;
+  margin: 0;
+}
+
+.themeSelector {
+  margin-bottom: $spacing-04;
+}
+
+.addSection {
+  margin-bottom: $spacing-04;
+}
+
+.addControls {
+  display: flex;
+  gap: $spacing-02;
+  align-items: flex-end;
+
+  #new-datasource {
+    flex: 1;
+  }
+}
+
+.error {
+  @include type-style('caption-01');
+  color: $support-error;
+  margin-top: $spacing-02;
+}
+
+.coreToggle {
+  margin-bottom: $spacing-03;
+}
+
+.coreSection {
+  padding: $spacing-03;
+  background-color: $field-01;
+  border-radius: 8px;
+  margin-bottom: $spacing-04;
+}
+
+.coreLabel {
+  @include type-style('label-01');
+  margin: 0 0 $spacing-02 0;
+}
+
+.coreButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-02;
+}
+
+.listSection {
+  margin-bottom: $spacing-04;
+}
+
+.listTitle {
+  @include type-style('heading-02');
+  margin: 0 0 $spacing-03 0;
+}
+
+.datasourceCard {
+  border: 1px solid $border-subtle;
+  border-radius: 8px;
+  padding: $spacing-03;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &[data-role="primary"] {
+    border-left: 4px solid $support-success;
+    background-color: rgba($support-success, 0.05);
+  }
+
+  &[data-role="secondary"] {
+    border-left: 4px solid $interactive;
+    background-color: rgba($interactive, 0.05);
+  }
+
+  &[data-role="reference"] {
+    border-left: 4px solid $purple-50;
+    background-color: rgba($purple-50, 0.05);
+  }
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-02;
+}
+
+.cardInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+}
+
+.dsName {
+  @include type-style('body-01');
+  font-weight: 600;
+}
+
+.cardDescription {
+  @include type-style('caption-01');
+  color: $text-secondary;
+  margin: 0;
+}
+
+.emptyState {
+  padding: $spacing-05;
+  text-align: center;
+  color: $text-secondary;
+  background-color: $field-01;
+  border-radius: 8px;
+
+  p {
+    @include type-style('body-01');
+    margin: 0;
+  }
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  padding: $spacing-03;
+  background-color: $field-02;
+  border-radius: 8px;
+
+  span {
+    @include type-style('caption-01');
+    color: $text-secondary;
+  }
+}

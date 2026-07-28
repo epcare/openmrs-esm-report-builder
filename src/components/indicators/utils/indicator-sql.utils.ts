@@ -86,7 +86,7 @@ export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: bo
     lines.push(`  COUNT${countDistinctPatientId ? `(DISTINCT a.${pid})` : '(*)'} AS total`);
     lines.push(`FROM ${src} a`);
     lines.push(`JOIN ${DEMO_JOIN_TABLE} mdp`);
-    lines.push(`  ON mdp.patient_id = a.${pid}`);
+    lines.push(`  ON mdp.${pid} = a.${pid}`);
     lines.push(`WHERE`);
 
     // Only add date filtering if not excluded

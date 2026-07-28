@@ -727,6 +727,10 @@ const DataVisualizer: React.FC = () => {
             } else if (reportCategory.renderType === "html") {
               setHTML(reportData?.html ?? "");
               setDhisJson(reportData?.json ?? {});
+            } else if (chartType === "linelist" && reportData?._html) {
+              // Handle linelist HTML from backend _html key
+              setHTML(reportData?._html?.[0]?.html ?? "");
+              setDhisJson(reportData?.json ?? {});
             } else {
               const responseReportName = Object.keys(reportData)[0];
 
@@ -768,7 +772,11 @@ const DataVisualizer: React.FC = () => {
               }
             }
           } else {
-            if (reportData[0]) {
+            if (chartType === "linelist" && reportData?._html) {
+              // Handle linelist HTML from backend _html key
+              setHTML(reportData?._html?.[0]?.html ?? "");
+              setDhisJson(reportData?.json ?? {});
+            } else if (reportData[0]) {
               const columnNames = Object.keys(reportData[0]);
               headers = createColumns(columnNames);
               dataForReport = reportData;
@@ -798,6 +806,7 @@ const DataVisualizer: React.FC = () => {
     );
   }, [
     cqiReportingCohort,
+    chartType,
     endDate,
     reportCategory,
     reportType,
@@ -1419,21 +1428,14 @@ const DataVisualizer: React.FC = () => {
           )}
 
           {chartType === "linelist" && !loading && (
-            <div className={styles.reportContainer}>
-              <h3 className={styles.listHeading}>
-                {reportName} ({dayjs(startDate).format("DD/MM/YYYY")} -{" "}
-                {dayjs(endDate).format("DD/MM/YYYY")})
-              </h3>
-              <div className={styles.reportDataTable}>
-                <DataList
-                  columns={tableHeaders}
-                  data={data}
-                  report={{
-                    type: "dynamic",
-                    name: selectedReport?.label ?? "",
-                  }}
-                />
-              </div>
+            <div className={styles.reportTableContainer}>
+              <section className={styles.reportOptions}>
+                <h3 className={styles.listHeading}>
+                  {reportName} ({dayjs(startDate).format("DD/MM/YYYY")} -{" "}
+                  {dayjs(endDate).format("DD/MM/YYYY")})
+                </h3>
+              </section>
+              <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
             </div>
           )}
 

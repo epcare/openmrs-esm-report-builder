@@ -11,7 +11,7 @@
  * - Display & Export
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Stack,
   Button,
@@ -41,12 +41,14 @@ import type {
   FilterCondition,
   PopulationMode,
   LogicalOperator,
+  PopulationDefinition,
 } from '../../../types/linelist-types';
 import type { IndicatorDto } from '../../../resources/indicator/indicators.api';
 import type { IndicatorOption } from '../../indicators/types/composite-indicator.types';
 import IndicatorSearchSelect from '../../indicators/indicator-search-select.component';
 import JsonPreview from '../shared/json-preview.component';
 import ColumnCategorySelector from '../builder/column-category-selector.component';
+import ParameterEditor from './parameter-editor.component';
 import styles from './query-config-panel.scss';
 
 type Props = {
@@ -97,7 +99,18 @@ type SectionKey = 'dataset' | 'population' | 'columns' | 'filters' | 'sort' | 'p
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function QueryConfigPanel({ draft, onDraftChange, availableFields = [], populationFields = [], indicators = [], onRemoveColumn, disabled = false }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(new Set(['population']));
-  const [populationMode, setPopulationMode] = useState<PopulationMode>(draft.populationMode || 'SQL');
+  const [populationMode, setPopulationMode] = useState<PopulationMode>('SQL');
+
+  // Sync populationMode from the draft's build method when loading a report
+  useEffect(() => {
+    if (draft.population?.buildMethod === 'INDICATOR_BASED') {
+      setPopulationMode('INDICATOR');
+    } else if (draft.population?.buildMethod === 'VISUAL_FILTER') {
+      setPopulationMode('SQL');
+    } else {
+      setPopulationMode('SQL');
+    }
+  }, [draft.population?.buildMethod]);
 
   // Drag and drop state for columns (for future use)
   // const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -131,25 +144,35 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
       value: '',
     };
 
-    // Ensure visualFilter and rootGroup exist
-    const currentConditions = draft.visualFilter?.rootGroup?.conditions || [];
+    // Ensure visualFilter and rootGroup exist - read from population.visualFilter with legacy fallback
+    const currentVisualFilter = draft.population?.visualFilter || draft.visualFilter;
+    const currentConditions = currentVisualFilter?.rootGroup?.conditions || [];
     const updatedFilter = {
       rootGroup: {
         id: 'root',
-        logicalOperator: (draft.visualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
+        logicalOperator: (currentVisualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
         conditions: [...currentConditions, newCondition],
       },
       useVisualBuilder: true,
     };
 
-    onDraftChange({ visualFilter: updatedFilter });
-  }, [draft.visualFilter, onDraftChange]);
+    // Update both population.visualFilter (preferred) and legacy visualFilter for backward compatibility
+    onDraftChange({
+      population: {
+        ...draft.population,
+        visualFilter: updatedFilter,
+      },
+      visualFilter: updatedFilter, // Legacy - keep in sync for backward compatibility
+    });
+  }, [draft.population, draft.visualFilter, onDraftChange]);
 
   /**
    * Update a condition in population filter
    */
   const updatePopulationCondition = useCallback((conditionId: string, updates: Partial<FilterCondition>) => {
-    const currentConditions = draft.visualFilter?.rootGroup?.conditions || [];
+    // Read from population.visualFilter with legacy fallback
+    const currentVisualFilter = draft.population?.visualFilter || draft.visualFilter;
+    const currentConditions = currentVisualFilter?.rootGroup?.conditions || [];
     const updatedConditions = currentConditions.map((c) =>
       c.id === conditionId ? { ...c, ...updates } : c
     );
@@ -171,49 +194,91 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
 
     const updatedFilter = {
       rootGroup: {
-        id: draft.visualFilter?.rootGroup?.id || 'root',
-        logicalOperator: (draft.visualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
+        id: currentVisualFilter?.rootGroup?.id || 'root',
+        logicalOperator: (currentVisualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
         conditions: updatedConditions,
       },
       useVisualBuilder: true,
     };
 
-    onDraftChange({ visualFilter: updatedFilter });
-  }, [draft.visualFilter, onDraftChange, populationFields]);
+    // Update both population.visualFilter (preferred) and legacy visualFilter for backward compatibility
+    onDraftChange({
+      population: {
+        ...draft.population,
+        visualFilter: updatedFilter,
+      },
+      visualFilter: updatedFilter, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.visualFilter, onDraftChange, populationFields]);
 
   /**
    * Remove a condition from population filter
    */
   const removePopulationCondition = useCallback((conditionId: string) => {
-    const currentConditions = draft.visualFilter?.rootGroup?.conditions || [];
+    // Read from population.visualFilter with legacy fallback
+    const currentVisualFilter = draft.population?.visualFilter || draft.visualFilter;
+    const currentConditions = currentVisualFilter?.rootGroup?.conditions || [];
     const updatedConditions = currentConditions.filter(
       (c) => c.id !== conditionId
     );
 
     const updatedFilter = {
       rootGroup: {
-        id: draft.visualFilter?.rootGroup?.id || 'root',
-        logicalOperator: (draft.visualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
+        id: currentVisualFilter?.rootGroup?.id || 'root',
+        logicalOperator: (currentVisualFilter?.rootGroup?.logicalOperator || 'AND') as LogicalOperator,
         conditions: updatedConditions,
       },
       useVisualBuilder: true,
     };
 
-    onDraftChange({ visualFilter: updatedFilter });
-  }, [draft.visualFilter, onDraftChange]);
+    // Update both population.visualFilter (preferred) and legacy visualFilter for backward compatibility
+    onDraftChange({
+      population: {
+        ...draft.population,
+        visualFilter: updatedFilter,
+      },
+      visualFilter: updatedFilter, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.visualFilter, onDraftChange]);
 
   /**
    * Handle population mode change
    */
   const handlePopulationModeChange = useCallback((mode: PopulationMode) => {
     setPopulationMode(mode);
-    onDraftChange({ populationMode: mode });
+
+    // Map PopulationMode to buildMethod
+    let buildMethod: PopulationDefinition['buildMethod'];
+    switch (mode) {
+      case 'INDICATOR':
+        buildMethod = 'INDICATOR_BASED';
+        break;
+      case 'HYBRID':
+        buildMethod = 'INDICATOR_BASED'; // HYBRID uses indicators too
+        break;
+      case 'SQL':
+      default:
+        buildMethod = 'SQL_BUILDER';
+        break;
+    }
 
     // Initialize indicatorRules array if switching to INDICATOR mode
-    if (mode === 'INDICATOR' && !draft.indicatorRules) {
-      onDraftChange({ indicatorRules: [] });
-    }
-  }, [onDraftChange, draft.indicatorRules]);
+    const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
+    const indicatorRulesToUse = mode === 'INDICATOR' || mode === 'HYBRID'
+      ? (currentRules.length > 0 ? currentRules : [])
+      : draft.population?.indicatorRules || draft.indicatorRules || [];
+
+    // Update both population.buildMethod (preferred) and legacy fields
+    onDraftChange({
+      population: {
+        ...draft.population,
+        buildMethod,
+        indicatorRules: indicatorRulesToUse,
+      },
+      populationMode: mode, // Legacy - keep in sync
+      indicatorRules: indicatorRulesToUse, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.indicatorRules, onDraftChange]);
 
   /**
    * Add an indicator rule
@@ -227,41 +292,75 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
       negate: false,
     };
 
-    const updatedRules = [...(draft.indicatorRules || []), newRule];
-    onDraftChange({ indicatorRules: updatedRules });
-  }, [draft.indicatorRules, onDraftChange]);
+    const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
+    const updatedRules = [...currentRules, newRule];
+    // Update both population.indicatorRules (preferred) and legacy indicatorRules
+    onDraftChange({
+      population: {
+        ...draft.population,
+        indicatorRules: updatedRules,
+      },
+      indicatorRules: updatedRules, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.indicatorRules, onDraftChange]);
 
   /**
    * Update an indicator rule
    */
   const updateIndicatorRule = useCallback((ruleId: string, updates: Partial<IndicatorRule>) => {
-    const updatedRules = (draft.indicatorRules || []).map((rule) =>
+    const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
+    const updatedRules = currentRules.map((rule) =>
       rule.id === ruleId ? { ...rule, ...updates } : rule
     );
-    onDraftChange({ indicatorRules: updatedRules });
-  }, [draft.indicatorRules, onDraftChange]);
+    // Update both population.indicatorRules (preferred) and legacy indicatorRules
+    onDraftChange({
+      population: {
+        ...draft.population,
+        indicatorRules: updatedRules,
+      },
+      indicatorRules: updatedRules, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.indicatorRules, onDraftChange]);
 
   /**
    * Handle indicator selection from IndicatorSearchSelect
    */
   const handleIndicatorSelect = useCallback((ruleId: string, indicatorUuid: string, option: IndicatorOption | null) => {
-    const updatedRules = (draft.indicatorRules || []).map((rule) =>
+    const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
+    const updatedRules = currentRules.map((rule) =>
       rule.id === ruleId
         ? { ...rule, indicatorUuid, name: option?.name || '' }
         : rule
     );
-    onDraftChange({ indicatorRules: updatedRules });
-  }, [draft.indicatorRules, onDraftChange]);
+    // Update both population.indicatorRules (preferred) and legacy indicatorRules
+    onDraftChange({
+      population: {
+        ...draft.population,
+        indicatorRules: updatedRules,
+      },
+      indicatorRules: updatedRules, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.indicatorRules, onDraftChange]);
 
   /**
    * Remove an indicator rule
    */
   const removeIndicatorRule = useCallback((ruleId: string) => {
-    const updatedRules = (draft.indicatorRules || []).filter((rule) => rule.id !== ruleId);
-    onDraftChange({ indicatorRules: updatedRules });
-  }, [draft.indicatorRules, onDraftChange]);
+    const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
+    const updatedRules = currentRules.filter((rule) => rule.id !== ruleId);
+    // Update both population.indicatorRules (preferred) and legacy indicatorRules
+    onDraftChange({
+      population: {
+        ...draft.population,
+        indicatorRules: updatedRules,
+      },
+      indicatorRules: updatedRules, // Legacy - keep in sync
+    });
+  }, [draft.population, draft.indicatorRules, onDraftChange]);
 
-  const conditions = draft.visualFilter?.rootGroup?.conditions || [];
+  // Read from population.visualFilter (preferred) with fallback to legacy visualFilter
+  const visualFilterRoot = draft.population?.visualFilter?.rootGroup || draft.visualFilter?.rootGroup;
+  const conditions = visualFilterRoot?.conditions || [];
 
   /**
    * Drag and drop handlers for columns (for future use)
@@ -319,8 +418,21 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                 <span className={styles.datasetValue}>{draft.themeUuid || 'Not selected'}</span>
               </div>
               <div className={styles.datasetRow}>
-                <span className={styles.datasetLabel}>Data source:</span>
-                <span className={styles.datasetValue}>{draft.dataSourceUuid || 'Not selected'}</span>
+                <span className={styles.datasetLabel}>Data sources:</span>
+                <span className={styles.datasetValue}>
+                  {draft.dataSources && draft.dataSources.length > 0 ? (
+                    <div className={styles.datasourceTags}>
+                      {draft.dataSources.map(ds => (
+                        <Tag key={ds.uuid} size="sm" type={
+                          ds.role === 'PRIMARY' ? 'green' :
+                          ds.role === 'SECONDARY' ? 'blue' : 'purple'
+                        }>
+                          {ds.name} ({ds.role})
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : 'Not selected'}
+                </span>
               </div>
               <div className={styles.datasetRow}>
                 <span className={styles.datasetLabel}>Row grain:</span>
@@ -341,7 +453,7 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
           <div className={styles.sectionHeaderLeft}>
             <DataTable size={20} />
             <span className={styles.sectionTitle}>Population</span>
-            <Tag size="sm" type="blue">{populationMode === 'INDICATOR' ? (draft.indicatorRules?.length || 0) : conditions.length}</Tag>
+            <Tag size="sm" type="blue">{populationMode === 'INDICATOR' ? ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) : conditions.length}</Tag>
           </div>
           <div className={styles.sectionHeaderRight}>
             {expandedSections.has('population') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -490,7 +602,7 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                 </div>
 
                 <Stack gap={3} className={styles.conditionsStack}>
-                  {(draft.indicatorRules || []).map((rule, index) => (
+                  {((draft.population?.indicatorRules || draft.indicatorRules) || []).map((rule, index) => (
                     <div key={rule.id} className={styles.conditionRow}>
                       <Document size={16} className={styles.rowIcon} />
 
@@ -534,7 +646,7 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                       )}
 
                       {/* "and" text between conditions */}
-                      {index < (draft.indicatorRules?.length || 0) - 1 && (
+                      {index < ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) - 1 && (
                         <span className={styles.andText}>and</span>
                       )}
 
@@ -685,12 +797,11 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
         </button>
         {expandedSections.has('parameters') && (
           <div className={styles.sectionContent}>
-            <div className={styles.placeholderContent}>
-              <p>Parameters configuration will be shown here.</p>
-              <p className={styles.placeholderSubtext}>
-                {draft.parameters.length} parameter{draft.parameters.length !== 1 ? 's' : ''} defined
-              </p>
-            </div>
+            <ParameterEditor
+              parameters={draft.parameters}
+              onChange={(parameters) => onDraftChange({ parameters })}
+              disabled={disabled}
+            />
           </div>
         )}
       </div>
