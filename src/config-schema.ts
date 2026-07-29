@@ -22,10 +22,13 @@ export const configSchema = {
   },
   etlTasks: {
     _description: 'ETL task configuration for data extraction and processing.',
-    taskNames: {
-      _default: '',
-      _description: 'Comma-separated list of ETL task names to execute. Tasks must exist in OpenMRS task definitions.',
-      _type: Type.String,
+    tasks: {
+      _default: [],
+      _description: 'List of ETL task names to execute. Tasks must exist in OpenMRS task definitions.',
+      _type: Type.Array,
+      _elements: {
+        _type: Type.String,
+      },
     },
   },
 };

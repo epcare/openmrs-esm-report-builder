@@ -5,7 +5,7 @@
  * Tasks are configured by setting the 'etlTasks.taskNames' config option.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
@@ -32,16 +32,19 @@ export default function ETLTasksPage() {
   const [error, setError] = useState<string | null>(null);
   const [executingTaskName, setExecutingTaskName] = useState<string | null>(null);
 
-  // Get ETL task config from frontend config
-  const etlTaskConfig = useConfig<any>()?.etlTasks?.taskNames || '';
+  // Get ETL task config from frontend config (now an array)
+  const config = useConfig<any>();
+  const etlTaskNames = useMemo(() => config?.etlTasks?.tasks || [], [config?.etlTasks?.tasks]);
 
   // Load tasks function
   const loadTasks = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      if (etlTaskConfig.trim()) {
-        const taskList = await fetchTasksByNames(etlTaskConfig, signal);
+      if (etlTaskNames.length > 0) {
+        // Convert array to comma-separated string for the API
+        const taskNamesString = etlTaskNames.join(', ');
+        const taskList = await fetchTasksByNames(taskNamesString, signal);
         setTasks(taskList);
       } else {
         setTasks([]);
@@ -51,7 +54,7 @@ export default function ETLTasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [etlTaskConfig]);
+  }, [etlTaskNames]);
 
   // Load tasks when config changes
   useEffect(() => {
@@ -136,9 +139,9 @@ export default function ETLTasksPage() {
           <div>
             <h4 style={{ margin: 0 }}>Configured Tasks</h4>
             <p style={{ margin: '0.25rem 0 0', color: 'var(--cds-text-02)', fontSize: '0.875rem' }}>
-              {etlTaskConfig
-                ? `Tasks: ${etlTaskConfig}`
-                : 'No ETL tasks configured. Configure via frontend config: etlTasks.taskNames'}
+              {etlTaskNames.length > 0
+                ? `Tasks: ${etlTaskNames.join(', ')}`
+                : 'No ETL tasks configured. Configure via frontend config: etlTasks.tasks'}
             </p>
           </div>
           <Button
@@ -155,7 +158,7 @@ export default function ETLTasksPage() {
         {/* Tasks List */}
         {loading && tasks.length === 0 ? (
           <InlineLoading description={t('loadingETLTasks', 'Loading ETL tasks...')} />
-        ) : tasks.length === 0 && etlTaskConfig.trim() && !loading ? (
+        ) : tasks.length === 0 && etlTaskNames.length > 0 && !loading ? (
           <Tile className={styles.emptyState}>
             <Settings size={48} className={styles.emptyStateIcon} />
             <h3>{t('noTasksFound', 'No Tasks Found')}</h3>
@@ -163,15 +166,15 @@ export default function ETLTasksPage() {
               {t('noTasksFoundDesc', 'No ETL tasks found for the configured task names. Verify the task names match existing OpenMRS task definitions.')}
             </p>
             <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--cds-text-02)' }}>
-              <strong>Configured:</strong> {etlTaskConfig}
+              <strong>Configured:</strong> {etlTaskNames.join(', ')}
             </p>
           </Tile>
-        ) : tasks.length === 0 && !etlTaskConfig.trim() && !loading ? (
+        ) : tasks.length === 0 && etlTaskNames.length === 0 && !loading ? (
           <Tile className={styles.emptyState}>
             <Settings size={48} className={styles.emptyStateIcon} />
             <h3>{t('noConfig', 'No Configuration')}</h3>
             <p>
-              {t('noConfigDesc', 'No ETL tasks have been configured. Configure the frontend config option "etlTasks.taskNames" with comma-separated task names.')}
+              {t('noConfigDesc', 'No ETL tasks have been configured. Configure the frontend config option "etlTasks.tasks" with an array of task names.')}
             </p>
           </Tile>
         ) : (
