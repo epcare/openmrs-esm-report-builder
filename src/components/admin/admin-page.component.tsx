@@ -30,6 +30,11 @@ export default function AdminPage() {
           <h4>Data Themes</h4>
           <p>Manage reusable source configurations and table mappings.</p>
         </ClickableTile>
+
+        <ClickableTile style={tileStyle} onClick={() => navigate('/admin/etl-tasks')}>
+          <h4>ETL Tasks</h4>
+          <p>Configure and run scheduled ETL processes for data extraction and transformation.</p>
+        </ClickableTile>
       </div>
     </Stack>
   );
