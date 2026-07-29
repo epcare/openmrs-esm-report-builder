@@ -18,6 +18,7 @@ import {
   Select,
   SelectItem,
   TextInput,
+  TextArea,
   Tag,
   Toggle,
 } from '@carbon/react';
@@ -100,6 +101,28 @@ type SectionKey = 'dataset' | 'population' | 'columns' | 'filters' | 'sort' | 'p
 export default function QueryConfigPanel({ draft, onDraftChange, availableFields = [], populationFields = [], indicators = [], onRemoveColumn, disabled = false }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<SectionKey>>(new Set(['population']));
   const [populationMode, setPopulationMode] = useState<PopulationMode>('SQL');
+  const [useCustomSql, setUseCustomSql] = useState<boolean>(false);
+
+  // Sync populationMode from the draft's build method when loading a report
+  useEffect(() => {
+    if (draft.population?.buildMethod === 'INDICATOR_BASED') {
+      setPopulationMode('INDICATOR');
+    } else if (draft.population?.buildMethod === 'VISUAL_FILTER') {
+      setPopulationMode('SQL');
+    } else {
+      setPopulationMode('SQL');
+    }
+  }, [draft.population?.buildMethod]);
+
+  // Initialize useCustomSql based on existing sqlTemplate content
+  useEffect(() => {
+    const hasCustomSql = draft.population?.sqlTemplate && draft.population.sqlTemplate.trim().length > 0;
+    const hasVisualFilter = draft.population?.visualFilter?.rootGroup?.conditions &&
+      draft.population.visualFilter.rootGroup.conditions.length > 0;
+    // Enable custom SQL if there's SQL content but no visual filter conditions
+    setUseCustomSql(hasCustomSql && !hasVisualFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount to avoid overriding user's toggle choice
 
   // Sync populationMode from the draft's build method when loading a report
   useEffect(() => {
@@ -262,11 +285,23 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
         break;
     }
 
-    // Initialize indicatorRules array if switching to INDICATOR mode
+    // Initialize indicatorRules array if switching to INDICATOR or HYBRID mode
     const currentRules = draft.population?.indicatorRules || draft.indicatorRules || [];
     const indicatorRulesToUse = mode === 'INDICATOR' || mode === 'HYBRID'
       ? (currentRules.length > 0 ? currentRules : [])
       : draft.population?.indicatorRules || draft.indicatorRules || [];
+
+    // Reset useCustomSql based on mode
+    if (mode === 'SQL') {
+      // For SQL mode, check if there's existing SQL template
+      const hasCustomSql = draft.population?.sqlTemplate && draft.population.sqlTemplate.trim().length > 0;
+      const hasVisualFilter = draft.population?.visualFilter?.rootGroup?.conditions &&
+        draft.population.visualFilter.rootGroup.conditions.length > 0;
+      setUseCustomSql(hasCustomSql && !hasVisualFilter);
+    } else {
+      // For INDICATOR and HYBRID, use custom SQL textarea is always visible (HYBRID) or not applicable (INDICATOR)
+      setUseCustomSql(false);
+    }
 
     // Update both population.buildMethod (preferred) and legacy fields
     onDraftChange({
@@ -485,7 +520,21 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                   <span className={styles.populationLabel}>All patients where (SQL):</span>
                 </div>
 
-                <Stack gap={3} className={styles.conditionsStack}>
+                {/* Custom SQL Toggle */}
+                <div className={styles.sqlModeToggle}>
+                  <span className={styles.sqlModeLabel}>Input method:</span>
+                  <Toggle
+                    id="custom-sql-toggle"
+                    labelA="Visual Builder"
+                    labelB="Custom SQL"
+                    toggled={useCustomSql}
+                    onToggle={(checked) => setUseCustomSql(checked)}
+                    disabled={disabled}
+                  />
+                </div>
+
+                {!useCustomSql && (
+                  <Stack gap={3} className={styles.conditionsStack}>
                   {conditions.map((condition, index) => (
                     <div key={condition.id} className={styles.conditionRow}>
                       {/* Field dropdown */}
@@ -589,6 +638,33 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                     Add condition
                   </Button>
                 </Stack>
+                )}
+
+                {useCustomSql && (
+                  <div className={styles.customSqlContainer}>
+                    <div className={styles.customSqlHeader}>
+                      <span className={styles.customSqlLabel}>Custom SQL Query:</span>
+                      <span className={styles.customSqlHint}>
+                        Enter raw SQL to define the population. Use <code>:patientId</code> parameter for patient filtering.
+                      </span>
+                    </div>
+                    <TextArea
+                      id="population-custom-sql"
+                      labelText=""
+                      placeholder="SELECT patient_id FROM patient WHERE ...&#10;Use :patientId to reference patient ID"
+                      value={draft.population?.sqlTemplate || ''}
+                      onChange={(e) => onDraftChange({
+                        population: {
+                          ...draft.population,
+                          sqlTemplate: (e.target as HTMLTextAreaElement).value,
+                        },
+                      })}
+                      disabled={disabled}
+                      rows={8}
+                      className={styles.customSqlTextarea}
+                    />
+                  </div>
+                )}
               </>
             )}
 
@@ -678,21 +754,126 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
             )}
 
             {populationMode === 'HYBRID' && (
-              <div className={styles.placeholderContent}>
-                <p>Hybrid mode combines SQL and Indicators.</p>
-                <p className={styles.placeholderSubtext}>
-                  Select indicators from your theme and add custom SQL conditions.
-                </p>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  renderIcon={Add}
-                  onClick={addIndicatorRule}
-                  disabled={disabled}
-                >
-                  Add indicator
-                </Button>
-              </div>
+              <>
+                <div className={styles.populationHeader}>
+                  <span className={styles.populationLabel}>Hybrid Population (Indicators + SQL):</span>
+                  <span className={styles.populationHint}>
+                    Combine indicators with custom SQL for flexible patient selection
+                  </span>
+                </div>
+
+                {/* Indicators Section */}
+                <div className={styles.hybridSection}>
+                  <div className={styles.hybridSectionHeader}>
+                    <span className={styles.hybridSectionTitle}>Indicators</span>
+                  </div>
+
+                  <Stack gap={3} className={styles.conditionsStack}>
+                    {((draft.population?.indicatorRules || draft.indicatorRules) || []).map((rule, index) => (
+                      <div key={rule.id} className={styles.conditionRow}>
+                        <Document size={16} className={styles.rowIcon} />
+
+                        {/* Indicator search select */}
+                        <div className={styles.indicatorSearch}>
+                          <IndicatorSearchSelect
+                            id={`hybrid-indicator-${rule.id}`}
+                            titleText=""
+                            selectedId={rule.indicatorUuid}
+                            disabled={disabled}
+                            onChange={(indicatorUuid, option) => handleIndicatorSelect(rule.id, indicatorUuid, option)}
+                            placeholder="Search indicators..."
+                          />
+                        </div>
+
+                        {/* Logical operator */}
+                        <Select
+                          id={`hybrid-logical-${rule.id}`}
+                          size="sm"
+                          value={rule.logicalOperator || 'AND'}
+                          onChange={(e: any) => updateIndicatorRule(rule.id, { logicalOperator: e.target.value })}
+                          disabled={disabled || !rule.indicatorUuid}
+                          labelText=""
+                        >
+                          <SelectItem value="AND" text="AND" />
+                          <SelectItem value="OR" text="OR" />
+                        </Select>
+
+                        {/* Negate toggle */}
+                        {rule.indicatorUuid && (
+                          <div className={styles.negateToggle}>
+                            <Toggle
+                              id={`hybrid-negate-${rule.id}`}
+                              labelA="Include"
+                              labelB="Exclude"
+                              toggled={rule.negate ?? false}
+                              onToggle={(checked) => updateIndicatorRule(rule.id, { negate: checked })}
+                              disabled={disabled}
+                            />
+                          </div>
+                        )}
+
+                        {/* "and" text between conditions */}
+                        {index < ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) - 1 && (
+                          <span className={styles.andText}>and</span>
+                        )}
+
+                        {/* Delete button */}
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          hasIconOnly
+                          renderIcon={TrashCan}
+                          onClick={() => removeIndicatorRule(rule.id)}
+                          disabled={disabled}
+                          iconDescription="Remove indicator"
+                        />
+                      </div>
+                    ))}
+
+                    {/* Add indicator button */}
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      renderIcon={Add}
+                      onClick={addIndicatorRule}
+                      disabled={disabled}
+                    >
+                      Add indicator
+                    </Button>
+                  </Stack>
+                </div>
+
+                {/* Custom SQL Section */}
+                <div className={styles.hybridSection}>
+                  <div className={styles.hybridSectionHeader}>
+                    <span className={styles.hybridSectionTitle}>Custom SQL</span>
+                  </div>
+
+                  <div className={styles.customSqlContainer}>
+                    <div className={styles.customSqlHeader}>
+                      <span className={styles.customSqlLabel}>Additional SQL conditions (optional):</span>
+                      <span className={styles.customSqlHint}>
+                        Enter SQL to further filter the population. Use <code>:patientId</code> parameter.
+                      </span>
+                    </div>
+                    <TextArea
+                      id="hybrid-custom-sql"
+                      labelText=""
+                      placeholder="-- Optional: Add custom SQL conditions&#10;SELECT patient_id FROM visits WHERE visit_date BETWEEN :startDate AND :endDate"
+                      value={draft.population?.sqlTemplate || ''}
+                      onChange={(e) => onDraftChange({
+                        population: {
+                          ...draft.population,
+                          sqlTemplate: (e.target as HTMLTextAreaElement).value,
+                        },
+                      })}
+                      disabled={disabled}
+                      rows={6}
+                      className={styles.customSqlTextarea}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

@@ -103,6 +103,21 @@
   color: #6b7280;
 }
 
+.sqlModeToggle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sqlModeLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
 .populationLabel {
   font-size: 0.875rem;
   font-weight: 600;
@@ -282,6 +297,74 @@
     padding: 0.125rem 0.375rem;
     border-radius: 3px;
     font-family: 'Monaco', 'Menlo', monospace;
+  }
+}
+
+/* Custom SQL Section */
+.customSqlContainer {
+  padding: 0.5rem 0;
+}
+
+/* Hybrid Mode Sections */
+.hybridSection {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e5e7eb;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.hybridSectionHeader {
+  margin-bottom: 0.5rem;
+}
+
+.hybridSectionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #00897b;
+}
+
+.customSqlHeader {
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.customSqlLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+}
+
+.customSqlHint {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+  display: block;
+
+  code {
+    font-size: 0.75rem;
+    color: #00897b;
+    background-color: #e0f2f1;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+}
+
+.customSqlTextarea {
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 0.875rem;
+
+  :global {
+    .cds--text-area__wrapper {
+      background-color: #fafafa;
+    }
+
+    .cds--text-area {
+      background-color: #fafafa;
+    }
   }
 }
 

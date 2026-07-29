@@ -1,0 +1,101 @@
+.emptyState {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--cds-ui-background);
+}
+
+.emptyStateIcon {
+  color: var(--cds-text-04);
+  margin-bottom: 1rem;
+}
+
+.tasksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.taskTile {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.taskHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.taskIcon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.taskInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.taskName {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskDescription {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priorityTag {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.taskMetadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--cds-ui-03);
+}
+
+.taskCode {
+  font-family: monospace;
+  background: var(--cds-ui-02);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.taskSchedule {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.taskActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.executionStatus {
+  padding: 0.5rem 0;
+}
