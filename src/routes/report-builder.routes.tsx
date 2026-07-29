@@ -18,6 +18,7 @@ import AgeCategoriesPage from '../components/admin/age-categories-page.component
 import AgeGroupsPage from '../components/admin/age-groups-page.component';
 import ReportLibraryPage from '../components/admin/report-library-page.component';
 import ETLSourcesPage from '../components/admin/etl-sources-page.component';
+import ETLTasksPage from '../components/admin/etl-tasks-page.component';
 
 import LegacyReportsPage from '../components/legacy-reports/legacy-reports-page.component';
 import LegacyReportDetailPage from '../components/legacy-reports/legacy-report-detail-page.component';
@@ -55,6 +56,7 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/admin/age-groups" element={<AgeGroupsPage />} />
                 <Route path="/admin/report-library" element={<ReportLibraryPage />} />
                 <Route path="/admin/etl-sources" element={<ETLSourcesPage />} />
+                <Route path="/admin/etl-tasks" element={<ETLTasksPage />} />
 
                 {/* Legacy Reports */}
                 <Route path="/legacy-reports" element={<LegacyReportsPage />} />
