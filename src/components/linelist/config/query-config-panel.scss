@@ -204,6 +204,47 @@
   margin-top: 0.25rem;
 }
 
+/* Hybrid Mode Divider */
+.hybridDivider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.5rem 0;
+  position: relative;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+  }
+
+  span {
+    padding: 0 1rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #fff;
+  }
+}
+
+/* SQL Editor Section */
+.sqlEditorSection {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.sqlEditor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  min-height: 120px;
+}
+
 .columnsList {
   padding: 0.5rem 0;
 }

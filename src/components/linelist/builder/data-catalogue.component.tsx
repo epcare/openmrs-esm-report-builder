@@ -29,6 +29,7 @@ import type {
 } from '../../../types/etl/etl-types';
 import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../resources/person-attribute-type/person-attribute-type.api';
 import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../resources/patient-identifier-type/patient-identifier-type.api';
+import { useAddressFields } from '../../../hooks/address-template';
 import CustomSqlColumnModal, { type CustomSqlColumnConfig } from './custom-sql-column-modal.component';
 import styles from './data-catalogue.scss';
 
@@ -78,14 +79,14 @@ const FIELD_GROUPS = [
     id: 'openmrs-address',
     name: 'Address & Contact',
     description: 'Address and contact information',
-    fieldPatterns: ['address', 'village', 'city', 'phone', 'telephone'],
+    fieldPatterns: ['address', 'address1', 'address2', 'address3', 'address4', 'address5', 'village', 'parish', 'subcounty', 'county', 'district', 'state', 'stateProvince', 'countyDistrict', 'city', 'cityVillage', 'phone', 'telephone'],
     icon: '📍',
   },
   {
     id: 'addresses',
     name: 'Addresses & Contacts',
     description: 'Patient address and contact information',
-    fieldPatterns: ['address', 'city', 'village', 'district', 'state', 'country', 'phone', 'telephone', 'email'],
+    fieldPatterns: ['address', 'address1', 'address2', 'address3', 'address4', 'address5', 'city', 'village', 'parish', 'subcounty', 'county', 'district', 'state', 'stateProvince', 'countyDistrict', 'country', 'phone', 'telephone', 'email'],
     icon: '📍',
   },
   {
@@ -246,47 +247,6 @@ const DEMOGRAPHIC_FIELDS: CatalogueField[] = [
     isRepeated: false,
     description: 'Patient death date',
   },
-  // Person Address Fields
-  {
-    id: 'openmrs.person_address.city_village',
-    name: 'city_village',
-    label: 'Village',
-    type: 'TEXT',
-    source: 'CORE',
-    table: 'person_address',
-    isRepeated: false,
-    description: 'Patient village/city',
-  },
-  {
-    id: 'openmrs.person_address.address1',
-    name: 'address1',
-    label: 'Address Line 1',
-    type: 'TEXT',
-    source: 'CORE',
-    table: 'person_address',
-    isRepeated: false,
-    description: 'Address line 1',
-  },
-  {
-    id: 'openmrs.person_address.state_province',
-    name: 'state_province',
-    label: 'State/Province',
-    type: 'TEXT',
-    source: 'CORE',
-    table: 'person_address',
-    isRepeated: false,
-    description: 'State or province',
-  },
-  {
-    id: 'openmrs.person_address.country',
-    name: 'country',
-    label: 'Country',
-    type: 'TEXT',
-    source: 'CORE',
-    table: 'person_address',
-    isRepeated: false,
-    description: 'Country',
-  },
 ];
 
 /**
@@ -436,6 +396,9 @@ const DataCatalogue: React.FC<Props> = ({
   const [apiDataLoading, setApiDataLoading] = useState(true);
   const [apiDataError, setApiDataError] = useState<string | null>(null);
 
+  // Fetch dynamic address fields from OpenMRS address template
+  const { addressFields } = useAddressFields();
+
   // Get available tables
   // const { tables, loading: tablesLoading, error: tablesError } = useETLTables(true);
 
@@ -508,6 +471,9 @@ const DataCatalogue: React.FC<Props> = ({
     // Add demographic fields (always available)
     groups['demographics'] = DEMOGRAPHIC_FIELDS;
 
+    // Add dynamic address fields from OpenMRS address template
+    groups['openmrs-address'] = addressFields;
+
     // Add API-fetched person attribute types
     groups['api-person-attributes'] = personAttributeTypes
       .filter((attr) => !attr.retired) // Filter out retired attributes
@@ -558,7 +524,7 @@ const DataCatalogue: React.FC<Props> = ({
     }
 
     return groups;
-  }, [columns, primaryTable, personAttributeTypes, patientIdentifierTypes, dataSources]);
+  }, [columns, primaryTable, personAttributeTypes, patientIdentifierTypes, dataSources, addressFields]);
 
   /**
    * Expose all available fields to parent component

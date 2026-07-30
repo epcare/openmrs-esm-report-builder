@@ -14,9 +14,10 @@
  *  3. Simple `table.column` SQL refs → proper OpenMRS data definition types
  *  4. ETL column refs → per-row SQL subqueries with :patientId
  *  5. Custom SQL (per-row queries) → kept as-is
- *  6. CALCULATION onDate: `true` → `'${startDate}'`
- *  7. Strip builder-only metadata (dataSources, rowGrain, indicatorRules, etc.)
- *  8. Add backend fields (reportType, category, status)
+ *  6. CALCULATION onDate: `true` → `':startDate'` (parameter reference format)
+ *  7. PERSON_ADDRESS: type='ADDRESS_FIELD', field='address5' (lowercase)
+ *  8. Strip builder-only metadata (dataSources, rowGrain, indicatorRules, etc.)
+ *  9. Add backend fields (reportType, category, status)
  */
 
 import type { LinelistReportDefinitionConfig } from '../linelist-types';
@@ -156,13 +157,28 @@ function compileColumn(
 
   // --- CALCULATION: fix onDate ---
   if (defType === 'CALCULATION') {
+    // Use :startDate parameter format for backend
+    // If onDate is true or not set, default to :startDate
+    // Otherwise keep the existing value if it's already a parameter reference
+    const onDateValue = defConfig.onDate;
+    let finalOnDate: string;
+    if (onDateValue === true || onDateValue === undefined || onDateValue === '') {
+      finalOnDate = ':startDate';
+    } else if (typeof onDateValue === 'string') {
+      // If it's already a parameter reference (starts with :), use it as-is
+      // Otherwise if it contains ${startDate}, replace with :startDate
+      finalOnDate = onDateValue.startsWith(':') ? onDateValue : onDateValue.replace('${startDate}', ':startDate').replace(/\$\{endDate\}/g, ':endDate');
+    } else {
+      finalOnDate = ':startDate';
+    }
+
     return {
       name: col.name,
       dataDefinition: {
         type: 'CALCULATION',
         config: {
           ...defConfig,
-          onDate: defConfig.onDate === true ? '${startDate}' : (defConfig.onDate || '${startDate}'),
+          onDate: finalOnDate,
         },
       },
     };
@@ -275,15 +291,21 @@ function compileSimpleReference(
 
   // --- PERSON_ADDRESS table ---
   if (table === 'person_address') {
-    // Map common address fields to OpenMRS address field names
+    // Map common address fields to OpenMRS address field names (UgandaEMR template)
+    // Use lowercase field names to match backend expectation
     const addressFieldMap: Record<string, string> = {
-      city_village: 'cityVillage',
       address1: 'address1',
       address2: 'address2',
-      state_province: 'stateProvince',
+      address3: 'address3',  // Subcounty in UgandaEMR
+      address4: 'address4',  // Parish in UgandaEMR
+      address5: 'address5',  // Village in UgandaEMR
+      city_village: 'address5',  // Legacy mapping - village is now address5
+      state_province: 'stateProvince',  // County in UgandaEMR
       country: 'country',
       postal_code: 'postalCode',
-      county_district: 'countyDistrict',
+      county_district: 'countyDistrict',  // District in UgandaEMR
+      latitude: 'latitude',
+      longitude: 'longitude',
     };
     return {
       name: columnName,

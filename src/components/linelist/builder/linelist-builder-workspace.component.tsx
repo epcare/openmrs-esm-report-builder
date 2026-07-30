@@ -984,7 +984,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
         description: '',
         source,
         dataDefinitionType: 'CALCULATION',
-        dataDefinitionConfig: { calculation: field.name.toUpperCase(), onDate: true },
+        dataDefinitionConfig: { calculation: field.name.toUpperCase(), onDate: ':startDate' },
         additionInfo: {
           addedVia: 'DRAG_DROP',
           addedAt: now,
@@ -996,6 +996,40 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
           sortable: true,
           filterable: false,
           format: 'number',
+        },
+        sortOrder: draft.columns.length,
+        transformations: [],
+      };
+    } else if (field.id.startsWith('openmrs.person_address.') || field.table === 'person_address') {
+      // Person Address field
+      source = {
+        dataSourceUuid: 'person_address',
+        dataSourceName: 'Person Address',
+        table: 'person_address',
+        field: field.name,
+        fieldType: 'TEXT',
+      };
+      newColumn = {
+        id: `col-${Date.now()}`,
+        name: field.label || field.name,
+        description: '',
+        source,
+        dataDefinitionType: 'PERSON_ADDRESS',
+        dataDefinitionConfig: {
+          type: 'ADDRESS_FIELD',
+          field: field.name, // e.g., 'address5', 'address4', etc.
+        },
+        additionInfo: {
+          addedVia: 'DRAG_DROP',
+          addedAt: now,
+          orderAdded: draft.columns.length,
+        },
+        display: {
+          width: 150,
+          align: 'left',
+          sortable: true,
+          filterable: true,
+          format: 'text',
         },
         sortOrder: draft.columns.length,
         transformations: [],

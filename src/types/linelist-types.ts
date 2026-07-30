@@ -365,11 +365,23 @@ export type LinelistSqlDefinition = BaseDataDefinition<'SQL'> & {
 /**
  * Person address column
  * Retrieves address information
+ *
+ * UgandaEMR Address Template Mappings:
+ * - ADDRESS1: Address Line 1
+ * - ADDRESS2: Address Line 2
+ * - ADDRESS3: Subcounty
+ * - ADDRESS4: Parish
+ * - ADDRESS5: Village
+ * - STATE_PROVINCE: County
+ * - COUNTY_DISTRICT: District
+ * - COUNTRY: Country
  */
 export type LinelistPersonAddressDefinition = BaseDataDefinition<'PERSON_ADDRESS'> & {
   config: {
     type?: 'PERSON_ADDRESS' | string;
-    field?: 'ADDRESS1' | 'ADDRESS2' | 'CITY_VILLAGE' | 'STATE_PROVINCE' | 'COUNTRY' | string;
+    field?: 'ADDRESS1' | 'ADDRESS2' | 'ADDRESS3' | 'ADDRESS4' | 'ADDRESS5'
+      | 'CITY_VILLAGE' | 'STATE_PROVINCE' | 'COUNTY_DISTRICT' | 'COUNTRY'
+      | 'LATITUDE' | 'LONGITUDE' | 'POSTAL_CODE' | string;
   };
 };
 
@@ -1490,9 +1502,22 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
   if (!draft.population.sqlTemplate?.trim()) {
     errors.population = 'Population SQL is required';
   } else {
-    // Check for required parameters
-    if (!draft.population.sqlTemplate.includes(':startDate') || !draft.population.sqlTemplate.includes(':endDate')) {
-      errors.population = 'Population SQL must include :startDate and :endDate parameters';
+    // Check that SQL includes the parameters defined in the report
+    // Only validate parameters that are actually configured
+    const requiredParams = draft.parameters
+      .filter(p => p.required)
+      .map(p => p.name);
+
+    const missingParams: string[] = [];
+    for (const param of requiredParams) {
+      const paramPlaceholder = `:${param}`;
+      if (!draft.population.sqlTemplate.includes(paramPlaceholder)) {
+        missingParams.push(param);
+      }
+    }
+
+    if (missingParams.length > 0) {
+      errors.population = `Population SQL must include these parameters: ${missingParams.map(p => `:${p}`).join(', ')}`;
     }
   }
 

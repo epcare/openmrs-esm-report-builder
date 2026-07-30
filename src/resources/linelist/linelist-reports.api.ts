@@ -231,8 +231,9 @@ async function omrsDelete(url: string, signal?: AbortSignal): Promise<void> {
  */
 export type LinelistEvaluationParams = {
   reportUuid: string;
-  startDate: string;
-  endDate: string;
+  parameters?: Record<string, any>; // Dynamic parameters from report config
+  startDate?: string; // Deprecated: Use parameters instead
+  endDate?: string; // Deprecated: Use parameters instead
   maxRows?: number;
 };
 
@@ -266,9 +267,25 @@ export async function evaluateLinelistReport(
 ): Promise<LinelistEvaluationResult> {
   const qs = new URLSearchParams();
   qs.set('uuid', params.reportUuid);
-  qs.set('startDate', params.startDate);
-  qs.set('endDate', params.endDate);
   qs.set('renderType', 'list'); // Get patient list data
+
+  // Support both new parameters format and legacy startDate/endDate
+  if (params.parameters) {
+    // Add all parameters from the report config
+    Object.entries(params.parameters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        qs.set(key, String(value));
+      }
+    });
+  } else {
+    // Legacy support for hardcoded startDate/endDate
+    if (params.startDate) {
+      qs.set('startDate', params.startDate);
+    }
+    if (params.endDate) {
+      qs.set('endDate', params.endDate);
+    }
+  }
 
   if (params.maxRows) {
     qs.set('maxRows', String(params.maxRows));

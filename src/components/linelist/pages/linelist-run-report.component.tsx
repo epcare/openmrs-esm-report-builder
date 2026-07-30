@@ -90,14 +90,22 @@ const LinelistRunReport: React.FC<Props> = () => {
             if (param.defaultValue) {
               defaults[param.name] = param.defaultValue;
             }
-            // Set default date range for date parameters
+            // Set default date values for date parameters without defaults
             if (param.type === 'DATE' && !defaults[param.name]) {
               if (param.name === 'startDate') {
                 const endDate = new Date();
                 const startDate = new Date();
                 startDate.setMonth(startDate.getMonth() - 6);
                 defaults.startDate = startDate.toISOString().split('T')[0];
-                defaults.endDate = endDate.toISOString().split('T')[0];
+                // Only set endDate if it exists in the parameters
+                if (config.parameters.some(p => p.name === 'endDate')) {
+                  defaults.endDate = endDate.toISOString().split('T')[0];
+                }
+              } else if (param.name === 'endDate') {
+                defaults.endDate = new Date().toISOString().split('T')[0];
+              } else if (param.name.toLowerCase().includes('date') && !param.name.includes('end')) {
+                // For other date parameters, use today as default
+                defaults[param.name] = new Date().toISOString().split('T')[0];
               }
             }
           });
@@ -157,13 +165,19 @@ const LinelistRunReport: React.FC<Props> = () => {
 
     try {
       const config = parseLinelistConfig(report);
-      const startDate = paramValues.startDate || new Date().toISOString().split('T')[0];
-      const endDate = paramValues.endDate || new Date().toISOString().split('T')[0];
+      const params = getParameters();
+
+      // Build parameters object from the report config
+      const reportParams: Record<string, any> = {};
+      params.forEach((param) => {
+        if (paramValues[param.name]) {
+          reportParams[param.name] = paramValues[param.name];
+        }
+      });
 
       const response = await evaluateLinelistReport({
         reportUuid: report.uuid,
-        startDate,
-        endDate,
+        parameters: reportParams,
         maxRows: pageSize * 10, // Get enough rows for pagination
       });
 
@@ -186,7 +200,7 @@ const LinelistRunReport: React.FC<Props> = () => {
     } finally {
       setRunning(false);
     }
-  }, [report, paramValues, pageSize, areParamsValid]);
+  }, [report, paramValues, pageSize, areParamsValid, getParameters]);
 
   /**
    * Export report data
@@ -441,9 +455,12 @@ const LinelistRunReport: React.FC<Props> = () => {
                 <span>
                   Generated: <strong>{generatedTime?.toLocaleString()}</strong>
                 </span>
-                {parameters.some((p) => p.name === 'startDate') && (
+                {parameters.some((p) => p.name === 'startDate' || p.name === 'endDate') && (
                   <span>
-                    Date Range: <strong>{paramValues.startDate}</strong> to <strong>{paramValues.endDate}</strong>
+                    {parameters.some((p) => p.name === 'startDate')
+                      ? `Date Range: ${paramValues.startDate} to ${paramValues.endDate || 'N/A'}`
+                      : `Report Date: ${paramValues.endDate || paramValues.date || 'N/A'}`
+                    }
                   </span>
                 )}
               </div>

@@ -18,6 +18,7 @@ import {
   Select,
   SelectItem,
   TextInput,
+  TextArea,
   Tag,
   Toggle,
 } from '@carbon/react';
@@ -89,6 +90,16 @@ function getOperatorsForFieldType(fieldType: FilterFieldType): string[] {
     default:
       return ['equals', 'not equals'];
   }
+}
+
+/**
+ * Format operator label for display
+ */
+function formatOperatorLabel(operator: string): string {
+  return operator
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 /**
@@ -453,7 +464,15 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
           <div className={styles.sectionHeaderLeft}>
             <DataTable size={20} />
             <span className={styles.sectionTitle}>Population</span>
-            <Tag size="sm" type="blue">{populationMode === 'INDICATOR' ? ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) : conditions.length}</Tag>
+            <Tag size="sm" type="blue">
+              {populationMode === 'HYBRID'
+                ? ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) + conditions.length
+                : populationMode === 'INDICATOR'
+                ? ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0)
+                : populationMode === 'SQL' && (draft.population?.sqlTemplate?.trim())
+                ? 'SQL'
+                : conditions.length}
+            </Tag>
           </div>
           <div className={styles.sectionHeaderRight}>
             {expandedSections.has('population') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -589,6 +608,33 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                     Add condition
                   </Button>
                 </Stack>
+
+                {/* Raw SQL Editor */}
+                <div className={styles.sqlEditorSection}>
+                  <div className={styles.populationHeader}>
+                    <span className={styles.populationLabel}>Or edit raw SQL:</span>
+                    <span className={styles.populationHint}>
+                      Directly edit the SQL query (use :startDate and :endDate for date parameters)
+                    </span>
+                  </div>
+                  <TextArea
+                    id="population-sql"
+                    className={styles.sqlEditor}
+                    placeholder="SELECT DISTINCT patient_id AS client_id FROM your_table WHERE..."
+                    value={draft.population?.sqlTemplate || ''}
+                    onChange={(e: any) => {
+                      onDraftChange({
+                        population: {
+                          ...draft.population,
+                          sqlTemplate: e.target.value,
+                        },
+                      });
+                    }}
+                    disabled={disabled}
+                    rows={6}
+                    labelText=""
+                  />
+                </div>
               </>
             )}
 
@@ -678,21 +724,225 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
             )}
 
             {populationMode === 'HYBRID' && (
-              <div className={styles.placeholderContent}>
-                <p>Hybrid mode combines SQL and Indicators.</p>
-                <p className={styles.placeholderSubtext}>
-                  Select indicators from your theme and add custom SQL conditions.
-                </p>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  renderIcon={Add}
-                  onClick={addIndicatorRule}
-                  disabled={disabled}
-                >
-                  Add indicator
-                </Button>
-              </div>
+              <>
+                {/* Indicators Section in Hybrid Mode */}
+                <div className={styles.populationHeader}>
+                  <span className={styles.populationLabel}>Indicators:</span>
+                  <span className={styles.populationHint}>
+                    Add indicators from your theme
+                  </span>
+                </div>
+
+                <Stack gap={3} className={styles.conditionsStack}>
+                  {((draft.population?.indicatorRules || draft.indicatorRules) || []).map((rule, index) => (
+                    <div key={rule.id} className={styles.conditionRow}>
+                      <Document size={16} className={styles.rowIcon} />
+
+                      {/* Indicator search select */}
+                      <div className={styles.indicatorSearch}>
+                        <IndicatorSearchSelect
+                          id={`indicator-${rule.id}`}
+                          titleText=""
+                          selectedId={rule.indicatorUuid}
+                          disabled={disabled}
+                          onChange={(indicatorUuid, option) => handleIndicatorSelect(rule.id, indicatorUuid, option)}
+                          placeholder="Search indicators..."
+                        />
+                      </div>
+
+                      {/* Logical operator */}
+                      <Select
+                        id={`logical-${rule.id}`}
+                        size="sm"
+                        value={rule.logicalOperator || 'AND'}
+                        onChange={(e: any) => updateIndicatorRule(rule.id, { logicalOperator: e.target.value })}
+                        disabled={disabled || !rule.indicatorUuid}
+                        labelText=""
+                      >
+                        <SelectItem value="AND" text="AND" />
+                        <SelectItem value="OR" text="OR" />
+                      </Select>
+
+                      {/* Negate toggle - only show when indicator is selected */}
+                      {rule.indicatorUuid && (
+                        <div className={styles.negateToggle}>
+                          <Toggle
+                            id={`negate-${rule.id}`}
+                            labelA="Include"
+                            labelB="Exclude"
+                            toggled={rule.negate ?? false}
+                            onToggle={(checked) => updateIndicatorRule(rule.id, { negate: checked })}
+                            disabled={disabled}
+                          />
+                        </div>
+                      )}
+
+                      {/* "and" text between conditions */}
+                      {index < ((draft.population?.indicatorRules || draft.indicatorRules)?.length || 0) - 1 && (
+                        <span className={styles.andText}>and</span>
+                      )}
+
+                      {/* Delete button */}
+                      <Button
+                        kind="ghost"
+                        size="sm"
+                        hasIconOnly
+                        renderIcon={TrashCan}
+                        onClick={() => removeIndicatorRule(rule.id)}
+                        disabled={disabled}
+                        iconDescription="Remove indicator"
+                      />
+                    </div>
+                  ))}
+
+                  {/* Add indicator button */}
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    renderIcon={Add}
+                    onClick={addIndicatorRule}
+                    disabled={disabled}
+                  >
+                    Add indicator
+                  </Button>
+                </Stack>
+
+                {/* Divider between indicators and conditions */}
+                <div className={styles.hybridDivider}>
+                  <span>AND</span>
+                </div>
+
+                {/* SQL Conditions Section in Hybrid Mode */}
+                <div className={styles.populationHeader}>
+                  <span className={styles.populationLabel}>Additional SQL conditions:</span>
+                  <span className={styles.populationHint}>
+                    Filter the selected patients further with custom SQL
+                  </span>
+                </div>
+
+                <Stack gap={3} className={styles.conditionsStack}>
+                  {conditions.map((condition, index) => (
+                    <div key={condition.id} className={styles.conditionRow}>
+                      <Filter size={16} className={styles.rowIcon} />
+
+                      {/* Field selector */}
+                      <Select
+                        id={`field-${condition.id}`}
+                        size="sm"
+                        value={condition.field}
+                        onChange={(e: any) => updatePopulationCondition(condition.id, { field: e.target.value })}
+                        disabled={disabled}
+                        labelText=""
+                      >
+                        <SelectItem value="" text="Select field..." />
+                        {populationFields.map((field) => (
+                          <SelectItem key={field.name} value={field.name} text={field.label}>
+                            {field.label}
+                          </SelectItem>
+                        ))}
+                      </Select>
+
+                      {/* Operator selector - shown when field is selected */}
+                      {condition.field && (
+                        <Select
+                          id={`operator-${condition.id}`}
+                          size="sm"
+                          value={condition.operator}
+                          onChange={(e: any) => updatePopulationCondition(condition.id, { operator: e.target.value })}
+                          disabled={disabled}
+                          labelText=""
+                        >
+                          {getOperatorsForFieldType(condition.fieldType).map((op) => (
+                            <SelectItem key={op} value={op.toUpperCase()} text={formatOperatorLabel(op)}>
+                              {formatOperatorLabel(op)}
+                            </SelectItem>
+                          ))}
+                        </Select>
+                      )}
+
+                      {/* Value input - shown when operator requires a value */}
+                      {condition.operator && ['IS_BLANK', 'IS_NOT_BLANK'].indexOf(condition.operator) === -1 && (
+                        <TextInput
+                          id={`value-${condition.id}`}
+                          size="sm"
+                          value={condition.value || ''}
+                          onChange={(e: any) => updatePopulationCondition(condition.id, { value: e.target.value })}
+                          disabled={disabled}
+                          placeholder="Value"
+                          labelText=""
+                        />
+                      )}
+
+                      {/* Second value input for BETWEEN operators */}
+                      {condition.operator === 'BETWEEN' && (
+                        <TextInput
+                          id={`value2-${condition.id}`}
+                          size="sm"
+                          value={condition.value2 || ''}
+                          onChange={(e: any) => updatePopulationCondition(condition.id, { value2: e.target.value })}
+                          disabled={disabled}
+                          placeholder="To"
+                          labelText=""
+                        />
+                      )}
+
+                      {/* "and" text between conditions */}
+                      {index < conditions.length - 1 && (
+                        <span className={styles.andText}>and</span>
+                      )}
+
+                      {/* Delete button */}
+                      <Button
+                        kind="ghost"
+                        size="sm"
+                        hasIconOnly
+                        renderIcon={TrashCan}
+                        onClick={() => removePopulationCondition(condition.id)}
+                        disabled={disabled}
+                        iconDescription="Remove condition"
+                      />
+                    </div>
+                  ))}
+
+                  {/* Add condition button */}
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    renderIcon={Add}
+                    onClick={addPopulationCondition}
+                    disabled={disabled}
+                  >
+                    Add condition
+                  </Button>
+                </Stack>
+
+                {/* Raw SQL Editor for Hybrid Mode */}
+                <div className={styles.sqlEditorSection}>
+                  <div className={styles.populationHeader}>
+                    <span className={styles.populationLabel}>Or edit raw SQL:</span>
+                    <span className={styles.populationHint}>
+                      Directly edit the SQL query (use :startDate and :endDate for date parameters)
+                    </span>
+                  </div>
+                  <TextArea
+                    id="population-sql-hybrid"
+                    className={styles.sqlEditor}
+                    placeholder="SELECT DISTINCT patient_id AS client_id FROM your_table WHERE..."
+                    value={draft.population?.sqlTemplate || ''}
+                    onChange={(e: any) => {
+                      onDraftChange({
+                        population: {
+                          ...draft.population,
+                          sqlTemplate: e.target.value,
+                        },
+                      });
+                    }}
+                    disabled={disabled}
+                    rows={6}
+                    labelText=""
+                  />
+                </div>
+              </>
             )}
           </div>
         )}
