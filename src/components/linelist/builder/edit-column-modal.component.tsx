@@ -18,6 +18,7 @@ import {
   Button,
   ButtonSet,
   TextInput,
+  TextArea,
   NumberInput,
   Select,
   SelectItem,
@@ -26,7 +27,7 @@ import {
 } from '@carbon/react';
 import type { LinelistColumnDraft } from '../../../types/linelist-types';
 
-// Scoped styles for equal-width buttons
+// Scoped styles for equal-width buttons and SQL editor
 const editModalStyles = `
 .edit-modal-buttons {
   display: flex;
@@ -35,6 +36,14 @@ const editModalStyles = `
 }
 .edit-modal-buttons button {
   flex: 1;
+}
+.sql-editor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.sql-editor textarea {
+  tab-size: 2;
 }
 `;
 
@@ -88,7 +97,7 @@ const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose }) => 
   if (!editedColumn) return null;
 
   const isPotentiallyRepeated = editedColumn.dataDefinitionType === 'SQL' &&
-    /appointment|observation|encounter|program_enrollment|visit/i.test(editedColumn.dataDefinitionConfig.sql || '');
+    /appointment|observation|encounter|program_enrollment|visit/i.test(editedColumn.dataDefinitionConfig?.sql || '');
 
   const handleChange = (field: keyof LinelistColumnDraft, value: any) => {
     setEditedColumn(prev => prev ? { ...prev, [field]: value } : null);
@@ -105,6 +114,13 @@ const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose }) => 
     setEditedColumn(prev => prev ? {
       ...prev,
       repeatResolution: { ...prev.repeatResolution, [field]: value }
+    } : null);
+  };
+
+  const handleDataDefinitionConfigChange = (field: string, value: any) => {
+    setEditedColumn(prev => prev ? {
+      ...prev,
+      dataDefinitionConfig: { ...prev.dataDefinitionConfig, [field]: value }
     } : null);
   };
 
@@ -255,6 +271,28 @@ const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose }) => 
                   </>
                 )}
               </Stack>
+            </div>
+          )}
+
+          {/* SQL Definition */}
+          {editedColumn.dataDefinitionType === 'SQL' && (
+            <div style={{ background: 'var(--cds-layer-01, #f4f4f4)', padding: '1rem', borderRadius: '8px' }}>
+              <h4 className="cds--label">SQL Definition</h4>
+              <p style={{ fontSize: '0.875rem', marginBottom: '1rem', opacity: 0.9 }}>
+                Edit the SQL query for this column. Use <code>:patientId</code> to reference the current patient.
+              </p>
+              <TextArea
+                id="column-sql"
+                className="sql-editor"
+                placeholder="SELECT field_name FROM table_name WHERE patient_id = :patientId..."
+                value={editedColumn.dataDefinitionConfig?.sql || ''}
+                onChange={(e: any) => handleDataDefinitionConfigChange('sql', e.target.value)}
+                rows={6}
+                labelText=""
+              />
+              <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.7 }}>
+                <small>Available parameters: <code>:patientId</code>, <code>:startDate</code>, <code>:endDate</code></small>
+              </div>
             </div>
           )}
 
