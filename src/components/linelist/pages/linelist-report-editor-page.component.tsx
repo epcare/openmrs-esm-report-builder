@@ -49,8 +49,6 @@ const LinelistReportEditorPage: React.FC<Props> = () => {
 
     getLinelistReport(reportId)
       .then((report) => {
-        console.error('🔴 LOADED REPORT DATA:', report?.name, report);
-        console.log('Loaded report data:', report);
         setInitialReport(report);
         setMode('edit');
       })

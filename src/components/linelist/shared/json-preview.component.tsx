@@ -11,6 +11,7 @@ import { Code } from '@carbon/react/icons';
 import type { LinelistReportDraft } from '../../../types/linelist-types';
 import { draftToConfig } from '../../../types/linelist-types';
 import type { IndicatorDto } from '../../../resources/indicator/indicators.api';
+import { enhanceConfigForPreview } from '../../../utils/config-enhancer';
 import styles from './json-preview.scss';
 
 type Props = {
@@ -43,7 +44,8 @@ export default function JsonPreview({ draft, className, indicators = [] }: Props
    */
   const handleCopy = useCallback(() => {
     const config = draftToConfig(draft, indicatorMap);
-    navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+    const enhancedConfig = enhanceConfigForPreview(config, draft);
+    navigator.clipboard.writeText(JSON.stringify(enhancedConfig, null, 2));
   }, [draft, indicatorMap]);
 
   /**
@@ -78,6 +80,7 @@ export default function JsonPreview({ draft, className, indicators = [] }: Props
   };
 
   const config = draftToConfig(draft, indicatorMap);
+  const enhancedConfig = enhanceConfigForPreview(config, draft);
 
   return (
     <div className={`${styles.preview} ${className || ''}`}>
@@ -100,7 +103,7 @@ export default function JsonPreview({ draft, className, indicators = [] }: Props
         feedback="Copied!"
         className={styles.code}
       >
-        {JSON.stringify(config, null, 2)}
+        {JSON.stringify(enhancedConfig, null, 2)}
       </CodeSnippet>
 
       <div className={styles.validation}>

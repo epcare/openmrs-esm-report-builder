@@ -67,6 +67,22 @@ const ConceptSelector: React.FC<Props> = ({
   const { loading, results, error } = useConceptSearch(conceptQuery);
 
   /**
+   * Combine search results with the currently selected concept
+   * This ensures the selected concept appears in the list even if not in search results
+   */
+  const items = React.useMemo(() => {
+    const combined = [...results];
+    // If there's a selected concept and it's not already in the results, add it
+    if (selectedConcept) {
+      const exists = results.some(r => r.uuid === selectedConcept.uuid);
+      if (!exists) {
+        combined.unshift(selectedConcept); // Add at the beginning
+      }
+    }
+    return combined;
+  }, [results, selectedConcept]);
+
+  /**
    * Handle search input change
    */
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,13 +182,14 @@ const ConceptSelector: React.FC<Props> = ({
             key={multiKey}
             id="concept-select"
             titleText="Select concept"
-            items={results}
+            items={items}
             itemToString={itemToString}
-            placeholder={results.length ? 'Select a concept…' : 'No results'}
+            placeholder={items.length ? 'Select a concept…' : 'No results'}
             helperText={selectedConcept ? 'Click to change selection' : 'Type at least 2 characters to search'}
             onChange={(e: any) => handleSelect((e.selectedItems ?? []) as ConceptSummary[])}
             disabled={disabled}
             selectionFeedback="top"
+            initialSelectedItems={selectedConcept ? [selectedConcept] : []}
           />
 
           {/* Helper Text */}

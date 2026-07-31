@@ -98,6 +98,90 @@
       padding-top: 1rem;
       border-top: 1px solid #e0e0e0;
     }
+
+    .columnList {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .columnItem {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background-color: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      cursor: default;
+
+      &:hover {
+        background-color: #f4f4f4;
+        border-color: #8a8a8a;
+      }
+
+      .columnPosition {
+        display: flex;
+        align-items: center;
+        min-width: 3rem;
+
+        .positionNumber {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #0f62fe;
+          background-color: #e5f1ff;
+          padding: 0.125rem 0.5rem;
+          border-radius: 10px;
+          user-select: none;
+        }
+      }
+
+      .columnInfo {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        .columnName {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #161616;
+        }
+
+        .columnIdTag {
+          font-size: 0.7rem;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
+          opacity: 0.8;
+        }
+      }
+
+      .columnOrder {
+        font-size: 0.75rem;
+        color: #6f6f6f;
+        min-width: 2rem;
+        display: none; // Hidden, replaced by columnPosition
+      }
+
+      .columnName {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      .columnActions {
+        display: flex;
+        gap: 0.25rem;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+
+        // Show actions more prominently on hover
+        .columnItem:hover & {
+          opacity: 1;
+        }
+      }
+    }
   }
 
   .selectedTable {
@@ -124,26 +208,77 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.5rem 0.75rem;
+      padding: 0.75rem;
       background-color: #ffffff;
       border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      transition: background-color 0.15s ease;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+      cursor: default;
 
       &:hover {
         background-color: #f4f4f4;
+        border-color: #8a8a8a;
+      }
+
+      .columnPosition {
+        display: flex;
+        align-items: center;
+        min-width: 3rem;
+
+        .positionNumber {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #0f62fe;
+          background-color: #e5f1ff;
+          padding: 0.125rem 0.5rem;
+          border-radius: 10px;
+          user-select: none;
+        }
+      }
+
+      .columnInfo {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        .columnName {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #161616;
+        }
+
+        .columnIdTag {
+          font-size: 0.7rem;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
+          opacity: 0.8;
+        }
       }
 
       .columnOrder {
         font-size: 0.75rem;
         color: #6f6f6f;
         min-width: 2rem;
+        display: none; // Hidden, replaced by columnPosition
       }
 
       .columnName {
         flex: 1;
         font-size: 0.875rem;
         font-weight: 500;
+      }
+
+      .columnActions {
+        display: flex;
+        gap: 0.25rem;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+
+        // Show actions more prominently on hover
+        .columnItem:hover & {
+          opacity: 1;
+        }
       }
     }
   }
@@ -180,5 +315,15 @@
     font-weight: 600;
     margin: 0;
     color: #161616;
+  }
+}
+
+// Debug button styling
+button[icondescription="View column debug info"] {
+  svg {
+    fill: #0f62fe;
+  }
+  &:hover {
+    background-color: #e5f1ff !important;
   }
 }

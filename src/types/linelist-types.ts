@@ -1303,6 +1303,14 @@ export function draftToConfig(
       let table: string;
       if (col.dataDefinitionType === 'CALCULATION') {
         table = 'calculated';
+      } else if (col.dataDefinitionType === 'OBSERVATION') {
+        table = 'observations';
+      } else if (col.dataDefinitionType === 'ENCOUNTER_DIAGNOSIS') {
+        table = 'encounter_diagnoses';
+      } else if (col.dataDefinitionType === 'PERSON_ADDRESS') {
+        table = 'person_address';
+      } else if (col.dataDefinitionType === 'PERSON_NAME') {
+        table = 'person_name';
       } else {
         // For SQL columns, derive the table from the SQL expression
         table = extractSourceTable(col.dataDefinitionConfig?.sql);
@@ -1317,10 +1325,20 @@ export function draftToConfig(
           ? 'SQL'
           : dsUuid.startsWith('mamba_') ? 'ETL' : 'SQL';
 
+      // Map table names to user-friendly data source names
+      const dataSourceNames: Record<string, string> = {
+        'observations': 'Observations',
+        'encounter_diagnoses': 'Encounter Diagnoses',
+        'person_address': 'Person Address',
+        'person_name': 'Person Names',
+        'calculated': 'Calculated Fields',
+        'custom_sql': 'Custom SQL',
+      };
+
       if (!sourceMap.has(dsUuid)) {
         sourceMap.set(dsUuid, {
           uuid: dsUuid,
-          name: dsUuid,
+          name: dataSourceNames[dsUuid] || dsUuid,
           type: dsType as DataSourceConfig['type'],
           role: isPrimary ? 'PRIMARY' : 'SECONDARY',
           columns: {},

@@ -317,7 +317,6 @@ export default function IndicatorsPage() {
         setRunPreviewIndicator(uuid);
         setOpenRunPreview(true);
     };
-    const onOpen = (uuid: string) => console.log('Open indicator:', uuid);
 
     // --------------------------------------------
     // RENDER
@@ -385,14 +384,14 @@ export default function IndicatorsPage() {
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onOpen={onOpen} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
                     </TabPanel>
 
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onOpen={onOpen} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
                     </TabPanel>
                 </TabPanels>
             </Tabs>

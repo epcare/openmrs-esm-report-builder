@@ -29,6 +29,8 @@ type Props = {
   onAddColumn: (column: LinelistColumnDraft) => void;
   /** Existing columns to check for duplicates */
   existingColumns?: LinelistColumnDraft[];
+  /** Column to edit (if provided, modal is in edit mode) */
+  editingColumn?: LinelistColumnDraft | null;
 };
 
 type StrategyOption = 'ALL_VALUES' | 'LATEST' | 'FIRST_WITHIN_PERIOD' | 'LAST_WITHIN_PERIOD';
@@ -52,6 +54,7 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
   onClose,
   onAddColumn,
   existingColumns = [],
+  editingColumn = null,
 }) => {
   const [conceptSelectorKey, setConceptSelectorKey] = useState(0);
   const [selectedConcept, setSelectedConcept] = useState<ConceptSummary | undefined>();
@@ -60,15 +63,6 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
   const [rank, setRank] = useState<RankOption>('ANY');
   const [confirmedOnly, setConfirmedOnly] = useState(true);
   const [returnDisplay, setReturnDisplay] = useState(true);
-
-  /**
-   * Reset form state when modal opens/closes
-   */
-  useEffect(() => {
-    if (open) {
-      setConceptSelectorKey((k) => k + 1);
-    }
-  }, [open]);
 
   /**
    * Reset form state
@@ -81,6 +75,33 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
     setConfirmedOnly(true);
     setReturnDisplay(true);
   }, []);
+
+  /**
+   * Reset form state when modal opens/closes
+   * Also populate form when editing existing column
+   */
+  useEffect(() => {
+    if (open) {
+      setConceptSelectorKey((k) => k + 1);
+      if (editingColumn) {
+        // Populate form with existing column data
+        const config = editingColumn.dataDefinitionConfig || {};
+        setSelectedConcept(editingColumn.source?.conceptUuid ? {
+          uuid: editingColumn.source.conceptUuid,
+          display: config.conceptName || editingColumn.name,
+          datatype: { name: editingColumn.source?.fieldType || 'TEXT' },
+        } as ConceptSummary : undefined);
+        setColumnName(editingColumn.name || '');
+        setStrategy(config.strategy || 'LAST_WITHIN_PERIOD');
+        setRank(config.rank || 'ANY');
+        setConfirmedOnly(config.confirmedOnly !== false);
+        setReturnDisplay(config.returnDisplay !== false);
+      } else {
+        // Reset for new column creation
+        resetForm();
+      }
+    }
+  }, [open, editingColumn, resetForm]);
 
   /**
    * Handle modal close
@@ -108,9 +129,9 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
     // Allow empty concept selection to capture ALL diagnoses
     const finalColumnName = columnName?.trim() || (selectedConcept?.display || 'Diagnoses');
 
-    // Check for duplicate column names
+    // Check for duplicate column names (exclude current column when editing)
     const duplicateName = existingColumns.some(col =>
-      col.name.toLowerCase() === finalColumnName.toLowerCase()
+      col.id !== editingColumn?.id && col.name.toLowerCase() === finalColumnName.toLowerCase()
     );
     if (duplicateName) {
       // TODO: Show error notification
@@ -120,13 +141,13 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
     const now = new Date().toISOString();
 
     const newColumn: LinelistColumnDraft = {
-      id: `col-${now}-${selectedConcept?.uuid || 'all-diagnoses'}`,
+      id: editingColumn?.id || `col-${now}-${selectedConcept?.uuid || 'all-diagnoses'}`,
       name: finalColumnName,
-      description: selectedConcept ? `Diagnosis: ${selectedConcept.display}` : 'All encounter diagnoses',
+      description: editingColumn?.description || (selectedConcept ? `Diagnosis: ${selectedConcept.display}` : 'All encounter diagnoses'),
       source: {
         dataSourceUuid: 'encounter_diagnoses',
         dataSourceName: 'Encounter Diagnoses',
-        table: 'encounter_diagnosis',
+        table: 'encounter_diagnoses',
         field: selectedConcept?.uuid || '*',
         fieldType: 'TEXT',
         conceptUuid: selectedConcept?.uuid,
@@ -141,18 +162,18 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
         returnDisplay,
       },
       additionInfo: {
-        addedVia: 'VISUAL_SELECTOR',
-        addedAt: now,
-        orderAdded: existingColumns.length,
+        addedVia: editingColumn?.additionInfo?.addedVia || 'VISUAL_SELECTOR',
+        addedAt: editingColumn?.additionInfo?.addedAt || now,
+        orderAdded: editingColumn?.additionInfo?.orderAdded || existingColumns.length,
       },
-      display: {
+      display: editingColumn?.display || {
         width: 150,
         align: 'left',
         sortable: true,
         filterable: true,
         format: 'coded',
       },
-      sortOrder: existingColumns.length,
+      sortOrder: editingColumn?.sortOrder ?? existingColumns.length,
       repeatResolution: {
         strategy: strategy === 'ALL_VALUES' ? 'NONE' : 'LATEST',
         orderBy: 'encounter_date',
@@ -163,7 +184,7 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
 
     onAddColumn(newColumn);
     handleClose();
-  }, [selectedConcept, columnName, strategy, rank, confirmedOnly, returnDisplay, existingColumns, onAddColumn, handleClose]);
+  }, [selectedConcept, columnName, strategy, rank, confirmedOnly, returnDisplay, existingColumns, onAddColumn, handleClose, editingColumn]);
 
   /**
    * Check if form is valid
@@ -174,11 +195,11 @@ const EncounterDiagnosisColumnModal: React.FC<Props> = ({
     <Modal
       open={open}
       onRequestClose={handleClose}
-      modalHeading="Add Diagnosis Column"
+      modalHeading={editingColumn ? "Edit Diagnosis Column" : "Add Diagnosis Column"}
       modalLabel="Data Catalogue"
       size="md"
       preventCloseOnClickOutside
-      primaryButtonText="Add Column"
+      primaryButtonText={editingColumn ? "Save Changes" : "Add Column"}
       primaryButtonDisabled={!isFormValid}
       onRequestSubmit={handleSubmit}
       secondaryButtonText="Cancel"

@@ -20,12 +20,15 @@ import {
   Accordion,
   AccordionItem,
 } from '@carbon/react';
-import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn, Edit } from '@carbon/react/icons';
+import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn, Edit, Copy, ArrowUp, ArrowDown, Settings } from '@carbon/react/icons';
 import type {
   LinelistColumnDraft,
 } from '../../../types/linelist-types';
 import styles from './column-category-selector.scss';
 import EditColumnModal from './edit-column-modal.component';
+import ObservationColumnModal from './observation-column-modal.component';
+import EncounterDiagnosisColumnModal from './encounter-diagnosis-column-modal.component';
+import ColumnDebugPanel from './column-debug-panel.component';
 
 /**
  * Category definitions for organizing columns
@@ -76,6 +79,10 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
   // Edit modal state
   const [editingColumn, setEditingColumn] = useState<LinelistColumnDraft | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showObservationModal, setShowObservationModal] = useState(false);
+  const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [debugColumn, setDebugColumn] = useState<LinelistColumnDraft | null>(null);
 
   /**
    * Categorize a column based on its dataDefinitionType and config
@@ -142,10 +149,22 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
 
   /**
    * Edit a column
+   * Routes to the appropriate modal based on column type
    */
   const editColumn = useCallback((column: LinelistColumnDraft) => {
     setEditingColumn(column);
-    setShowEditModal(true);
+    // Route to native modal based on dataDefinitionType
+    switch (column.dataDefinitionType) {
+      case 'OBSERVATION':
+        setShowObservationModal(true);
+        break;
+      case 'ENCOUNTER_DIAGNOSIS':
+        setShowDiagnosisModal(true);
+        break;
+      default:
+        setShowEditModal(true);
+        break;
+    }
   }, []);
 
   /**
@@ -167,7 +186,56 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
    */
   const cancelEdit = useCallback(() => {
     setShowEditModal(false);
+    setShowObservationModal(false);
+    setShowDiagnosisModal(false);
     setEditingColumn(null);
+  }, []);
+
+  /**
+   * Copy column ID to clipboard
+   */
+  const copyColumnId = useCallback((columnId: string) => {
+    navigator.clipboard.writeText(columnId).then(() => {
+      // Could add a toast notification here
+    });
+  }, []);
+
+  /**
+   * Move column up in order
+   */
+  const moveColumnUp = useCallback((columnId: string) => {
+    const index = columns.findIndex(c => c.id === columnId);
+    if (index <= 0) return; // Already at top
+
+    const updatedColumns = [...columns];
+    // Swap with previous column
+    [updatedColumns[index - 1], updatedColumns[index]] = [updatedColumns[index], updatedColumns[index - 1]];
+    // Update sortOrders
+    updatedColumns.forEach((col, idx) => col.sortOrder = idx);
+    onChange(updatedColumns);
+  }, [columns, onChange]);
+
+  /**
+   * Move column down in order
+   */
+  const moveColumnDown = useCallback((columnId: string) => {
+    const index = columns.findIndex(c => c.id === columnId);
+    if (index === -1 || index >= columns.length - 1) return; // Already at bottom
+
+    const updatedColumns = [...columns];
+    // Swap with next column
+    [updatedColumns[index], updatedColumns[index + 1]] = [updatedColumns[index + 1], updatedColumns[index]];
+    // Update sortOrders
+    updatedColumns.forEach((col, idx) => col.sortOrder = idx);
+    onChange(updatedColumns);
+  }, [columns, onChange]);
+
+  /**
+   * Open debug panel for a column
+   */
+  const openDebugPanel = useCallback((column: LinelistColumnDraft) => {
+    setDebugColumn(column);
+    setShowDebugPanel(true);
   }, []);
 
   const totalColumns = columns.length;
@@ -227,14 +295,69 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
                     <p className={styles.categoryDescription}>{category.description}</p>
                     <div className={styles.columnList}>
                       {categoryColumns.map((col) => (
-                        <div key={col.id} className={styles.columnItem}>
-                          <span className={styles.columnOrder}>{col.sortOrder + 1}.</span>
-                          <span className={styles.columnName}>{col.name}</span>
-                          {col.source?.dataSourceName && (
-                            <Tag size="sm" type="cool-gray">{col.source.dataSourceName}</Tag>
-                          )}
-                          <Tag size="sm" type="gray">{col.dataDefinitionType}</Tag>
+                        <div key={col.id} className={styles.columnItem} data-column-id={col.id} data-position={col.sortOrder}>
+                          {/* Position indicator with drag handle */}
+                          <div className={styles.columnPosition}>
+                            <span className={styles.positionNumber}>#{col.sortOrder + 1}</span>
+                          </div>
+
+                          {/* Column info */}
+                          <div className={styles.columnInfo}>
+                            <span className={styles.columnName}>{col.name}</span>
+                            {/* Column ID shown as small tag */}
+                            <Tag size="sm" type="blue" className={styles.columnIdTag}>
+                              ID: {col.id}
+                            </Tag>
+                            {col.source?.dataSourceName && (
+                              <Tag size="sm" type="cool-gray">{col.source.dataSourceName}</Tag>
+                            )}
+                            <Tag size="sm" type="gray">{col.dataDefinitionType}</Tag>
+                          </div>
+
+                          {/* Column actions */}
                           <div className={styles.columnActions}>
+                            {/* Move Up */}
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              hasIconOnly
+                              renderIcon={ArrowUp}
+                              onClick={() => moveColumnUp(col.id)}
+                              disabled={disabled || col.sortOrder === 0}
+                              iconDescription="Move column up"
+                            />
+                            {/* Move Down */}
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              hasIconOnly
+                              renderIcon={ArrowDown}
+                              onClick={() => moveColumnDown(col.id)}
+                              disabled={disabled || col.sortOrder === columns.length - 1}
+                              iconDescription="Move column down"
+                            />
+                            {/* Copy ID */}
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              hasIconOnly
+                              renderIcon={Copy}
+                              onClick={() => copyColumnId(col.id)}
+                              disabled={disabled}
+                              iconDescription="Copy column ID to clipboard"
+                            />
+                            {/* Debug */}
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              hasIconOnly
+                              renderIcon={Settings}
+                              onClick={() => openDebugPanel(col)}
+                              disabled={disabled}
+                              iconDescription="View column debug info"
+                              style={{ color: '#0f62fe' }}
+                            />
+                            {/* Edit */}
                             <Button
                               kind="ghost"
                               size="sm"
@@ -244,6 +367,7 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
                               disabled={disabled}
                               iconDescription="Edit column"
                             />
+                            {/* Remove */}
                             <Button
                               kind="ghost"
                               size="sm"
@@ -271,6 +395,35 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
           onSave={saveColumn}
           onClose={cancelEdit}
         />
+
+        {/* Observation Column Modal (native edit mode) */}
+        <ObservationColumnModal
+          open={showObservationModal}
+          onClose={cancelEdit}
+          onAddColumn={saveColumn}
+          existingColumns={columns}
+          editingColumn={editingColumn}
+        />
+
+        {/* Encounter Diagnosis Column Modal (native edit mode) */}
+        <EncounterDiagnosisColumnModal
+          open={showDiagnosisModal}
+          onClose={cancelEdit}
+          onAddColumn={saveColumn}
+          existingColumns={columns}
+          editingColumn={editingColumn}
+        />
+
+        {/* Column Debug Panel */}
+        {showDebugPanel && debugColumn && (
+          <ColumnDebugPanel
+            column={debugColumn}
+            onClose={() => {
+              setShowDebugPanel(false);
+              setDebugColumn(null);
+            }}
+          />
+        )}
       </Stack>
     </div>
   );

@@ -32,8 +32,6 @@ export function useETLTables(enabled: boolean) {
 
         getSchemaTables(ac.signal).then((data) => {
                 // data is expected to be SchemaTable[] or something close
-
-            console.log("I am here trying to see if data is loaded")
                 const names = (data ?? [])
                     .map((t) => toTableName(t))
                     .map((x) => x.trim())

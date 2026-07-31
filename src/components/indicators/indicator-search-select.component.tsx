@@ -113,8 +113,6 @@ export default function IndicatorSearchSelect({
                 const ac = new AbortController();
                 abortControllerRef.current = ac;
 
-                console.log('🔍 Searching for:', searchQuery);
-
                 const results = await listIndicators(
                     {
                         q: searchQuery,
@@ -124,8 +122,6 @@ export default function IndicatorSearchSelect({
                     },
                     ac.signal,
                 );
-
-                console.log('✅ Search results:', results.length, 'items for:', searchQuery);
 
                 // Only update if this is still the pending query
                 if (pendingQueryRef.current === searchQuery && isMountedRef.current) {
@@ -149,10 +145,7 @@ export default function IndicatorSearchSelect({
                 }
             } catch (e: any) {
                 if (isMountedRef.current && e.name !== 'AbortError') {
-                    console.error('❌ Search error:', e);
                     setError(e?.message || 'Failed to search indicators');
-                } else if (e.name === 'AbortError') {
-                    console.log('⚠️ Search aborted for:', searchQuery);
                 }
             } finally {
                 if (isMountedRef.current && pendingQueryRef.current === searchQuery) {
@@ -201,18 +194,15 @@ export default function IndicatorSearchSelect({
         (inputText: string) => {
             // Ignore if input is empty or matches placeholder
             if (!inputText || inputText === placeholderText) {
-                console.log('⏭️ Ignoring empty/placeholder input');
                 setLoading(false);
                 return;
             }
 
             // Only search if the input has actually changed
             if (inputText === pendingQueryRef.current || inputText === completedQueryRef.current) {
-                console.log('⏭️ Skipping redundant search for:', inputText);
                 return;
             }
 
-            console.log('⌨️ Input changed to:', inputText);
             scheduleSearch(inputText);
         },
         [scheduleSearch, placeholderText],
@@ -220,8 +210,6 @@ export default function IndicatorSearchSelect({
 
     // Handle selection changes
     const handleSelectionChange = useCallback((selected: ComboItem | null) => {
-        console.log('🎯 Selection changed:', selected?.label || 'none');
-
         if (!selected || selected.isPlaceholder) {
             onChange('', null);
             return;

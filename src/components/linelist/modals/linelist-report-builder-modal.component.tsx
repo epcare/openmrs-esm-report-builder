@@ -68,6 +68,7 @@ import {
 import type { LinelistReportDto } from '../../../types/linelist-types';
 import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
 import { useETLTables } from '../../../hooks/theme';
+import { enhanceConfigForPreview } from '../../../utils/config-enhancer';
 
 import CohortSQLEditor from '../config/cohort-sql-editor.component';
 import ColumnSelector from '../builder/column-selector.component';
@@ -179,6 +180,38 @@ function extractTableAndFieldFromSql(sql: string): { table: string; field: strin
 }
 
 /**
+ * Normalize a column to ensure it has required fields (id, sortOrder)
+ * This ensures backward compatibility with legacy configs
+ */
+function normalizeColumn(column: any, index: number, existingIds: Set<string>): string {
+  // Generate a unique ID if missing or duplicate
+  let columnId = column.id;
+
+  if (!columnId) {
+    // Use index + timestamp for uniqueness
+    const timestamp = Date.now().toString(36);
+    columnId = `col-${timestamp}-${index}`;
+    // If still duplicate, add random suffix
+    if (existingIds.has(columnId)) {
+      columnId = `col-${timestamp}-${index}-${Math.random().toString(36).substr(2, 5)}`;
+    }
+  } else if (existingIds.has(columnId)) {
+    // Duplicate ID - generate new one
+    const timestamp = Date.now().toString(36);
+    columnId = `col-${timestamp}-${index}-dup`;
+  }
+
+  existingIds.add(columnId);
+
+  // Ensure sortOrder is set on source if it exists
+  if (column && typeof column.sortOrder !== 'number') {
+    column.sortOrder = index;
+  }
+
+  return columnId;
+}
+
+/**
  * Convert LinelistReportDto to LinelistReportDraft for editing
  */
 function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
@@ -203,6 +236,7 @@ function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
   // Extract columns from dataset definitions
   const columns: LinelistColumnDraft[] = [];
   const dataSet = config.dataSetDefinitions?.[0];
+  const existingIds = new Set<string>(); // Track IDs to ensure uniqueness
 
   if (dataSet?.columns) {
     dataSet.columns.forEach((col, idx) => {
@@ -228,21 +262,58 @@ function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
         'CALCULATION': 'NUMBER',
         'PERSON_ADDRESS': 'TEXT',
         'SQL': 'TEXT',
+        'OBSERVATION': 'CODED',
+        'ENCOUNTER_DIAGNOSIS': 'CODED',
       };
       const fieldType = fieldTypeMap[dataDefType] || 'TEXT';
 
+      // Set data source name based on dataDefinitionType
+      let dataSourceNameToUse = dataSourceName;
+      let tableToUse = table;
+      let fieldToUse = field;
+
+      // Override source info for known column types
+      if (dataDefType === 'OBSERVATION') {
+        dataSourceNameToUse = 'Observations';
+        tableToUse = 'observations';
+        fieldToUse = dataDefConfig.conceptUuid || field;
+      } else if (dataDefType === 'ENCOUNTER_DIAGNOSIS') {
+        dataSourceNameToUse = 'Encounter Diagnoses';
+        tableToUse = 'encounter_diagnoses';
+        fieldToUse = dataDefConfig.conceptUuid || '*';
+      } else if (dataDefType === 'PERSON_NAME') {
+        dataSourceNameToUse = 'Person Names';
+        tableToUse = 'person_name';
+      } else if (dataDefType === 'PERSON_ADDRESS') {
+        dataSourceNameToUse = 'Person Address';
+        tableToUse = 'person_address';
+      } else if (dataDefType === 'IDENTIFIER') {
+        dataSourceNameToUse = 'Patient Identifiers';
+        tableToUse = 'patient_identifier';
+      } else if (dataDefType === 'PERSON_ATTRIBUTE') {
+        dataSourceNameToUse = 'Person Attributes';
+        tableToUse = 'person_attribute';
+      }
+
+      // Normalize ID and sortOrder
+      const columnId = normalizeColumn(col, idx, existingIds);
+
       columns.push({
-        id: `col-${idx}`,
+        id: columnId,
         name: col.name,
+        description: (col as any).description || '',
         dataDefinitionType: dataDefType,
         dataDefinitionConfig: dataDefConfig,
         config: dataDefConfig, // @deprecated
         source: {
-          dataSourceUuid,
-          dataSourceName,
-          table,
-          field,
+          dataSourceUuid: dataSourceUuid || (dataDefType === 'OBSERVATION' ? 'observations' : dataDefType === 'ENCOUNTER_DIAGNOSIS' ? 'encounter_diagnoses' : ''),
+          dataSourceName: dataSourceNameToUse,
+          table: tableToUse,
+          field: fieldToUse,
           fieldType,
+          conceptUuid: dataDefConfig.conceptUuid,
+          attributeTypeUuid: dataDefConfig.attributeTypeUuid,
+          identifierTypeUuid: dataDefConfig.identifierTypeUuid,
         },
         additionInfo: {
           addedVia: 'IMPORT',
@@ -254,6 +325,7 @@ function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
           align: 'left',
           sortable: true,
           filterable: true,
+          format: dataDefType === 'OBSERVATION' || dataDefType === 'ENCOUNTER_DIAGNOSIS' ? 'coded' : 'text',
         },
         sortOrder: idx,
         repeatResolution: (col as any).repeatResolution,
@@ -801,8 +873,6 @@ function BasicsPanel({
   categories,
   tables,
 }: BasicsPanelProps) {
-  console.log('BasicsPanel render, draft.name:', draft.name, 'draft.categoryUuid:', draft.categoryUuid);
-
   const rowGrainOptions: Array<{ value: LinelistRowGrain; label: string; description: string }> = [
     { value: 'PATIENT', label: 'Patient', description: 'One row per patient' },
     { value: 'ENCOUNTER', label: 'Encounter', description: 'One row per encounter/visit' },
@@ -1246,7 +1316,7 @@ function PreviewPanel({ draft }: PreviewPanelProps) {
       {showJson && (
         <div className={styles.sqlPreview}>
           <h4>Generated Configuration</h4>
-          <pre className={styles.jsonPreview}>{JSON.stringify(config, null, 2)}</pre>
+          <pre className={styles.jsonPreview}>{JSON.stringify(enhanceConfigForPreview(config, draft), null, 2)}</pre>
         </div>
       )}
     </Stack>

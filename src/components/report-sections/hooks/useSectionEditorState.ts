@@ -14,8 +14,10 @@ export function useSectionEditorState(args: {
     const { open, mode, initialSection, indicators, ageCategories } = args;
     const isEdit = mode === 'edit';
     React.useEffect(() => {
-        console.log('[hook] MOUNT');
-        return () => console.log('[hook] UNMOUNT');
+        // Component mount/unmount
+        return () => {
+            // Component unmount
+        };
     }, []);
 
     
@@ -196,11 +198,7 @@ export function useSectionEditorState(args: {
 
     const toggleIndicator = React.useCallback(
         (i: SectionIndicatorRef, checked: boolean) => {
-            console.log('[hook] toggleIndicator called', { id: i.id, checked });
-
             setSelected((prev) => {
-                console.log('[hook] setSelected(prev) BEFORE', prev.map((p) => p.id));
-
                 let next;
                 if (checked) {
                     if (prev.some((x) => x.id === i.id)) {
@@ -214,7 +212,6 @@ export function useSectionEditorState(args: {
                     next = kept.map((x, idx) => ({ ...x, sortOrder: idx + 1 }));
                 }
 
-                console.log('[hook] setSelected(prev) AFTER', next.map((p) => p.id));
                 return next;
             });
 

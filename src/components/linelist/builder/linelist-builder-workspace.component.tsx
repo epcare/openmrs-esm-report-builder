@@ -47,7 +47,7 @@ import type {
 import type { EtlStructure } from '../../../types/etl/etl-types';
 import {
   draftToConfig,
-  isLinelistDraftReadyToCompile,
+  // isLinelistDraftReadyToCompile,
   // isLinelistDraftReadyToPublish,
   createEmptyDraft,
   // isLinelistDraftValid,
@@ -82,13 +82,10 @@ type Props = {};
  * This function populates the draft with all builder details from the saved report
  */
 function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
-  console.log('🔴 reportToDraft called with:', report);
-
   let config: LinelistReportDefinitionConfig | null = null;
 
   try {
     config = report.configJson ? JSON.parse(report.configJson) : null;
-    console.log('Parsed config:', config);
   } catch (e) {
     console.error('Failed to parse report config:', e);
   }
@@ -357,7 +354,6 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
   let indicatorRules: PopulationDefinition['indicatorRules'] = undefined;
 
   const configIndicatorRules = builderState?.indicatorRules || (config as any).indicatorRules;
-  console.log('🔴 configIndicatorRules:', configIndicatorRules);
   if (Array.isArray(configIndicatorRules) && configIndicatorRules.length > 0) {
     indicatorRules = configIndicatorRules.map((rule: any, idx: number) => ({
       id: rule.id || `rule-${idx}`,
@@ -367,18 +363,15 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
       logicalOperator: rule.logicalOperator || 'AND',
       negate: rule.negate || false,
     }));
-    console.log('🔴 Loaded indicatorRules from config:', indicatorRules);
   }
 
   // Fall back to metaJson for buildMethod and indicator rules if not in config
   if (report.metaJson && (!indicatorRules || buildMethod === 'SQL_BUILDER')) {
     try {
       const meta = JSON.parse(report.metaJson);
-      console.log('🔴 Parsed metaJson:', meta);
       // Try to get buildMethod from metaJson as fallback
       if (meta.buildMethod && (meta.buildMethod === 'INDICATOR_BASED' || meta.buildMethod === 'VISUAL_FILTER' || meta.buildMethod === 'SQL_BUILDER')) {
         buildMethod = meta.buildMethod;
-        console.log('🔴 Using buildMethod from metaJson:', buildMethod);
       }
       // Also try to get indicator rules from metaJson as fallback
       if (!indicatorRules && Array.isArray(meta.indicatorRules) && meta.indicatorRules.length > 0) {
@@ -390,7 +383,6 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
           logicalOperator: rule.logicalOperator || 'AND',
           negate: rule.negate || false,
         }));
-        console.log('🔴 Loaded indicatorRules from metaJson:', indicatorRules);
       }
     } catch (e) {
       console.warn('Failed to parse metaJson:', e);
@@ -437,9 +429,6 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
       },
     ],
   };
-  console.log('🔴 Final population state:', population);
-  console.log('🔴 population.indicatorRules:', population.indicatorRules);
-  console.log('🔴 population.buildMethod:', population.buildMethod);
 
   // === CREATE THE DRAFT ===
   // Build population sources from primary datasource
@@ -503,7 +492,6 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     },
   };
 
-  console.log('🟢 Returning draft with builder details:', draft);
   return draft;
 }
 
@@ -581,12 +569,10 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
       import('../../../resources/linelist/linelist-reports.api')
         .then(({ getLinelistReport }) => getLinelistReport(reportId))
         .then((report: LinelistReportDto) => {
-          console.error('🔴 LOADED REPORT:', report?.name, report);
           setInitialReport(report);
           setMode('edit');
           // Convert report to draft
           const draft = reportToDraft(report);
-          console.error('🟢 CONVERTED TO DRAFT:', draft);
           setDraft(draft);
         })
         .catch((err) => {
@@ -1228,14 +1214,6 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
       return 'EQUALS';
   }
 }
-
-  // Debug: Check what's preventing readiness
-  const validationErrors = validateLinelistDraft(draft);
-  if (Object.keys(validationErrors).length > 0) {
-    console.log('⚠️ Draft validation errors:', validationErrors);
-  }
-  const isReady = isLinelistDraftReadyToCompile(draft);
-  console.log('🔴 Compile button state:', { compiling, hasReportUuid: !!initialReport?.uuid, isReady });
 
   if (loading) {
     return (

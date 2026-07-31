@@ -15,6 +15,7 @@ import {
   Stack,
   FormGroup,
   Checkbox,
+  Button,
 } from '@carbon/react';
 import ConceptSelector from '../../shared/concept-selector.component';
 import type { ConceptSummary } from '../../../resources/concepts/concept-types';
@@ -30,6 +31,8 @@ type Props = {
   onAddColumn: (column: LinelistColumnDraft) => void;
   /** Existing columns to check for duplicates */
   existingColumns?: LinelistColumnDraft[];
+  /** Column to edit (if provided, modal is in edit mode) */
+  editingColumn?: LinelistColumnDraft | null;
 };
 
 type ColumnModifier = 'ANY' | 'FIRST' | 'MOST_RECENT' | 'FIRST_N' | 'MOST_RECENT_N';
@@ -57,6 +60,7 @@ const ObservationColumnModal: React.FC<Props> = ({
   onClose,
   onAddColumn,
   existingColumns = [],
+  editingColumn = null,
 }) => {
   const [conceptSelectorKey, setConceptSelectorKey] = useState(0);
   const [selectedConcept, setSelectedConcept] = useState<ConceptSummary | undefined>();
@@ -67,15 +71,6 @@ const ObservationColumnModal: React.FC<Props> = ({
   const [returnDisplay, setReturnDisplay] = useState(true);
   const [extraValues, setExtraValues] = useState<ExtraValue[]>([]);
   const [answerConcept, setAnswerConcept] = useState<ConceptSummary | undefined>();
-
-  /**
-   * Reset form state when modal opens/closes
-   */
-  useEffect(() => {
-    if (open) {
-      setConceptSelectorKey((k) => k + 1);
-    }
-  }, [open]);
 
   /**
    * Reset form state
@@ -90,6 +85,79 @@ const ObservationColumnModal: React.FC<Props> = ({
     setExtraValues([]);
     setAnswerConcept(undefined);
   }, []);
+
+  /**
+   * Reset form state when modal opens/closes
+   * Also populate form when editing existing column
+   */
+  useEffect(() => {
+    if (open) {
+      setConceptSelectorKey((k) => k + 1);
+      if (editingColumn) {
+        // Populate form with existing column data
+        const config = editingColumn.dataDefinitionConfig || {};
+
+        // Debug: Check for required fields
+        if (!config.conceptUuid) {
+          console.warn('⚠️ Missing conceptUuid in dataDefinitionConfig');
+        }
+        if (!config.conceptName && !editingColumn.name) {
+          console.warn('⚠️ Missing conceptName and column name');
+        }
+        if (!config.strategy) {
+          console.warn('⚠️ Missing strategy in dataDefinitionConfig');
+        }
+
+        // Map strategy back to columnModifier
+        let mappedColumnModifier: ColumnModifier = 'MOST_RECENT';
+        const strategy = config.strategy;
+
+        if (strategy === 'ALL_VALUES') {
+          mappedColumnModifier = 'ANY';
+        } else if (strategy === 'EARLIEST') {
+          mappedColumnModifier = 'FIRST';
+        } else if (strategy === 'LATEST') {
+          mappedColumnModifier = 'MOST_RECENT';
+        } else if (typeof strategy === 'string' && strategy.startsWith('FIRST_')) {
+          mappedColumnModifier = 'FIRST_N';
+        } else if (typeof strategy === 'string' && strategy.startsWith('LAST_')) {
+          mappedColumnModifier = 'MOST_RECENT_N';
+        }
+
+        // Extract modifier count from strategy if it's FIRST_N or LAST_N
+        let extractedModifierCount = 1;
+        if (typeof strategy === 'string' && strategy.startsWith('FIRST_')) {
+          const match = strategy.match(/^FIRST_(\d+)$/);
+          if (match) extractedModifierCount = parseInt(match[1]) || 1;
+        } else if (typeof strategy === 'string' && strategy.startsWith('LAST_')) {
+          const match = strategy.match(/^LAST_(\d+)$/);
+          if (match) extractedModifierCount = parseInt(match[1]) || 1;
+        }
+
+        const conceptForSelection = editingColumn.source?.conceptUuid ? {
+          uuid: editingColumn.source.conceptUuid,
+          display: config.conceptName || editingColumn.name,
+          datatype: { name: editingColumn.source?.fieldType || 'TEXT' },
+          conceptClass: undefined, // Not loaded from saved data
+        } as ConceptSummary : undefined;
+
+        setSelectedConcept(conceptForSelection);
+        setColumnName(editingColumn.name || '');
+        setColumnValue(editingColumn.description || '');
+        setColumnModifier(config.columnModifier || mappedColumnModifier);
+        setModifierCount(config.modifierCount || extractedModifierCount);
+        setReturnDisplay(config.returnDisplay !== false);
+        setExtraValues(config.extraValues || []);
+        setAnswerConcept(config.answerConceptUuid ? {
+          uuid: config.answerConceptUuid,
+          display: config.answerConceptName || '',
+        } as ConceptSummary : undefined);
+      } else {
+        // Reset for new column creation
+        resetForm();
+      }
+    }
+  }, [open, editingColumn, resetForm]);
 
   /**
    * Handle modal close
@@ -133,9 +201,9 @@ const ObservationColumnModal: React.FC<Props> = ({
       return;
     }
 
-    // Check for duplicate column names
+    // Check for duplicate column names (exclude current column when editing)
     const duplicateName = existingColumns.some(col =>
-      col.name.toLowerCase() === columnName.toLowerCase()
+      col.id !== editingColumn?.id && col.name.toLowerCase() === columnName.toLowerCase()
     );
     if (duplicateName) {
       // TODO: Show error notification
@@ -174,13 +242,13 @@ const ObservationColumnModal: React.FC<Props> = ({
     }
 
     const newColumn: LinelistColumnDraft = {
-      id: `col-${now}-${selectedConcept.uuid}`,
+      id: editingColumn?.id || `col-${now}-${selectedConcept.uuid}`,
       name: columnName.trim(),
       description: columnValue.trim() || selectedConcept.display,
       source: {
         dataSourceUuid: 'observations',
         dataSourceName: 'Observations',
-        table: 'obs',
+        table: 'observations',
         field: selectedConcept.uuid,
         fieldType: selectedConcept.datatype?.name || 'TEXT',
         conceptUuid: selectedConcept.uuid,
@@ -197,18 +265,18 @@ const ObservationColumnModal: React.FC<Props> = ({
         ...(answerConcept && { answerConceptUuid: answerConcept.uuid }),
       },
       additionInfo: {
-        addedVia: 'VISUAL_SELECTOR',
-        addedAt: now,
-        orderAdded: existingColumns.length,
+        addedVia: editingColumn?.additionInfo?.addedVia || 'VISUAL_SELECTOR',
+        addedAt: editingColumn?.additionInfo?.addedAt || now,
+        orderAdded: editingColumn?.additionInfo?.orderAdded || existingColumns.length,
       },
-      display: {
+      display: editingColumn?.display || {
         width: 150,
         align: 'left',
         sortable: true,
         filterable: true,
         format: 'coded',
       },
-      sortOrder: existingColumns.length,
+      sortOrder: editingColumn?.sortOrder ?? existingColumns.length,
       repeatResolution: columnModifier === 'ANY' ? undefined : {
         strategy: repeatStrategy,
         orderBy: 'obs_datetime',
@@ -219,7 +287,7 @@ const ObservationColumnModal: React.FC<Props> = ({
 
     onAddColumn(newColumn);
     handleClose();
-  }, [selectedConcept, columnName, columnValue, columnModifier, modifierCount, returnDisplay, extraValues, answerConcept, existingColumns, onAddColumn, handleClose]);
+  }, [selectedConcept, columnName, columnValue, columnModifier, modifierCount, returnDisplay, extraValues, answerConcept, existingColumns, onAddColumn, handleClose, editingColumn]);
 
   /**
    * Check if form is valid
@@ -230,11 +298,11 @@ const ObservationColumnModal: React.FC<Props> = ({
     <Modal
       open={open}
       onRequestClose={handleClose}
-      modalHeading="Add Observation Column"
+      modalHeading={editingColumn ? "Edit Observation Column" : "Add Observation Column"}
       modalLabel="Data Catalogue"
       size="md"
       preventCloseOnClickOutside
-      primaryButtonText="Add Column"
+      primaryButtonText={editingColumn ? "Save Changes" : "Add Column"}
       primaryButtonDisabled={!isFormValid}
       onRequestSubmit={handleSubmit}
       secondaryButtonText="Cancel"
@@ -333,25 +401,42 @@ const ObservationColumnModal: React.FC<Props> = ({
                 </div>
 
                 {/* Answer Concept (for coded concepts with answers) */}
-                {selectedConcept.answers && selectedConcept.answers.length > 0 && (
-                  <Select
-                    id="observation-answer-concept"
-                    labelText="Filter by Answer (Optional)"
-                    value={answerConcept?.uuid || ''}
-                    onChange={(e) => {
-                      const answer = selectedConcept.answers?.find(a => a.uuid === e.target.value);
-                      setAnswerConcept(answer);
-                    }}
-                  >
-                    <SelectItem value="" text="All answers" />
-                    {selectedConcept.answers.map(answer => (
-                      <SelectItem
-                        key={answer.uuid}
-                        value={answer.uuid}
-                        text={answer.display}
-                      />
-                    ))}
-                  </Select>
+                {(selectedConcept.answers && selectedConcept.answers.length > 0 || answerConcept) && (
+                  <div>
+                    {answerConcept && (!selectedConcept.answers || selectedConcept.answers.length === 0) && (
+                      <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', opacity: 0.9 }}>
+                        <strong>Filter by Answer:</strong> {answerConcept.display || answerConcept.uuid}
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          onClick={() => setAnswerConcept(undefined)}
+                          style={{ marginLeft: '0.5rem' }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                    {selectedConcept.answers && selectedConcept.answers.length > 0 && (
+                      <Select
+                        id="observation-answer-concept"
+                        labelText="Filter by Answer (Optional)"
+                        value={answerConcept?.uuid || ''}
+                        onChange={(e) => {
+                          const answer = selectedConcept.answers?.find(a => a.uuid === e.target.value);
+                          setAnswerConcept(answer);
+                        }}
+                      >
+                        <SelectItem value="" text="All answers" />
+                        {selectedConcept.answers.map(answer => (
+                          <SelectItem
+                            key={answer.uuid}
+                            value={answer.uuid}
+                            text={answer.display}
+                          />
+                        ))}
+                      </Select>
+                    )}
+                  </div>
                 )}
               </Stack>
             </FormGroup>
