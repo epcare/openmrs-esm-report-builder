@@ -59,11 +59,6 @@ export default function JsonPreview({ draft, className, indicators = [] }: Props
       items.push(<Tag key="columns" size="sm" type="green">{draft.columns.length} columns</Tag>);
     }
 
-    // Check theme
-    if (!draft.themeUuid) {
-      items.push(<Tag key="no-theme" size="sm" type="red">No theme</Tag>);
-    }
-
     // Check data source
     if (!draft.dataSourceUuid) {
       items.push(<Tag key="no-source" size="sm" type="red">No data source</Tag>);

@@ -171,6 +171,59 @@
   border-right: 1px solid #e0e0e0;
 }
 
+.columnSourcesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Card Styles */
+.populationCard,
+.columnSourcesCard {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.populationCard {
+  border-left: 4px solid #00665A;
+}
+
+.columnSourcesCard {
+  border-left: 4px solid #0f62fe;
+}
+
+.columnSourcesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to bottom, #fafafa, #f5f5f5);
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.columnSourcesTitle {
+  margin: 0;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #161616;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.columnSourcesIcon {
+  font-size: 1rem;
+}
+
+.columnSourcesSubtitle {
+  font-size: 0.75rem;
+  color: #6f6f6f;
+  font-weight: 400;
+}
+
 .catalogueControls {
   margin-bottom: 1rem;
 }

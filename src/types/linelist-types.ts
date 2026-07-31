@@ -10,6 +10,31 @@
  */
 
 /**
+ * Population source join types
+ * How multiple population sources combine
+ */
+export type PopulationJoinType =
+  | 'JOIN'          // INNER JOIN on patient_id
+  | 'LEFT_JOIN'     // LEFT JOIN on patient_id
+  | 'INTERSECT'     // Patients in ALL sources (AND logic)
+  | 'UNION'         // Patients from ANY source (OR logic)
+  | 'EXCEPT';       // Patients in source A but NOT in source B
+
+/**
+ * Population source definition
+ * Represents a datasource used for patient population selection
+ */
+export type PopulationSource = {
+  uuid: string;     // Table name (e.g., "mamba_fact_patients_latest")
+  name: string;     // Display name
+  type: 'ETL' | 'CORE' | 'REFERENCE' | 'SQL' | 'INDICATOR';
+  joinType: PopulationJoinType;  // How this source combines with others
+  joinCondition?: string;  // Custom ON clause for JOINs
+  enabled: boolean;  // Whether this source is active
+  order: number;     // Display order for UI
+};
+
+/**
  * Data source configuration in report definition
  * Defines which datasources are used and their roles
  */
@@ -35,9 +60,10 @@ export type DataSourceConfig = {
  * This is stored in the configJson field of a report definition
  *
  * Version 2: Supports multiple data sources
+ * Version 3: Supports multiple population sources with join types
  */
 export type LinelistReportDefinitionConfig = {
-  version: 1 | 2; // Version for migration support
+  version: 1 | 2 | 3; // Version for migration support
   type: 'LINE_LIST';
 
   /**
@@ -299,7 +325,9 @@ export type LinelistDataDefinition =
   | LinelistCalculationDefinition
   | LinelistSqlDefinition
   | LinelistPersonAddressDefinition
-  | LinelistConverterDefinition;
+  | LinelistConverterDefinition
+  | LinelistObservationDefinition
+  | LinelistEncounterDiagnosisDefinition;
 
 /**
  * Base data definition structure
@@ -397,6 +425,72 @@ export type LinelistConverterDefinition = BaseDataDefinition<'CONVERTER'> & {
 };
 
 /**
+ * Observation column
+ * Uses OpenMRS observations based on concepts
+ * Returns the most recent observation value for each patient
+ */
+export type LinelistObservationDefinition = BaseDataDefinition<'OBSERVATION'> & {
+  config: {
+    conceptUuid: string;
+    conceptName?: string;
+    /**
+     * Strategy for handling multiple observations
+     * LATEST: Most recent observation by date
+     * EARLIEST: Oldest observation by date
+     * CLOSEST_TO_START: Value closest to report start date
+     * CLOSEST_TO_END: Value closest to report end date
+     * FIRST_WITHIN_PERIOD: First observation within reporting period
+     * LAST_WITHIN_PERIOD: Last observation within reporting period
+     */
+    strategy?: 'LATEST' | 'EARLIEST' | 'CLOSEST_TO_START' | 'CLOSEST_TO_END' | 'FIRST_WITHIN_PERIOD' | 'LAST_WITHIN_PERIOD';
+    /**
+     * Whether to return the concept's display name instead of UUID
+     */
+    returnDisplay?: boolean;
+    /**
+     * For coded concepts, optionally return a specific answer
+     */
+    answerConceptUuid?: string;
+  };
+};
+
+/**
+ * Encounter Diagnosis column
+ * Uses OpenMRS encounter diagnoses based on concepts
+ * Returns diagnoses for each patient within the reporting period
+ */
+export type LinelistEncounterDiagnosisDefinition = BaseDataDefinition<'ENCOUNTER_DIAGNOSIS'> & {
+  config: {
+    /**
+     * Optional concept UUID to filter diagnoses by specific condition
+     * If not provided, returns all diagnoses
+     */
+    conceptUuid?: string;
+    conceptName?: string;
+    /**
+     * Rank of diagnosis (PRIMARY/SECONDARY)
+     */
+    rank?: 'PRIMARY' | 'SECONDARY' | 'ANY';
+    /**
+     * Whether to return only confirmed diagnoses
+     */
+    confirmedOnly?: boolean;
+    /**
+     * Strategy for handling multiple diagnoses
+     * ALL_VALUES: Return all diagnoses as comma-separated list
+     * LATEST: Most recent diagnosis
+     * FIRST_WITHIN_PERIOD: First diagnosis within reporting period
+     * LAST_WITHIN_PERIOD: Last diagnosis within reporting period
+     */
+    strategy?: 'ALL_VALUES' | 'LATEST' | 'FIRST_WITHIN_PERIOD' | 'LAST_WITHIN_PERIOD';
+    /**
+     * Whether to return the concept's display name instead of UUID
+     */
+    returnDisplay?: boolean;
+  };
+};
+
+/**
  * Population configuration mode
  * Indicates how the cohort/patient selection is defined
  */
@@ -405,10 +499,11 @@ export type PopulationMode = 'SQL' | 'INDICATOR' | 'HYBRID';
 /**
  * Draft state for linelist report builder UI
  * Version 2.0 - Supports multiple data sources and full builder tracking
+ * Version 3.0 - Supports multiple population sources with join types
  */
 export type LinelistReportDraft = {
   // === VERSION ===
-  version: 2; // Contract version for migration support
+  version: 2 | 3; // Contract version for migration support
 
   // === BASIC INFO ===
   name: string;
@@ -419,12 +514,14 @@ export type LinelistReportDraft = {
   currentPanel: LinelistBuilderPanel;
 
   // Report categorization
-  categoryUuid?: string; // Required - report category
-  themeUuid?: string; // Required - data theme
+  categoryUuid?: string; // Optional - report category
   rowGrain?: LinelistRowGrain; // Required - what one row represents
   templateId?: string; // Optional - starting template
 
-  // === DATA SOURCES (v2 - Multiple sources supported) ===
+  // === POPULATION SOURCES (v3 - Multiple sources with join types) ===
+  populationSources: PopulationSource[];
+
+  // === DATA SOURCES (v2 - Multiple sources supported for columns) ===
   dataSources: DataSourceInfo[];
 
   // === LEGACY PROPERTIES (for backward compatibility during migration) ===
@@ -623,6 +720,7 @@ export type ColumnSource = {
   fieldType: string; // Original field type
   attributeTypeUuid?: string; // For person attributes
   identifierTypeUuid?: string; // For identifiers
+  conceptUuid?: string; // For observations and encounter diagnoses
 };
 
 /**
@@ -854,6 +952,8 @@ export type LinelistDataDefinitionMap = {
   SQL: LinelistSqlDefinition;
   PERSON_ADDRESS: LinelistPersonAddressDefinition;
   CONVERTER: LinelistConverterDefinition;
+  OBSERVATION: LinelistObservationDefinition;
+  ENCOUNTER_DIAGNOSIS: LinelistEncounterDiagnosisDefinition;
 };
 
 /**
@@ -905,9 +1005,14 @@ export function generateLinelistWarnings(draft: LinelistReportDraft): LinelistVa
     warnings.category = 'No category selected. Reports are easier to find when organized into categories.';
   }
 
-  // Warn about missing theme (recommended but not required)
-  if (!draft.themeUuid?.trim()) {
-    warnings.theme = 'No data theme selected. Using a theme helps organize indicators and fields.';
+  // Warn about missing population sources (v3)
+  if (!draft.populationSources || draft.populationSources.length === 0) {
+    warnings.population = 'No population sources selected. Select at least one datasource to define the patient cohort.';
+  } else {
+    const enabledCount = draft.populationSources.filter(ps => ps.enabled).length;
+    if (enabledCount === 0) {
+      warnings.population = 'No enabled population sources. Enable at least one datasource.';
+    }
   }
 
   // SQL warnings
@@ -1369,10 +1474,9 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
       ];
 
   const config: LinelistReportDefinitionConfig = {
-    version: 2, // Use version 2 for multi-datasource support
+    version: 3, // Updated to version 3 for population sources support
     type: 'LINE_LIST',
     categoryUuid: draft.categoryUuid,
-    themeUuid: draft.themeUuid,
     // Include both for compatibility - new code uses dataSources
     dataSourceUuid: draft.dataSources.find(ds => ds.role === 'PRIMARY')?.uuid,
     dataSources: buildDataSources(),
@@ -1458,6 +1562,10 @@ function buildDataDefinition(
       return { type: 'PERSON_ADDRESS', config: config as LinelistPersonAddressDefinition['config'] };
     case 'CONVERTER':
       return { type: 'CONVERTER', config: config as LinelistConverterDefinition['config'] };
+    case 'OBSERVATION':
+      return { type: 'OBSERVATION', config: config as LinelistObservationDefinition['config'] };
+    case 'ENCOUNTER_DIAGNOSIS':
+      return { type: 'ENCOUNTER_DIAGNOSIS', config: config as LinelistEncounterDiagnosisDefinition['config'] };
     default:
       // Default to SQL definition for unknown types
       return { type: 'SQL', config: { sql: config.sql || '' } };
@@ -1474,19 +1582,24 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
     errors.name = 'Name is required';
   }
 
-  // Category and theme are recommended but not required for compilation
-  // They're more for organizing/publishing reports
-  // Commented out to allow compilation without these fields
+  // Category is recommended but not required for compilation
   // if (!draft.categoryUuid?.trim()) {
   //   errors.categoryUuid = 'Category is required';
   // }
-  // if (!draft.themeUuid?.trim()) {
-  //   errors.themeUuid = 'Data theme is required';
-  // }
 
-  // Validate data sources (v2 - at least one primary data source required)
+  // Validate population sources (v3 - at least one enabled source required)
+  if (!draft.populationSources || draft.populationSources.length === 0) {
+    errors.dataSources = 'At least one population source is required';
+  } else {
+    const hasEnabled = draft.populationSources.some(ps => ps.enabled);
+    if (!hasEnabled) {
+      errors.dataSources = 'At least one enabled population source is required';
+    }
+  }
+
+  // Validate data sources for columns (v2 - at least one primary data source required)
   if (!draft.dataSources || draft.dataSources.length === 0) {
-    errors.dataSources = 'At least one data source is required';
+    errors.dataSources = 'At least one column data source is required';
   } else {
     const hasPrimary = draft.dataSources.some(ds => ds.role === 'PRIMARY');
     if (!hasPrimary) {
@@ -1663,15 +1776,17 @@ export function createEmptyDraft(): LinelistReportDraft {
   const now = new Date().toISOString();
 
   return {
-    version: 2,
+    version: 3, // Updated to version 3 for population sources support
     name: '',
     description: '',
     code: '',
     currentPanel: 'basics',
     categoryUuid: '',
-    themeUuid: '',
     rowGrain: 'PATIENT',
     templateId: '',
+
+    // Population sources (v3 - multiple sources with join types)
+    populationSources: [],
 
     // Data sources (v2 - array, not single)
     dataSources: [],

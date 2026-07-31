@@ -12,7 +12,6 @@ import React, { useMemo } from 'react';
 import {
   Button,
   ButtonSet,
-  Dropdown,
   Tag,
   Stack,
   MultiSelect,
@@ -27,12 +26,6 @@ type Props = {
   dataSources: DataSourceInfo[];
   /** Callback when datasources change */
   onChange: (dataSources: DataSourceInfo[]) => void;
-  /** Available data themes */
-  themes?: Array<{ uuid: string; name: string }>;
-  /** Currently selected theme UUID */
-  themeUuid?: string;
-  /** Callback when theme changes */
-  onThemeChange?: (themeUuid: string) => void;
   /** Disable the component */
   disabled?: boolean;
 };
@@ -55,9 +48,6 @@ const CORE_DATASOURCES: DataSourceInfo[] = [
 const MultiDatasourceSelector: React.FC<Props> = ({
   dataSources,
   onChange,
-  themes = [],
-  themeUuid,
-  onThemeChange,
   disabled = false,
 }) => {
   // const [showCore, setShowCore] = useState(false);
@@ -176,16 +166,6 @@ const MultiDatasourceSelector: React.FC<Props> = ({
   //   onChange([...dataSources, { ...coreDs }]);
   // };
 
-  /**
-   * Handle theme change
-   */
-  const handleThemeChange = (selected: { selectedItem: { uuid: string } }) => {
-    const theme = selected.selectedItem;
-    if (theme && onThemeChange) {
-      onThemeChange(theme.uuid);
-    }
-  };
-
   // Prepare items for MultiSelect - combine all available tables and core datasources
   const allAvailable = useMemo(() => {
     const allTables = tables || [];
@@ -214,23 +194,6 @@ const MultiDatasourceSelector: React.FC<Props> = ({
             Select multiple datasources to browse and add columns from. The backend will handle joining the data.
           </p>
         </div>
-
-        {/* Theme Selection */}
-        {themes.length > 0 && onThemeChange && (
-          <div className={styles.themeSelector}>
-            <Dropdown
-              id="data-theme"
-              titleText="Data Theme"
-              label="Data theme"
-              size="sm"
-              items={themes}
-              itemToString={(theme: any) => theme?.name || ''}
-              selectedItem={themes.find(t => t.uuid === themeUuid)}
-              onChange={handleThemeChange}
-              disabled={disabled}
-            />
-          </div>
-        )}
 
         {/* Data Sources MultiSelect */}
         <div className={styles.addSection}>

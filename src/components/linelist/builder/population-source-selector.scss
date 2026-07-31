@@ -1,0 +1,187 @@
+/**
+ * Population Source Selector Component Styles
+ */
+
+.container {
+  width: 100%;
+  padding: 1rem;
+}
+
+.header {
+  margin-bottom: 1rem;
+
+  &Title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+
+    h4 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      line-height: 1.28572;
+      margin: 0;
+    }
+  }
+
+  &Description {
+    font-size: 0.875rem;
+    line-height: 1.28572;
+    color: #525252;
+    margin: 0;
+  }
+}
+
+.addSection {
+  margin-bottom: 1rem;
+}
+
+.error {
+  color: #da1e28;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.listSection {
+  margin-top: 1rem;
+}
+
+.listHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.listTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.28572;
+  margin: 0;
+}
+
+.sourceCard {
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: #ffffff;
+  transition: all 0.2s;
+
+  &[data-join-type='JOIN'],
+  &[data-join-type='LEFT_JOIN'] {
+    border-left: 3px solid #0f62fe;
+  }
+
+  &[data-join-type='INTERSECT'] {
+    border-left: 3px solid #198038;
+  }
+
+  &[data-join-type='UNION'] {
+    border-left: 3px solid #8a3ffc;
+  }
+
+  &[data-join-type='EXCEPT'] {
+    border-left: 3px solid #da1e28;
+  }
+
+  &:hover {
+    border-color: #8d8d8d;
+  }
+}
+
+.sourceCardDisabled {
+  opacity: 0.6;
+  background: #f4f4f4;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.cardInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dsName {
+  font-size: 0.875rem;
+  line-height: 1.28572;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardActions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.cardControls {
+  margin-top: 0.5rem;
+}
+
+.controlRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expandedOptions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.optionRow {
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.optionDescription {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: #525252;
+  margin-top: 0.5rem;
+}
+
+.emptyState {
+  padding: 2rem;
+  text-align: center;
+  color: #525252;
+  border: 1px dashed #e0e0e0;
+  border-radius: 0.5rem;
+
+  p {
+    font-size: 0.875rem;
+    line-height: 1.28572;
+    margin: 0;
+  }
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: #f4f4f4;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+
+  span {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: #525252;
+  }
+}

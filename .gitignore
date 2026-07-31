@@ -87,3 +87,4 @@ dist/
 /playwright/.cache/
 e2e/storageState.json
 results.xml
+docs/data-catalogue-refactor-plan.md

@@ -425,8 +425,25 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
           <div className={styles.sectionContent}>
             <div className={styles.datasetInfo}>
               <div className={styles.datasetRow}>
-                <span className={styles.datasetLabel}>Data theme:</span>
-                <span className={styles.datasetValue}>{draft.themeUuid || 'Not selected'}</span>
+                <span className={styles.datasetLabel}>Population sources:</span>
+                <span className={styles.datasetValue}>
+                  {draft.populationSources && draft.populationSources.length > 0 ? (
+                    <div className={styles.datasourceTags}>
+                      {draft.populationSources
+                        .filter(ps => ps.enabled)
+                        .sort((a, b) => a.order - b.order)
+                        .map(ps => (
+                        <Tag key={ps.uuid} size="sm" type={
+                          ps.joinType === 'JOIN' || ps.joinType === 'LEFT_JOIN' ? 'blue' :
+                          ps.joinType === 'INTERSECT' ? 'green' :
+                          ps.joinType === 'UNION' ? 'purple' : 'red'
+                        }>
+                          {ps.name} ({ps.joinType})
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : 'Not selected'}
+                </span>
               </div>
               <div className={styles.datasetRow}>
                 <span className={styles.datasetLabel}>Data sources:</span>
@@ -729,7 +746,7 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                 <div className={styles.populationHeader}>
                   <span className={styles.populationLabel}>Indicators:</span>
                   <span className={styles.populationHint}>
-                    Add indicators from your theme
+                    Add indicators to combine with SQL
                   </span>
                 </div>
 

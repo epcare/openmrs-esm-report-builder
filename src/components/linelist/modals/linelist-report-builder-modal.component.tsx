@@ -67,8 +67,6 @@ import {
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto } from '../../../types/linelist-types';
 import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
-import { listThemes } from '../../../resources/theme/data-theme.api';
-import type { DataTheme } from '../../../types/theme/data-theme.types';
 import { useETLTables } from '../../../hooks/theme';
 
 import CohortSQLEditor from '../config/cohort-sql-editor.component';
@@ -97,9 +95,9 @@ const defaultDraft: LinelistReportDraft = {
   code: '',
   currentPanel: 'basics',
   categoryUuid: '',
-  themeUuid: '',
   dataSourceUuid: '', // @deprecated - use dataSources instead
   dataSources: [],
+  populationSources: [], // v3 - population sources for SQL/Hybrid modes
   rowGrain: 'PATIENT',
   templateId: '',
   cohortSql: '', // @deprecated - use population.sqlTemplate instead
@@ -286,7 +284,6 @@ function reportDtoToDraft(report: LinelistReportDto): LinelistReportDraft {
     description: report.description || '',
     code: report.code || '',
     categoryUuid: (config as any).categoryUuid || '',
-    themeUuid: (config as any).themeUuid || report.metaJson ? (JSON.parse(report.metaJson || '{}') as any).themeUuid || '' : '',
     dataSourceUuid: (config as any).dataSourceUuid || '',
     rowGrain: (config as any).rowGrain || 'PATIENT',
     templateId: (config as any).templateId || '',
@@ -322,19 +319,14 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
 
   // Data for dropdowns
   const [categories, setCategories] = useState<ReportCategoryDto[]>([]);
-  const [themes, setThemes] = useState<DataTheme[]>([]);
   const { tables } = useETLTables(open);
 
-  // Load categories and themes on mount
+  // Load categories on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [cats, thms] = await Promise.all([
-          listReportCategories(),
-          listThemes(),
-        ]);
+        const cats = await listReportCategories();
         setCategories(cats);
-        setThemes(thms);
       } catch (error) {
         console.error('Failed to load reference data:', error);
       }
@@ -557,7 +549,6 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
             onChange={updateDraft}
             error={errors.name}
             categories={categories}
-            themes={themes}
             tables={tables}
           />
         );
@@ -618,7 +609,6 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
             onEdit={goToPanel}
             isValid={isLinelistDraftValid(draft)}
             categories={categories}
-            themes={themes}
           />
         );
 
@@ -801,7 +791,6 @@ interface BasicsPanelProps {
   onChange: (updates: Partial<LinelistReportDraft>) => void;
   error?: string;
   categories: ReportCategoryDto[];
-  themes: DataTheme[];
   tables: string[];
 }
 
@@ -810,10 +799,9 @@ function BasicsPanel({
   onChange,
   error,
   categories,
-  themes,
   tables,
 }: BasicsPanelProps) {
-  console.log('BasicsPanel render, draft.name:', draft.name, 'draft.categoryUuid:', draft.categoryUuid, 'draft.themeUuid:', draft.themeUuid);
+  console.log('BasicsPanel render, draft.name:', draft.name, 'draft.categoryUuid:', draft.categoryUuid);
 
   const rowGrainOptions: Array<{ value: LinelistRowGrain; label: string; description: string }> = [
     { value: 'PATIENT', label: 'Patient', description: 'One row per patient' },
@@ -878,21 +866,6 @@ function BasicsPanel({
         <SelectItem value="" text="Select a category" />
         {categories.map((cat) => (
           <SelectItem key={cat.uuid} value={cat.uuid} text={cat.name} />
-        ))}
-      </Select>
-
-      <Select
-        id="linelist-theme"
-        labelText="Data Theme *"
-        value={draft.themeUuid}
-        onChange={(e) => onChange({ themeUuid: (e.target as HTMLSelectElement).value })}
-        invalid={!!draft.errors.themeUuid}
-        invalidText={draft.errors.themeUuid}
-        helperText="Select the data theme that defines available fields"
-      >
-        <SelectItem value="" text="Select a data theme" />
-        {themes.map((theme) => (
-          <SelectItem key={theme.uuid || theme.code} value={theme.uuid || ''} text={theme.name} />
         ))}
       </Select>
 
@@ -1288,7 +1261,6 @@ interface ReviewPanelProps {
   onEdit: (panel: LinelistBuilderPanel) => void;
   isValid: boolean;
   categories: ReportCategoryDto[];
-  themes: DataTheme[];
 }
 
 function ReviewPanel({
@@ -1296,14 +1268,12 @@ function ReviewPanel({
   onEdit,
   isValid,
   categories,
-  themes,
 }: ReviewPanelProps) {
   const warnings = generateLinelistWarnings(draft);
   const isReadyToCompile = isLinelistDraftReadyToCompile(draft);
 
   // Helper to get display names
   const getCategoryName = () => categories.find((c) => c.uuid === draft.categoryUuid)?.name || '-';
-  const getThemeName = () => themes.find((t) => t.uuid === draft.themeUuid)?.name || '-';
   const getDataSourceName = () => draft.dataSourceUuid || '-';
   const getRowGrainName = () => draft.rowGrain?.replace('_', ' ') || '-';
 
@@ -1325,7 +1295,6 @@ function ReviewPanel({
           onEdit={() => onEdit('basics')}
         />
         <ReviewItem label="Category" value={getCategoryName()} onEdit={() => onEdit('basics')} />
-        <ReviewItem label="Data Theme" value={getThemeName()} onEdit={() => onEdit('basics')} />
         <ReviewItem label="Data Source" value={getDataSourceName()} onEdit={() => onEdit('basics')} />
         <ReviewItem label="Row Grain" value={getRowGrainName()} onEdit={() => onEdit('basics')} />
         <ReviewItem

@@ -342,8 +342,16 @@ export async function compileLinelistReport(
  * when re-opening a report for editing.
  */
 export type LinelistBuilderMeta = {
-  themeUuid?: string;
   buildMethod?: 'SQL_BUILDER' | 'VISUAL_FILTER' | 'INDICATOR_BASED';
+  /** Population sources used for SQL_BUILDER and HYBRID modes */
+  populationSources?: Array<{
+    uuid: string;
+    name: string;
+    type: 'ETL' | 'CORE' | 'REFERENCE' | 'SQL' | 'INDICATOR';
+    joinType: 'JOIN' | 'LEFT_JOIN' | 'INTERSECT' | 'UNION' | 'EXCEPT';
+    enabled: boolean;
+    order: number;
+  }>;
   /** Indicator rules used to build the population (for INDICATOR_BASED mode) */
   indicatorRules?: Array<{
     id: string;
@@ -380,11 +388,11 @@ export function configToSavePayload(
     ...compiled,
     _builder: {
       dataSources: config.dataSources,
+      populationSources: builderMeta?.populationSources,
       rowGrain: config.rowGrain,
       templateId: config.templateId,
       buildMethod: builderMeta?.buildMethod || config.buildMethod,
       indicatorRules: builderMeta?.indicatorRules || config.indicatorRules,
-      themeUuid: builderMeta?.themeUuid || config.themeUuid,
       categoryUuid: config.categoryUuid,
     },
   };

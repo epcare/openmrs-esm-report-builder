@@ -23,7 +23,7 @@ import { User, Tag as TagIcon, Function, Hashtag } from '@carbon/react/icons';
 import { useETLTableMeta } from '../../../hooks/theme';
 // import { useDataThemes } from '../../../hooks/theme';
 // TableColumn type imported as needed
-import type { FilterFieldType, DataSourceInfo } from '../../../types/linelist-types';
+import type { FilterFieldType, DataSourceInfo, PopulationSource, LinelistColumnDraft } from '../../../types/linelist-types';
 import type {
   EtlStructure,
 } from '../../../types/etl/etl-types';
@@ -31,6 +31,9 @@ import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../
 import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../resources/patient-identifier-type/patient-identifier-type.api';
 import { useAddressFields } from '../../../hooks/address-template';
 import CustomSqlColumnModal, { type CustomSqlColumnConfig } from './custom-sql-column-modal.component';
+import PopulationSourceSelector from './population-source-selector.component';
+import ObservationColumnModal from './observation-column-modal.component';
+import EncounterDiagnosisColumnModal from './encounter-diagnosis-column-modal.component';
 import styles from './data-catalogue.scss';
 
 /**
@@ -67,6 +70,24 @@ const FIELD_GROUPS = [
     fieldPatterns: [], // No pattern matching - populated via API
     icon: Hashtag,
     isApiDriven: true, // Flag for API-driven groups
+  },
+  {
+    id: 'api-observations',
+    name: 'Observations',
+    description: 'Clinical observations from OpenMRS based on concepts (e.g., Weight, Height, Temperature)',
+    fieldPatterns: [], // No pattern matching - populated via API
+    icon: '📊',
+    isApiDriven: true, // Flag for API-driven groups
+    isConceptBased: true, // New flag for concept-based groups
+  },
+  {
+    id: 'api-encounter-diagnoses',
+    name: 'Encounter Diagnoses',
+    description: 'Diagnoses from OpenMRS encounters based on concepts (ICD coded conditions)',
+    fieldPatterns: [], // No pattern matching - populated via API
+    icon: '🏥',
+    isApiDriven: true, // Flag for API-driven groups
+    isConceptBased: true, // New flag for concept-based groups
   },
   {
     id: 'openmrs-person-name',
@@ -334,18 +355,24 @@ type Props = {
   table?: string;
   /** Multiple datasources to browse columns from */
   dataSources?: DataSourceInfo[];
-  themeUuid?: string;
+  /** Population sources for cohort definition */
+  populationSources?: PopulationSource[];
+  /** Callback when population sources change */
+  onPopulationSourcesChange?: (populationSources: PopulationSource[]) => void;
+  /** Show population sources selector (for SQL/Hybrid modes) */
+  showPopulationSelector?: boolean;
   onAddToColumns: (field: CatalogueField) => void;
   onAddToFilters: (field: CatalogueField) => void;
   onTableChange?: (table: string) => void;
   onDataSourcesChange?: (dataSources: DataSourceInfo[]) => void;
-  onThemeChange?: (themeUuid: string) => void;
   onFieldsAvailable?: (fields: CatalogueField[]) => void; // Callback to expose available fields to parent
   onEtlStructureDetected?: (structure: EtlStructure) => void; // Callback when ETL structure is detected
   selectedFields?: string[]; // Field IDs that are already selected
   disabled?: boolean;
   /** Callback to add a custom SQL column */
   onAddCustomSqlColumn?: (config: CustomSqlColumnConfig) => void;
+  /** Callback to add a draft column (for observation/diagnosis columns) */
+  onAddDraftColumn?: (column: LinelistColumnDraft) => void;
   /** The patient/client ID column alias used by the base cohort SQL */
   idColumnAlias?: 'client_id' | 'patient_id';
 };
@@ -371,17 +398,17 @@ export type CatalogueField = {
 const DataCatalogue: React.FC<Props> = ({
   table: legacyTable,
   dataSources: propDataSources,
-  // themeUuid,
+  populationSources: propPopulationSources,
+  onPopulationSourcesChange,
+  showPopulationSelector = true,
   onAddToColumns,
   onAddToFilters,
-  // onTableChange,
-  // onDataSourcesChange,
-  // onThemeChange,
   onFieldsAvailable,
   onEtlStructureDetected,
   selectedFields = [],
   disabled = false,
   onAddCustomSqlColumn,
+  onAddDraftColumn,
   idColumnAlias = 'client_id',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -389,6 +416,8 @@ const DataCatalogue: React.FC<Props> = ({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [etlStructure, setEtlStructure] = useState<EtlStructure | null>(null);
   const [customSqlModalOpen, setCustomSqlModalOpen] = useState(false);
+  const [observationModalOpen, setObservationModalOpen] = useState(false);
+  const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
 
   // State for API-fetched data
   const [personAttributeTypes, setPersonAttributeTypes] = useState<Array<PersonAttributeTypeDto>>([]);
@@ -396,14 +425,23 @@ const DataCatalogue: React.FC<Props> = ({
   const [apiDataLoading, setApiDataLoading] = useState(true);
   const [apiDataError, setApiDataError] = useState<string | null>(null);
 
+  // Internal state for population sources (if not controlled)
+  const [internalPopulationSources, setInternalPopulationSources] = useState<PopulationSource[]>([]);
+  const populationSources = propPopulationSources ?? internalPopulationSources;
+
+  // Handle population sources change
+  const handlePopulationSourcesChange = (newSources: PopulationSource[]) => {
+    setInternalPopulationSources(newSources);
+    if (onPopulationSourcesChange) {
+      onPopulationSourcesChange(newSources);
+    }
+  };
+
   // Fetch dynamic address fields from OpenMRS address template
   const { addressFields } = useAddressFields();
 
   // Get available tables
   // const { tables, loading: tablesLoading, error: tablesError } = useETLTables(true);
-
-  // Get available data themes
-  // const { themes, loading: themesLoading, error: themesError } = useDataThemes('');
 
   // Use new dataSources prop or fall back to legacy single table
   const dataSources = useMemo(() => {
@@ -501,6 +539,14 @@ const DataCatalogue: React.FC<Props> = ({
         isRepeated: true, // Patients can have multiple identifiers of the same type
         description: idType.description || 'Patient identifier',
       }));
+
+    // Add placeholder for concept-based observations
+    // These will be dynamically added by users via concept search
+    groups['api-observations'] = [];
+
+    // Add placeholder for concept-based encounter diagnoses
+    // These will be dynamically added by users via concept search
+    groups['api-encounter-diagnoses'] = [];
 
     // Categorize each column from the selected table
     if (columns && columns.length > 0) {
@@ -642,6 +688,18 @@ const DataCatalogue: React.FC<Props> = ({
 
   return (
     <div className={styles.catalogue}>
+      {/* Population Sources Selector */}
+      {showPopulationSelector && onPopulationSourcesChange && (
+        <div className={styles.populationSourcesSection}>
+          <PopulationSourceSelector
+            populationSources={populationSources}
+            onChange={handlePopulationSourcesChange}
+            disabled={disabled}
+            showAdvanced={false}
+          />
+        </div>
+      )}
+
       {/* ETL Structure Indicator */}
       {etlStructure && (
         <div className={styles.etlIndicator}>
@@ -768,77 +826,115 @@ const DataCatalogue: React.FC<Props> = ({
               const groupFields = filteredGroupedFields[group.id] || [];
               const isExpanded = expandedGroups.has(group.id);
 
-              if (groupFields.length === 0) return null;
+              // Allow concept-based groups to show even with no fields
+              if (groupFields.length === 0 && !group.isConceptBased) return null;
 
               return (
                 <AccordionItem
                   key={group.id}
                   title={
                     <div className={styles.groupHeader}>
-                      <span className={styles.groupIcon}>{group.icon && <group.icon size={16} />}</span>
+                      <span className={styles.groupIcon}>{group.icon && React.createElement(group.icon, { size: 16 })}</span>
                       <span className={styles.groupName}>{group.name}</span>
-                      <Tag size="sm" type="gray">{groupFields.length}</Tag>
+                      {group.isConceptBased ? (
+                        <Tag size="sm" type="blue">+</Tag>
+                      ) : (
+                        <Tag size="sm" type="gray">{groupFields.length}</Tag>
+                      )}
                     </div>
                   }
                   open={isExpanded}
                   onClick={(e) => toggleGroup(group.id, e)}
                 >
-                  <div
-                    className={styles.fieldList}
-                    onClick={(e) => {
-                      // Prevent accordion toggle when clicking on field items
-                      e.stopPropagation();
-                    }}
-                  >
-                    {groupFields.map((field) => {
-                      const isSelected = selectedFields.includes(field.id);
-                      return (
-                        <div key={field.id} className={styles.fieldItem} data-selected={isSelected}>
-                          <div className={styles.fieldInfo}>
-                            <span className={styles.fieldName}>{field.label}</span>
-                            <div className={styles.fieldMeta}>
-                              {isSelected && (
-                                <Tag size="sm" type="green">Selected</Tag>
-                              )}
-                              {field.dataSourceName && (
-                                <Tag size="sm" type="cool-gray">{field.dataSourceName}</Tag>
-                              )}
-                              <Tag size="sm" type="blue">{field.type}</Tag>
-                              <Tag size="sm" type="gray">{field.source}</Tag>
-                              {field.isRepeated && (
-                                <Tag size="sm" type="purple">Repeated</Tag>
-                              )}
+                  {/* Concept-based groups show an "Add Column" button instead of predefined fields */}
+                  {group.isConceptBased ? (
+                    <div className={styles.conceptBasedGroupContent}>
+                      <p className={styles.conceptBasedDescription}>
+                        {group.description}
+                      </p>
+                      <div className={styles.conceptBasedActions}>
+                        {group.id === 'api-observations' && (
+                          <Button
+                            kind="primary"
+                            size="sm"
+                            onClick={() => setObservationModalOpen(true)}
+                            disabled={disabled}
+                            renderIcon={null}
+                          >
+                            + Add Observation Column
+                          </Button>
+                        )}
+                        {group.id === 'api-encounter-diagnoses' && (
+                          <Button
+                            kind="primary"
+                            size="sm"
+                            onClick={() => setDiagnosisModalOpen(true)}
+                            disabled={disabled}
+                            renderIcon={null}
+                          >
+                            + Add Diagnosis Column
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={styles.fieldList}
+                      onClick={(e) => {
+                        // Prevent accordion toggle when clicking on field items
+                        e.stopPropagation();
+                      }}
+                    >
+                      {groupFields.map((field) => {
+                        const isSelected = selectedFields.includes(field.id);
+                        return (
+                          <div key={field.id} className={styles.fieldItem} data-selected={isSelected}>
+                            <div className={styles.fieldInfo}>
+                              <span className={styles.fieldName}>{field.label}</span>
+                              <div className={styles.fieldMeta}>
+                                {isSelected && (
+                                  <Tag size="sm" type="green">Selected</Tag>
+                                )}
+                                {field.dataSourceName && (
+                                  <Tag size="sm" type="cool-gray">{field.dataSourceName}</Tag>
+                                )}
+                                <Tag size="sm" type="blue">{field.type}</Tag>
+                                <Tag size="sm" type="gray">{field.source}</Tag>
+                                {field.isRepeated && (
+                                  <Tag size="sm" type="purple">Repeated</Tag>
+                                )}
+                              </div>
+                              <div className={styles.fieldName}>{field.name}</div>
                             </div>
-                            <div className={styles.fieldName}>{field.name}</div>
+                            <div className={styles.fieldActions}>
+                              <Button
+                                kind="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToColumns(field);
+                                }}
+                                disabled={disabled}
+                              >
+                                + Column
+                              </Button>
+                              <Button
+                                kind="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToFilters(field);
+                                }}
+                                disabled={disabled}
+                              >
+                                + Filter
+                              </Button>
+                            </div>
                           </div>
-                          <div className={styles.fieldActions}>
-                            <Button
-                              kind="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onAddToColumns(field);
-                              }}
-                              disabled={disabled}
-                            >
-                              + Column
-                            </Button>
-                            <Button
-                              kind="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onAddToFilters(field);
-                              }}
-                              disabled={disabled}
-                            >
-                              + Filter
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </AccordionItem>
               );
             })}
@@ -924,6 +1020,22 @@ const DataCatalogue: React.FC<Props> = ({
           idColumnAlias={idColumnAlias}
         />
       )}
+
+      {/* Observation Column Modal */}
+      <ObservationColumnModal
+        open={observationModalOpen}
+        onClose={() => setObservationModalOpen(false)}
+        onAddColumn={onAddDraftColumn || (() => {})}
+        existingColumns={[]}
+      />
+
+      {/* Encounter Diagnosis Column Modal */}
+      <EncounterDiagnosisColumnModal
+        open={diagnosisModalOpen}
+        onClose={() => setDiagnosisModalOpen(false)}
+        onAddColumn={onAddDraftColumn || (() => {})}
+        existingColumns={[]}
+      />
     </div>
   );
 };

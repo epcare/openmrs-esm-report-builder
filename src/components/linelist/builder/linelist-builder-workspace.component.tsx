@@ -42,6 +42,7 @@ import type {
   LinelistSortConfig,
   LinelistDataDefinitionMap,
   PopulationDefinition,
+  PopulationSource,
 } from '../../../types/linelist-types';
 import type { EtlStructure } from '../../../types/etl/etl-types';
 import {
@@ -62,14 +63,12 @@ import {
 import type { LinelistBuilderMeta } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto } from '../../../types/linelist-types';
 import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
-import { listThemes } from '../../../resources/theme/data-theme.api';
-import { useDataTheme } from '../../../hooks/theme';
 import { useIndicatorsByTheme } from '../../../hooks/indicator';
-import type { DataTheme, ThemeField } from '../../../types/theme/data-theme.types';
 
 import DataCatalogue from './data-catalogue.component';
 import QueryConfigPanel from '../config/query-config-panel.component';
 import MultiDatasourceSelector from './multi-datasource-selector.component';
+import PopulationSourceSelector from './population-source-selector.component';
 import type { CatalogueField } from './data-catalogue.component';
 import type { CustomSqlColumnConfig } from './custom-sql-column-modal.component';
 import styles from './linelist-builder-workspace.scss';
@@ -351,10 +350,9 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     config: param.config || {},
   })) || [];
 
-  // === EXTRACT BUILDER METADATA (themeUuid, build method, indicators) ===
+  // === EXTRACT BUILDER METADATA (build method, indicators) ===
   // Builder state lives under `_builder` (compiled format) or at the top level
   // (intermediate format). Read from _builder first, then fall back.
-  let themeUuid = builderState?.themeUuid || config.themeUuid || '';
   let buildMethod: PopulationDefinition['buildMethod'] = builderState?.buildMethod || (config as any).buildMethod || 'SQL_BUILDER';
   let indicatorRules: PopulationDefinition['indicatorRules'] = undefined;
 
@@ -372,15 +370,12 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     console.log('🔴 Loaded indicatorRules from config:', indicatorRules);
   }
 
-  // Fall back to metaJson for themeUuid, buildMethod, and indicator rules if not in config
-  if (report.metaJson && (!themeUuid || !indicatorRules || buildMethod === 'SQL_BUILDER')) {
+  // Fall back to metaJson for buildMethod and indicator rules if not in config
+  if (report.metaJson && (!indicatorRules || buildMethod === 'SQL_BUILDER')) {
     try {
       const meta = JSON.parse(report.metaJson);
       console.log('🔴 Parsed metaJson:', meta);
-      if (!themeUuid) {
-        themeUuid = meta.themeUuid || '';
-      }
-      // Also try to get buildMethod from metaJson as fallback
+      // Try to get buildMethod from metaJson as fallback
       if (meta.buildMethod && (meta.buildMethod === 'INDICATOR_BASED' || meta.buildMethod === 'VISUAL_FILTER' || meta.buildMethod === 'SQL_BUILDER')) {
         buildMethod = meta.buildMethod;
         console.log('🔴 Using buildMethod from metaJson:', buildMethod);
@@ -447,16 +442,30 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
   console.log('🔴 population.buildMethod:', population.buildMethod);
 
   // === CREATE THE DRAFT ===
+  // Build population sources from primary datasource
+  const populationSources: PopulationSource[] = [];
+  const primaryDs = dataSources.find(ds => ds.role === 'PRIMARY');
+  if (primaryDs) {
+    populationSources.push({
+      uuid: primaryDs.uuid,
+      name: primaryDs.name,
+      type: primaryDs.type,
+      joinType: 'JOIN',
+      enabled: true,
+      order: 0,
+    });
+  }
+
   const draft: LinelistReportDraft = {
-    version: 2,
+    version: 3,
     name: report.name || '',
     description: report.description || '',
     code: report.code || '',
     currentPanel: 'basics',
     categoryUuid: config.categoryUuid || '',
-    themeUuid,
     rowGrain: config.rowGrain || 'PATIENT',
     templateId: config.templateId || '',
+    populationSources,
     dataSources,
     population,
     columns,
@@ -489,7 +498,7 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
       lastModified: now,
       buildMethod: 'EDIT',
       sourceReportUuid: report.uuid,
-      version: 2,
+      version: 3,
       status: 'DRAFT',
     },
   };
@@ -531,8 +540,6 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   // Reference data
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [categories, setCategories] = useState<ReportCategoryDto[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [themes, setThemes] = useState<DataTheme[]>([]);
 
   // Panel state
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -556,49 +563,11 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [etlStructure, setEtlStructure] = useState<EtlStructure | null>(null);
 
-  // Theme fields for population filters
-  const { config: themeConfig } = useDataTheme(draft.themeUuid);
-
-  // Indicators for population (from selected theme)
-  const { indicators } = useIndicatorsByTheme(draft.themeUuid);
+  // Indicators for population (load all available indicators)
+  const { indicators } = useIndicatorsByTheme(''); // Empty string to load all indicators
 
   // Compile setup modal state
   const [showCompileSetupModal, setShowCompileSetupModal] = useState(false);
-
-  /**
-   * Convert theme fields to filter builder format
-   */
-  const themeFieldsForPopulation = useMemo(() => {
-    if (!themeConfig?.fields) return [];
-
-    return themeConfig.fields.map((field: ThemeField) => {
-      // Map theme field type to FilterFieldType
-      let filterType: FilterFieldType = 'TEXT';
-      switch (field.type) {
-        case 'number':
-          filterType = 'NUMBER';
-          break;
-        case 'date':
-        case 'datetime':
-          filterType = 'DATE';
-          break;
-        case 'boolean':
-          filterType = 'BOOLEAN';
-          break;
-        case 'coded':
-          filterType = 'CODED';
-          break;
-        default:
-          filterType = 'TEXT';
-      }
-
-      return {
-        name: field.key,
-        label: field.label || field.key,
-        type: filterType,
-      };
-    });
-  }, [themeConfig]);
 
 
   /**
@@ -638,12 +607,8 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [cats, thms] = await Promise.all([
-          listReportCategories(),
-          listThemes(),
-        ]);
+        const cats = await listReportCategories();
         setCategories(cats);
-        setThemes(thms);
       } catch (err) {
         console.error('Failed to load reference data:', err);
       }
@@ -665,12 +630,12 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
       );
       // Pass indicators map so draftToConfig can generate SQL from indicator rules
       const config = draftToConfig(draft, indicatorsMap);
-      // Preserve builder state (indicators, build method) in metaJson so the
+      // Preserve builder state (indicators, build method, population sources) in metaJson so the
       // editor can reconstruct the draft when re-opening for edit.
       const builderMeta: LinelistBuilderMeta = {
-        themeUuid: draft.themeUuid,
         buildMethod: draft.population.buildMethod,
         indicatorRules: draft.population.indicatorRules,
+        populationSources: draft.populationSources,
       };
       const payload = configToSavePayload(config, draft, builderMeta);
 
@@ -806,13 +771,6 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     }
     updateDraft({ dataSources: newDataSources });
   }, [updateDraft, draft.dataSources]);
-
-  /**
-   * Handle data theme change
-   */
-  const handleThemeChange = useCallback((themeUuid: string) => {
-    updateDraft({ themeUuid });
-  }, [updateDraft]);
 
   /**
    * Get list of selected field IDs for highlighting in catalogue
@@ -1135,6 +1093,20 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   }, [draft.columns, draft.dataSources, updateDraft]);
 
   /**
+   * Handle adding draft column (from observation/diagnosis modals)
+   */
+  const handleAddDraftColumn = useCallback((column: LinelistColumnDraft) => {
+    // Prevent duplicate column names
+    if (draft.columns.some((col) => col.name.toLowerCase() === column.name.toLowerCase())) {
+      setSaveError('A column with this name already exists');
+      return;
+    }
+
+    const updatedColumns = [...draft.columns, column];
+    updateDraft({ columns: updatedColumns });
+  }, [draft.columns, updateDraft]);
+
+  /**
    * Handle adding field from catalogue as filter
    */
   const handleAddFieldAsFilter = useCallback((field: CatalogueField) => {
@@ -1390,26 +1362,50 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
 
           {!leftPanelCollapsed && (
             <div className={styles.panelContent}>
-              <MultiDatasourceSelector
-                dataSources={draft.dataSources}
-                onChange={handleDataSourcesChange}
-                themes={themes.map(t => ({ uuid: t.uuid || '', name: t.name }))}
-                themeUuid={draft.themeUuid}
-                onThemeChange={handleThemeChange}
-                disabled={loading}
-              />
-              <DataCatalogue
-                dataSources={draft.dataSources}
-                themeUuid={draft.themeUuid}
-                onAddToColumns={handleAddFieldAsColumn}
-                onAddToFilters={handleAddFieldAsFilter}
-                onTableChange={handleTableChange}
-                onFieldsAvailable={handleFieldsAvailable}
-                onEtlStructureDetected={handleEtlStructureDetected}
-                selectedFields={selectedFieldIds}
-                onAddCustomSqlColumn={handleAddCustomSqlColumn}
-                idColumnAlias="client_id"
-              />
+              {/* Column Sources Section */}
+              <div className={styles.columnSourcesSection}>
+                {/* Population Sources Section */}
+                <div className={styles.populationCard}>
+                  <PopulationSourceSelector
+                    populationSources={draft.populationSources}
+                    onChange={(sources) => updateDraft({ populationSources: sources })}
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Column Sources Section */}
+                <div className={styles.columnSourcesCard}>
+                  <div className={styles.columnSourcesHeader}>
+                    <h4 className={styles.columnSourcesTitle}>
+                      <span className={styles.columnSourcesIcon}>📊</span>
+                      Column Sources
+                    </h4>
+                    <span className={styles.columnSourcesSubtitle}>
+                      Select columns for output
+                    </span>
+                  </div>
+                  <MultiDatasourceSelector
+                    dataSources={draft.dataSources}
+                    onChange={handleDataSourcesChange}
+                    disabled={loading}
+                  />
+                  <DataCatalogue
+                    dataSources={draft.dataSources}
+                    populationSources={draft.populationSources}
+                    onPopulationSourcesChange={undefined}
+                    onAddToColumns={handleAddFieldAsColumn}
+                    onAddToFilters={handleAddFieldAsFilter}
+                    onTableChange={handleTableChange}
+                    onFieldsAvailable={handleFieldsAvailable}
+                    onEtlStructureDetected={handleEtlStructureDetected}
+                    selectedFields={selectedFieldIds}
+                    onAddCustomSqlColumn={handleAddCustomSqlColumn}
+                    onAddDraftColumn={handleAddDraftColumn}
+                    idColumnAlias="client_id"
+                    showPopulationSelector={false}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </aside>
@@ -1446,7 +1442,6 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
                 draft={draft}
                 onDraftChange={updateDraft}
                 availableFields={availableFields}
-                populationFields={themeFieldsForPopulation}
                 indicators={indicators}
                 onRemoveColumn={handleRemoveColumn}
               />
