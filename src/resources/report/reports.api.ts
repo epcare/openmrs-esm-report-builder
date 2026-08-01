@@ -19,6 +19,7 @@ export type ReportDto = {
     name: string;
     description?: string;
     code?: string;
+    reportType?: 'AGGREGATE' | 'LINE_LIST';
     configJson?: string;
     metaJson?: string;
     retired?: boolean;
@@ -79,6 +80,23 @@ export async function listReports(
 
     return unwrapRestList(data)
         .filter((x) => Boolean(x?.uuid))
+        .filter((x) => {
+          // Exclude LINE_LIST reports - only show AGGREGATE reports in the reports dashboard
+          const reportType = (x as any)?.reportType;
+          if (reportType === 'LINE_LIST') return false;
+
+          // Also check configJson for type if reportType is not set
+          if (x.configJson) {
+            try {
+              const config = JSON.parse(x.configJson);
+              if (config?.type === 'LINE_LIST') return false;
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+
+          return true;
+        })
         .map(normalizeReportDto);
 }
 
