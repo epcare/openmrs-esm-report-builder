@@ -33,6 +33,8 @@ type Props = {
   existingColumnNames?: string[];
   /** The patient/client ID column alias used by the base cohort SQL */
   idColumnAlias?: 'client_id' | 'patient_id';
+  /** Name of the current primary datasource (for display) */
+  primaryDatasourceName?: string;
 };
 
 const EXAMPLES = [
@@ -56,6 +58,7 @@ const CustomSqlColumnModal: React.FC<Props> = ({
   onSave,
   existingColumnNames = [],
   idColumnAlias = 'client_id',
+  primaryDatasourceName = '',
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -130,6 +133,24 @@ const CustomSqlColumnModal: React.FC<Props> = ({
           <code>:{idColumnAlias}</code> as a bind parameter — it will be replaced with the
           patient/client ID for each row in the report.
         </p>
+
+        {/* Datasource Info */}
+        {primaryDatasourceName && (
+          <InlineNotification
+            kind="info"
+            title="About Data Sources"
+            subtitle={`This column will be associated with your primary datasource: "${primaryDatasourceName}". To use a different datasource, go to the Data Sources panel and set it as primary first.`}
+            lowContrast
+          />
+        )}
+        {!primaryDatasourceName && (
+          <InlineNotification
+            kind="warning"
+            title="No Primary Data Source"
+            subtitle="Custom SQL columns need a primary datasource. Please select a datasource in the Data Sources panel before adding custom columns."
+            lowContrast
+          />
+        )}
 
         {error && (
           <InlineNotification

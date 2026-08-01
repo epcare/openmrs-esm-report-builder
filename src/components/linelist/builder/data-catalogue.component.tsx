@@ -455,7 +455,9 @@ const DataCatalogue: React.FC<Props> = ({
   }, [propDataSources, legacyTable]);
 
   // Get the primary datasource for single-table mode compatibility
-  const primaryTable = dataSources.find(ds => ds.role === 'PRIMARY')?.uuid || legacyTable || '';
+  const primaryDataSource = dataSources.find(ds => ds.role === 'PRIMARY');
+  const primaryTable = primaryDataSource?.uuid || legacyTable || '';
+  const primaryDatasourceName = primaryDataSource?.name || '';
 
   // Get columns for selected table (primary datasource)
   const {
@@ -552,6 +554,12 @@ const DataCatalogue: React.FC<Props> = ({
     if (columns && columns.length > 0) {
       columns.forEach((column) => {
         const groupId = categorizeField(column.name) || 'uncategorized';
+
+        // Skip groups that are pre-populated with static/dynamic fields
+        // to avoid duplicates with ETL table columns
+        if (groupId === 'demographics' || groupId === 'openmrs-calculated') {
+          return;
+        }
 
         const field: CatalogueField = {
           id: `${primaryTable}.${column.name}`,
@@ -1018,6 +1026,7 @@ const DataCatalogue: React.FC<Props> = ({
           onSave={onAddCustomSqlColumn}
           existingColumnNames={[]}
           idColumnAlias={idColumnAlias}
+          primaryDatasourceName={primaryDatasourceName}
         />
       )}
 
