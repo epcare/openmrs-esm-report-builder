@@ -13,8 +13,6 @@ import {
   Tag,
   Tile,
   TextInput,
-  DatePicker,
-  DatePickerInput,
   Select,
   SelectItem,
   DataTable,
@@ -40,6 +38,7 @@ import {
   compileLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto, LinelistParameter } from '../../../types/linelist-types';
+import DateParameterInput from '../../data-visualizer/parameter-inputs/date-parameter-input.component';
 
 import styles from './linelist-run-report.scss';
 
@@ -258,24 +257,12 @@ const LinelistRunReport: React.FC<Props> = () => {
       case 'DATE':
       case 'DATETIME':
         return (
-          <DatePicker
-            dateFormat="Y-m-d"
-            value={value ? new Date(value) : null}
-            onChange={(date) => {
-              if (date && date.length > 0) {
-                const dateObj = date[0];
-                const dateStr = dateObj instanceof Date ? dateObj.toISOString().split('T')[0] : dateObj;
-                updateParamValue(param.name, dateStr);
-              }
-            }}
-          >
-            <DatePickerInput
-              id={`param-${param.name}`}
-              labelText={param.label}
-              placeholder={param.label}
-              disabled={running}
-            />
-          </DatePicker>
+          <DateParameterInput
+            key={param.name}
+            parameter={param}
+            value={value}
+            onChange={(newValue) => updateParamValue(param.name, newValue)}
+          />
         );
 
       case 'TEXT':

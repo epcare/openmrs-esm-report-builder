@@ -34,6 +34,9 @@ import {
   Checkbox,
   ProgressBar,
   Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from '@carbon/react';
 import { Add, Document, Renew, Download, Play } from '@carbon/react/icons';
 import { useNavigate } from 'react-router-dom';
@@ -235,6 +238,12 @@ const LinelistReportsPage: React.FC<Props> = () => {
    * Confirm and execute bulk compile with selected category
    */
   const handleConfirmBulkCompile = useCallback(async () => {
+    // Validate category selection
+    if (!selectedCategory || selectedCategory.trim() === '') {
+      alert('Please select a report category before compiling.');
+      return;
+    }
+
     setShowCategoryModal(false);
     setCompiling(true);
     setCompileProgress(0);
@@ -701,26 +710,40 @@ const LinelistReportsPage: React.FC<Props> = () => {
           open={showCategoryModal}
           modalHeading="Compile Reports"
           modalLabel="Select Report Category"
-          primaryButtonText="Compile"
-          secondaryButtonText="Cancel"
           onRequestClose={() => setShowCategoryModal(false)}
-          onRequestSubmit={handleConfirmBulkCompile}
           danger={undefined}
         >
-          <p className={styles.modalDescription}>
-            Select a report category to apply to all {selectedReports.size} selected report(s) during compilation.
-          </p>
-          <Select
-            id="bulk-compile-category"
-            labelText="Report Category"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory((e.target as HTMLSelectElement).value)}
-          >
-            <SelectItem value="" text="Select a category..." />
-            {categories.map((cat) => (
-              <SelectItem key={cat.uuid} value={cat.uuid} text={cat.name} />
-            ))}
-          </Select>
+          <ModalHeader />
+          <ModalBody>
+            <p className={styles.modalDescription}>
+              Select a report category to apply to all {selectedReports.size} selected report(s) during compilation.
+            </p>
+            <Select
+              id="bulk-compile-category"
+              labelText="Report Category *"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory((e.target as HTMLSelectElement).value)}
+            >
+              <SelectItem value="" text="Select a category..." />
+              {categories.map((cat) => (
+                <SelectItem key={cat.uuid} value={cat.uuid} text={cat.name} />
+              ))}
+            </Select>
+          </ModalBody>
+          <ModalFooter>
+            <ButtonSet>
+              <Button kind="secondary" onClick={() => setShowCategoryModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                kind="primary"
+                onClick={handleConfirmBulkCompile}
+                disabled={!selectedCategory || selectedCategory.trim() === ''}
+              >
+                Compile
+              </Button>
+            </ButtonSet>
+          </ModalFooter>
         </Modal>
       )}
 
