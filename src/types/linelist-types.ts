@@ -1523,10 +1523,16 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
   // Convert column drafts to full column definitions
   const columns: LinelistColumnDefinition[] = draft.columns
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((col) => {
+    .map((col, index) => {
       const columnDef: LinelistColumnDefinition = {
         name: col.name,
         dataDefinition: buildDataDefinition(col.dataDefinitionType, col.dataDefinitionConfig),
+      };
+
+      // Add _metadata with column position for backend ordering
+      (columnDef as any)._metadata = {
+        id: col.id,
+        position: col.sortOrder ?? index,
       };
 
       // Add repeat resolution if configured
