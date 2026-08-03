@@ -95,6 +95,15 @@ export async function getReport(params: ReportRequest, signal?: AbortSignal) {
       query.set("renderType", params.reportCategory.renderType);
     }
 
+    // Add dynamic parameters to query string (for linelist reports with parameters)
+    if (params.parameters) {
+      Object.entries(params.parameters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          query.set(key, String(value));
+        }
+      });
+    }
+
     return openmrsFetch(
       `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
       { signal },

@@ -133,7 +133,7 @@ export default function ParameterEditor({
   onChange,
   disabled = false,
 }: Props) {
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [expandedParams, setExpandedParams] = useState<Set<string>>(new Set());
 
   /**
    * Add a new parameter
@@ -223,14 +223,16 @@ export default function ParameterEditor({
   /**
    * Toggle row expansion for parameter details
    */
-  const toggleRowExpansion = (index: number) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedRows(newExpanded);
+  const toggleRowExpansion = (parameterId: string) => {
+    setExpandedParams((prev) => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(parameterId)) {
+        newExpanded.delete(parameterId);
+      } else {
+        newExpanded.add(parameterId);
+      }
+      return newExpanded;
+    });
   };
 
   /**
@@ -426,14 +428,18 @@ export default function ParameterEditor({
             <h4 className={styles['sectionTitle']}>Parameters ({parameters.length})</h4>
 
             <DataTable
-              rows={parameters.map((param, idx) => ({ id: idx, ...param }))}
+              rows={parameters.map((param) => ({ id: param.id, ...param }))}
               headers={[]}
             >
               {({ rows }) => (
                 <TableBody>
                   {rows.map((row, idx) => {
+                    // Access the parameter from the original array by index for safety
                     const param = parameters[idx];
-                    const isExpanded = expandedRows.has(idx);
+                    if (!param || !param.id) {
+                      return null; // Skip if param is undefined or missing id
+                    }
+                    const isExpanded = expandedParams.has(param.id);
                     const typeInfo = PARAMETER_TYPES.find((t) => t.value === param.type);
 
                     return (
@@ -485,7 +491,7 @@ export default function ParameterEditor({
 
                           {/* Required badge */}
                           <TableCell>
-                            {param.required && <Tag type="red">Required</Tag>}
+                            {param.required ? <Tag type="red">Required</Tag> : null}
                           </TableCell>
 
                           {/* Actions */}
@@ -521,7 +527,7 @@ export default function ParameterEditor({
                               <Button
                                 kind="ghost"
                                 size="sm"
-                                onClick={() => toggleRowExpansion(idx)}
+                                onClick={() => toggleRowExpansion(param.id)}
                                 disabled={disabled}
                               >
                                 {isExpanded ? 'Less' : 'More'}

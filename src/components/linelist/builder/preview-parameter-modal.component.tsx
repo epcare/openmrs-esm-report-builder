@@ -18,33 +18,33 @@ import {
   ModalFooter,
   Button,
   ButtonSet,
-  TextInput,
   InlineNotification,
   Stack,
-  ComboBox,
-  InlineLoading,
   Select,
   SelectItem,
-  Toggle,
-  NumberInput,
   RadioButton,
   RadioButtonGroup,
-  DatePicker,
-  DatePickerInput,
+  InlineLoading,
 } from '@carbon/react';
 
 import type { LinelistParameter } from '../../../types/linelist-types';
-import {
-  useLocations,
-  usePatientIdentifierTypes,
-  usePersonAttributeTypes,
-} from '../../../hooks/openmrs-reference-data';
 import {
   RELATIVE_PERIOD_OPTIONS,
   type RelativePeriod,
   resolveRelativePeriod,
   formatDate,
 } from '../../../utils/parameter-resolution';
+
+// Import parameter input components from data-visualizer (reuse)
+import DateParameterInput from '../../data-visualizer/parameter-inputs/date-parameter-input.component';
+import NumberParameterInput from '../../data-visualizer/parameter-inputs/number-parameter-input.component';
+import BooleanParameterInput from '../../data-visualizer/parameter-inputs/boolean-parameter-input.component';
+import ListParameterInput from '../../data-visualizer/parameter-inputs/list-parameter-input.component';
+import LocationParameterInput from '../../data-visualizer/parameter-inputs/location-parameter-input.component';
+import ConceptParameterInput from '../../data-visualizer/parameter-inputs/concept-parameter-input.component';
+import IdentifierTypeParameterInput from '../../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
+import PersonAttributeParameterInput from '../../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
+import TextParameterInput from '../../data-visualizer/parameter-inputs/text-parameter-input.component';
 
 type Props = {
   open: boolean;
@@ -53,12 +53,6 @@ type Props = {
   parameters: LinelistParameter[];
   initialValues?: Record<string, any>;
   loading?: boolean;
-};
-
-type SelectedItem = {
-  uuid?: string;
-  value?: string;
-  label: string;
 };
 
 type DateMode = 'FIXED' | 'RELATIVE';
@@ -77,9 +71,6 @@ const PreviewParameterModal: React.FC<Props> = ({
 
   // State for search queries (for searchable reference types)
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
-
-  // State for selected items (for ComboBox components)
-  const [selectedItems, setSelectedItems] = useState<Record<string, SelectedItem>>({});
 
   // State for date mode (FIXED or RELATIVE)
   const [dateMode, setDateMode] = useState<DateMode>('FIXED');
@@ -104,36 +95,14 @@ const PreviewParameterModal: React.FC<Props> = ({
   // Initialize values from defaults or previously set values
   useEffect(() => {
     const initialValuesFromParams: Record<string, any> = {};
-    const initialSelectedItems: Record<string, SelectedItem> = {};
 
     for (const param of parameters) {
       // Use explicit value if provided, otherwise use default
       const paramValue = initialValues[param.name] || param.defaultValue || '';
       initialValuesFromParams[param.name] = paramValue;
-
-      // Initialize selected items for reference types
-      if (['LOCATION', 'CONCEPT', 'IDENTIFIER_TYPE', 'PERSON_ATTRIBUTE'].includes(param.type)) {
-        if (paramValue) {
-          initialSelectedItems[param.name] = {
-            uuid: paramValue,
-            label: paramValue, // Will be updated when data loads
-          };
-        }
-      }
-      // For LIST type
-      if (param.type === 'LIST' && param.config?.type === 'LIST') {
-        const option = param.config.options?.find((opt: any) => opt.value === paramValue);
-        if (option) {
-          initialSelectedItems[param.name] = {
-            value: option.value,
-            label: option.label,
-          };
-        }
-      }
     }
 
     setValues(initialValuesFromParams);
-    setSelectedItems(initialSelectedItems);
   }, [parameters, initialValues]);
 
   // Reset errors when modal opens
@@ -203,14 +172,30 @@ const PreviewParameterModal: React.FC<Props> = ({
     onRun(values);
   };
 
+  const handleValueChange = useCallback((paramName: string, value: any) => {
+    setValues((prev) => ({ ...prev, [paramName]: value }));
+    // Clear error for this parameter
+    if (errors[paramName]) {
+      setErrors((prev) => ({ ...prev, [paramName]: '' }));
+    }
+  }, [errors]);
+
+  const handleErrorChange = useCallback((paramName: string, error: string | undefined) => {
+    setErrors((prev) => {
+      if (error) {
+        return { ...prev, [paramName]: error };
+      }
+      const newErrors = { ...prev };
+      delete newErrors[paramName];
+      return newErrors;
+    });
+  }, []);
+
   const handleSearchQueryChange = useCallback((paramName: string, query: string) => {
     setSearchQueries((prev) => ({ ...prev, [paramName]: query }));
   }, []);
 
-  /* eslint-disable react-hooks/rules-of-hooks */
-  // This function conditionally renders different parameter types, each potentially using hooks.
-  // The hooks are called based on parameter type which is determined at runtime.
-  // A proper fix would require creating separate components for each parameter type.
+  // Render a single parameter input using the appropriate component
   const renderParameterInput = (param: LinelistParameter) => {
     const value = values[param.name] || '';
     const error = errors[param.name];
@@ -224,318 +209,63 @@ const PreviewParameterModal: React.FC<Props> = ({
       }
     }
 
+    const commonProps = {
+      parameter: param,
+      value,
+      error,
+      onChange: (newValue: any) => handleValueChange(param.name, newValue),
+    };
+
     switch (param.type) {
       case 'DATE':
-      case 'DATETIME': {
-        const config = param.config as any;
+      case 'DATETIME':
+        return <DateParameterInput key={param.name} {...commonProps} />;
 
-        // Parse the date value for the DatePicker
-        const getDatePickerValue = (): Date | null => {
-          if (!value) return null;
-          const parsed = new Date(value);
-          return isNaN(parsed.getTime()) ? null : parsed;
-        };
+      case 'NUMBER':
+        return <NumberParameterInput key={param.name} {...commonProps} />;
 
-        const handleDateChange = (date: Date | Array<Date>) => {
-          if (!date) {
-            setValues((prev) => ({ ...prev, [param.name]: '' }));
-            return;
-          }
+      case 'BOOLEAN':
+        return <BooleanParameterInput key={param.name} {...commonProps} />;
 
-          const dateObj = Array.isArray(date) ? date[0] : date;
-          if (dateObj && !isNaN(dateObj.getTime())) {
-            const dateStr = dateObj.toISOString().split('T')[0];
-            setValues((prev) => ({ ...prev, [param.name]: dateStr }));
-            if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-          }
-        };
+      case 'LIST':
+        return <ListParameterInput key={param.name} {...commonProps} />;
 
+      case 'LOCATION':
         return (
-          <DatePicker
-            dateFormat="Y-m-d"
-            datePickerType="single"
-            minDate={config?.minDate ? new Date(config.minDate) : undefined}
-            maxDate={config?.maxDate ? new Date(config.maxDate) : undefined}
-            value={getDatePickerValue()}
-            onChange={handleDateChange}
-          >
-            <DatePickerInput
-              id={`preview-param-${param.name}-input`}
-              labelText={param.label}
-              placeholder={param.label}
-              invalid={!!error}
-              invalidText={error}
-              size="sm"
-            />
-          </DatePicker>
-        );
-      }
-
-      case 'NUMBER': {
-        const config = param.config as any;
-        return (
-          <NumberInput
-            id={`preview-param-${param.name}`}
-            label={param.label}
-            value={value}
-            onChange={(event) => {
-              setValues((prev) => ({ ...prev, [param.name]: (event.target as HTMLInputElement).value }));
-              if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-            }}
-            invalid={!!error}
-            invalidText={error}
-            min={config?.min}
-            max={config?.max}
-            step={config?.step}
-            size="sm"
+          <LocationParameterInput
+            key={param.name}
+            {...commonProps}
+            onSearchQueryChange={(query) => handleSearchQueryChange(param.name, query)}
           />
         );
-      }
 
-      case 'BOOLEAN': {
-        const config = param.config as any;
+      case 'CONCEPT':
         return (
-          <Toggle
-            id={`preview-param-${param.name}`}
-            labelA={config?.falseLabel || 'No'}
-            labelB={config?.trueLabel || 'Yes'}
-            toggled={value === true || value === 'true'}
-            onToggle={(toggled) => {
-              setValues((prev) => ({ ...prev, [param.name]: toggled }));
-              if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-            }}
+          <ConceptParameterInput
+            key={param.name}
+            {...commonProps}
+            searchQuery={searchQueries[param.name] || ''}
+            onSearchQueryChange={(query) => handleSearchQueryChange(param.name, query)}
           />
         );
-      }
 
-      case 'LIST': {
-        const config = param.config as any;
-        const options = config?.options || [];
+      case 'IDENTIFIER_TYPE':
+        return <IdentifierTypeParameterInput key={param.name} {...commonProps} />;
 
-        if (options.length <= 5) {
-          // Use Select for small lists
-          return (
-            <Select
-              id={`preview-param-${param.name}`}
-              labelText={param.label}
-              value={value}
-              onChange={(e) => {
-                const selectedValue = (e.target as HTMLSelectElement).value;
-                setValues((prev) => ({ ...prev, [param.name]: selectedValue }));
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }}
-              invalid={!!error}
-              invalidText={error}
-              size="sm"
-            >
-              <SelectItem value="" text={`Select ${param.label}`} />
-              {options.map((opt: any) => (
-                <SelectItem key={opt.value} value={opt.value} text={opt.label} />
-              ))}
-            </Select>
-          );
-        }
-
-        // Use ComboBox for larger lists
-        return (
-          <div>
-            <label htmlFor={`preview-param-${param.name}`} className="cds--label">
-              {param.label}
-            </label>
-            <ComboBox
-              id={`preview-param-${param.name}`}
-              titleText={param.label}
-              items={options}
-              itemToString={(item: any) => item?.label || ''}
-              initialSelectedItem={options.find((opt: any) => opt.value === value)}
-              onChange={({ selectedItem }) => {
-                if (selectedItem) {
-                  setValues((prev) => ({ ...prev, [param.name]: (selectedItem as any).value }));
-                } else {
-                  setValues((prev) => ({ ...prev, [param.name]: '' }));
-                }
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }}
-              invalid={!!error}
-              invalidText={error}
-              size="sm"
-            />
-          </div>
-        );
-      }
-
-      case 'LOCATION': {
-        const config = param.config as any;
-        const tagUuid = config?.tagUuid;
-        const searchQuery = searchQueries[param.name] || '';
-
-        // Load all locations if no search query, otherwise search
-        const { locations } = searchQuery
-          ? { locations: [] } // Would use useLocationSearch here
-          : useLocations(tagUuid);
-
-        const items = locations.map((loc) => ({
-          uuid: loc.uuid,
-          label: loc.display || loc.name,
-        }));
-
-        return (
-          <div>
-            <label htmlFor={`preview-param-${param.name}`} className="cds--label">
-              {param.label}
-            </label>
-            <ComboBox
-              id={`preview-param-${param.name}`}
-              titleText={param.label}
-              items={items}
-              itemToString={(item: any) => item?.label || ''}
-              initialSelectedItem={selectedItems[param.name]}
-              onInputChange={(input) => {
-                handleSearchQueryChange(param.name, input);
-              }}
-              onChange={({ selectedItem }) => {
-                if (selectedItem) {
-                  setValues((prev) => ({ ...prev, [param.name]: (selectedItem as any).uuid }));
-                } else {
-                  setValues((prev) => ({ ...prev, [param.name]: '' }));
-                }
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }}
-              invalid={!!error}
-              invalidText={error}
-              placeholder={param.label}
-              size="sm"
-            />
-          </div>
-        );
-      }
-
-      case 'CONCEPT': {
-        // Would use useConceptSearch here
-        // For now, show a placeholder
-        return (
-          <TextInput
-            id={`preview-param-${param.name}`}
-            labelText={param.label}
-            value={value}
-            onChange={(e) => {
-              setValues((prev) => ({ ...prev, [param.name]: (e.target as HTMLInputElement).value }));
-              if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-            }}
-            invalid={!!error}
-            invalidText={error}
-            placeholder={param.label}
-            size="sm"
-          />
-        );
-      }
-
-      case 'IDENTIFIER_TYPE': {
-        const { identifierTypes } = usePatientIdentifierTypes(true);
-
-        const items = identifierTypes.map((idType) => ({
-          uuid: idType.uuid,
-          label: idType.display || idType.name || idType.uuid,
-        }));
-
-        return (
-          <div>
-            <label htmlFor={`preview-param-${param.name}`} className="cds--label">
-              {param.label}
-            </label>
-            <ComboBox
-              id={`preview-param-${param.name}`}
-              titleText={param.label}
-              items={items}
-              itemToString={(item: any) => item?.label || ''}
-              initialSelectedItem={items.find((item) => item.uuid === value)}
-              onChange={({ selectedItem }) => {
-                if (selectedItem) {
-                  setValues((prev) => ({ ...prev, [param.name]: (selectedItem as any).uuid }));
-                } else {
-                  setValues((prev) => ({ ...prev, [param.name]: '' }));
-                }
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }}
-              invalid={!!error}
-              invalidText={error}
-              placeholder={param.label}
-              size="sm"
-            />
-          </div>
-        );
-      }
-
-      case 'PERSON_ATTRIBUTE': {
-        const config = param.config as any;
-        const format = config?.format;
-        const { attributeTypes } = usePersonAttributeTypes(false, format);
-
-        const items = attributeTypes.map((attrType) => ({
-          uuid: attrType.uuid,
-          label: attrType.display || attrType.name || attrType.uuid,
-        }));
-
-        return (
-          <div>
-            <label htmlFor={`preview-param-${param.name}`} className="cds--label">
-              {param.label}
-            </label>
-            <ComboBox
-              id={`preview-param-${param.name}`}
-              titleText={param.label}
-              items={items}
-              itemToString={(item: any) => item?.label || ''}
-              initialSelectedItem={items.find((item) => item.uuid === value)}
-              onChange={({ selectedItem }) => {
-                if (selectedItem) {
-                  setValues((prev) => ({ ...prev, [param.name]: (selectedItem as any).uuid }));
-                } else {
-                  setValues((prev) => ({ ...prev, [param.name]: '' }));
-                }
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }}
-              invalid={!!error}
-              invalidText={error}
-              placeholder={param.label}
-              size="sm"
-            />
-          </div>
-        );
-      }
+      case 'PERSON_ATTRIBUTE':
+        return <PersonAttributeParameterInput key={param.name} {...commonProps} />;
 
       case 'TEXT':
-      default: {
-        const config = param.config as any;
+      default:
         return (
-          <TextInput
-            id={`preview-param-${param.name}`}
-            labelText={param.label}
-            value={value}
-            onChange={(e) => {
-              const newValue = (e.target as HTMLInputElement).value;
-              // Validate min/max length if configured
-              if (config?.minLength && newValue.length < config.minLength) {
-                setErrors((prev) => ({ ...prev, [param.name]: `Minimum ${config.minLength} characters required` }));
-              } else if (config?.maxLength && newValue.length > config.maxLength) {
-                setErrors((prev) => ({ ...prev, [param.name]: `Maximum ${config.maxLength} characters allowed` }));
-              } else if (config?.pattern && !new RegExp(config.pattern).test(newValue)) {
-                setErrors((prev) => ({ ...prev, [param.name]: 'Invalid format' }));
-              } else {
-                setValues((prev) => ({ ...prev, [param.name]: newValue }));
-                if (error) setErrors((prev) => ({ ...prev, [param.name]: '' }));
-              }
-            }}
-            invalid={!!error}
-            invalidText={error}
-            placeholder={param.label}
-            size="sm"
+          <TextParameterInput
+            key={param.name}
+            {...commonProps}
+            onError={(error) => handleErrorChange(param.name, error)}
           />
         );
-      }
     }
   };
-  /* eslint-enable react-hooks/rules-of-hooks */
 
   return (
     <Modal
@@ -608,15 +338,16 @@ const PreviewParameterModal: React.FC<Props> = ({
                     />
                   ))}
                 </Select>
+                {errors.relativePeriod && (
+                  <div style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    {errors.relativePeriod}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Parameter Inputs */}
-            {parameters.map((param) => (
-              <div key={param.name}>
-                {renderParameterInput(param)}
-              </div>
-            ))}
+            {parameters.map((param) => renderParameterInput(param))}
           </Stack>
         )}
       </ModalBody>
