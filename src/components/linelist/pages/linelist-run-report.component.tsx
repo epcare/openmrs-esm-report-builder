@@ -37,6 +37,7 @@ import {
   getLinelistReport,
   parseLinelistConfig,
   evaluateLinelistReport,
+  compileLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto, LinelistParameter } from '../../../types/linelist-types';
 
@@ -175,8 +176,16 @@ const LinelistRunReport: React.FC<Props> = () => {
         }
       });
 
+      // Step 1: Compile the report to get the reportDefinitionUuid
+      const compileResult = await compileLinelistReport(report.uuid);
+      if (!compileResult.reportDefinitionUuid) {
+        setRunError('Failed to compile report - no report definition UUID returned');
+        return;
+      }
+
+      // Step 2: Evaluate using the compiled reportDefinitionUuid
       const response = await evaluateLinelistReport({
-        reportUuid: report.uuid,
+        reportDefinitionUuid: compileResult.reportDefinitionUuid,
         parameters: reportParams,
         maxRows: pageSize * 10, // Get enough rows for pagination
       });

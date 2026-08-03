@@ -31,13 +31,17 @@ import {
   Grid,
   Column,
   Link,
+  Checkbox,
+  ProgressBar,
+  Modal,
 } from '@carbon/react';
-import { Add, Document, Renew, Download } from '@carbon/react/icons';
+import { Add, Document, Renew, Download, Play } from '@carbon/react/icons';
 import { useNavigate } from 'react-router-dom';
 
 import {
   listLinelistReports,
   deleteLinelistReport,
+  compileLinelistReport,
   type LinelistReportDefinitionDto,
   parseLinelistConfig,
 } from '../../../resources/linelist/linelist-reports.api';
@@ -87,6 +91,19 @@ const LinelistReportsPage: React.FC<Props> = () => {
   // Reference data
   const [categories, setCategories] = useState<ReportCategoryDto[]>([]);
   const [themes, setThemes] = useState<DataThemeDto[]>([]);
+
+  // Selection state
+  const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
+
+  // Bulk compile state
+  const [compiling, setCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState(0);
+  const [compileResults, setCompileResults] = useState<Array<{ name: string; success: boolean; error?: string }>>([]);
+  const [showCompileResults, setShowCompileResults] = useState(false);
+
+  // Category selection modal state
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
 
   /**
    * Fetch reference data (categories, themes)
@@ -190,6 +207,69 @@ const LinelistReportsPage: React.FC<Props> = () => {
   }, []);
 
   /**
+   * Handle individual report selection
+   */
+  const handleSelectReport = useCallback((reportUuid: string) => {
+    setSelectedReports(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(reportUuid)) {
+        newSet.delete(reportUuid);
+      } else {
+        newSet.add(reportUuid);
+      }
+      return newSet;
+    });
+  }, []);
+
+  /**
+   * Handle bulk compile selected reports
+   */
+  const handleBulkCompile = useCallback(() => {
+    if (selectedReports.size === 0) return;
+    // Show category selection modal
+    setShowCategoryModal(true);
+    setSelectedCategory('');
+  }, [selectedReports.size]);
+
+  /**
+   * Confirm and execute bulk compile with selected category
+   */
+  const handleConfirmBulkCompile = useCallback(async () => {
+    setShowCategoryModal(false);
+    setCompiling(true);
+    setCompileProgress(0);
+    setCompileResults([]);
+    setShowCompileResults(false);
+
+    const reportsToCompile = reports.filter(r => selectedReports.has(r.uuid));
+    const results: Array<{ name: string; success: boolean; error?: string }> = [];
+
+    for (let i = 0; i < reportsToCompile.length; i++) {
+      const report = reportsToCompile[i];
+      try {
+        const result = await compileLinelistReport(report.uuid, selectedCategory);
+        results.push({
+          name: report.name || 'Unknown',
+          success: !!result.compiled,
+          error: !result.compiled ? 'Failed to compile' : undefined,
+        });
+      } catch (err) {
+        results.push({
+          name: report.name || 'Unknown',
+          success: false,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+      setCompileProgress(((i + 1) / reportsToCompile.length) * 100);
+    }
+
+    setCompileResults(results);
+    setShowCompileResults(true);
+    setCompiling(false);
+    setSelectedReports(new Set());
+  }, [selectedReports, reports, selectedCategory]);
+
+  /**
    * Get row grain label
    */
   const getRowGrainLabel = (grain?: LinelistRowGrain): string => {
@@ -267,12 +347,26 @@ const LinelistReportsPage: React.FC<Props> = () => {
   }, [filteredAndSortedReports, currentPage, pageSize]);
 
   /**
+   * Handle select all toggle
+   */
+  const handleSelectAll = useCallback(() => {
+    if (selectedReports.size === paginatedReports.length && paginatedReports.length > 0) {
+      // Deselect all
+      setSelectedReports(new Set());
+    } else {
+      // Select all current page
+      setSelectedReports(new Set(paginatedReports.map(r => r.uuid)));
+    }
+  }, [selectedReports.size, paginatedReports]);
+
+  /**
    * Get row data for DataTable
    */
   const getRowItems = useCallback(() => {
     return paginatedReports.map((report) => ({
       id: report.uuid,
       uuid: report.uuid,
+      select: report.uuid,
       name: report.name,
       code: report.code || '-',
       rowGrain: getRowGrainLabel(report.parsedConfig?.rowGrain),
@@ -295,6 +389,7 @@ const LinelistReportsPage: React.FC<Props> = () => {
   };
 
   const headers = [
+    { key: 'select', header: 'Select' },
     { key: 'name', header: 'Name' },
     { key: 'category', header: 'Category' },
     { key: 'theme', header: 'Data theme' },
@@ -405,6 +500,17 @@ const LinelistReportsPage: React.FC<Props> = () => {
 
               {/* Action buttons */}
               <div className={styles.filterActions}>
+                {selectedReports.size > 0 && (
+                  <Button
+                    kind="primary"
+                    size="md"
+                    renderIcon={Play}
+                    onClick={handleBulkCompile}
+                    disabled={compiling}
+                  >
+                    Compile Selected ({selectedReports.size})
+                  </Button>
+                )}
                 <Button
                   kind="ghost"
                   size="md"
@@ -441,8 +547,39 @@ const LinelistReportsPage: React.FC<Props> = () => {
         </Grid>
       </div>
 
+      {/* Compile Progress */}
+      {compiling && (
+        <div className={styles.compileProgress}>
+          <div className={styles.compileProgressHeader}>
+            <span>Compiling reports...</span>
+            <span>{Math.round(compileProgress)}%</span>
+          </div>
+          <ProgressBar label="" value={compileProgress} />
+        </div>
+      )}
+
+      {/* Compile Results */}
+      {showCompileResults && compileResults.length > 0 && (
+        <>
+          <InlineNotification
+            kind={compileResults.every(r => r.success) ? "success" : compileResults.some(r => r.success) ? "warning" : "error"}
+            title="Compile Results"
+            subtitle={`${compileResults.filter(r => r.success).length} of ${compileResults.length} reports compiled successfully`}
+            onClose={() => setShowCompileResults(false)}
+          />
+          <div className={styles.compileResults}>
+            {compileResults.map((result, idx) => (
+              <div key={idx} className={styles.compileResultItem}>
+                {result.success ? '✓' : '✗'} {result.name}
+                {result.error && <span className={styles.error}> - {result.error}</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {loading ? (
-        <DataTableSkeleton rowCount={10} columnCount={7} />
+        <DataTableSkeleton rowCount={10} columnCount={8} />
       ) : filteredAndSortedReports.length === 0 ? (
         <Tile className={styles.emptyState}>
           <Document size={48} />
@@ -466,7 +603,16 @@ const LinelistReportsPage: React.FC<Props> = () => {
                 <Table {...getTableProps()}>
                   <TableHead>
                     <TableRow>
-                      {headers.map((header) => (
+                      <TableHeader {...getHeaderProps({ header: headers[0] })} key={headers[0].key}>
+                        <Checkbox
+                          id="select-all-reports"
+                          checked={selectedReports.size === paginatedReports.length && paginatedReports.length > 0}
+                          indeterminate={selectedReports.size > 0 && selectedReports.size < paginatedReports.length}
+                          onChange={handleSelectAll}
+                          labelText=""
+                        />
+                      </TableHeader>
+                      {headers.slice(1).map((header) => (
                         <TableHeader {...getHeaderProps({ header })} key={header.key}>
                           {header.header}
                         </TableHeader>
@@ -480,20 +626,28 @@ const LinelistReportsPage: React.FC<Props> = () => {
                       return (
                         <TableRow key={row.id}>
                           <TableCell>
+                            <Checkbox
+                              id={`select-report-${row.id}`}
+                              checked={selectedReports.has(row.id)}
+                              onChange={() => handleSelectReport(row.id)}
+                              labelText=""
+                            />
+                          </TableCell>
+                          <TableCell>
                             <div className={styles.nameCell}>
-                              <div className={styles.name}>{cellValues[0]}</div>
-                              <div className={styles.code}>{cellValues[1]}</div>
+                              <div className={styles.name}>{cellValues[1]}</div>
+                              <div className={styles.code}>{cellValues[2]}</div>
                             </div>
                           </TableCell>
-                          <TableCell>{cellValues[2]}</TableCell>
                           <TableCell>{cellValues[3]}</TableCell>
                           <TableCell>{cellValues[4]}</TableCell>
+                          <TableCell>{cellValues[5]}</TableCell>
                           <TableCell>
                             <Tag type="blue" size="sm">
-                              {cellValues[5]}
+                              {cellValues[6]}
                             </Tag>
                           </TableCell>
-                          <TableCell>{cellValues[6]}</TableCell>
+                          <TableCell>{cellValues[7]}</TableCell>
                           <TableCell>
                             <OverflowMenu flipped>
                               <OverflowMenuItem
@@ -539,6 +693,35 @@ const LinelistReportsPage: React.FC<Props> = () => {
             }}
           />
         </>
+      )}
+
+      {/* Category Selection Modal */}
+      {showCategoryModal && (
+        <Modal
+          open={showCategoryModal}
+          modalHeading="Compile Reports"
+          modalLabel="Select Report Category"
+          primaryButtonText="Compile"
+          secondaryButtonText="Cancel"
+          onRequestClose={() => setShowCategoryModal(false)}
+          onRequestSubmit={handleConfirmBulkCompile}
+          danger={undefined}
+        >
+          <p className={styles.modalDescription}>
+            Select a report category to apply to all {selectedReports.size} selected report(s) during compilation.
+          </p>
+          <Select
+            id="bulk-compile-category"
+            labelText="Report Category"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory((e.target as HTMLSelectElement).value)}
+          >
+            <SelectItem value="" text="Select a category..." />
+            {categories.map((cat) => (
+              <SelectItem key={cat.uuid} value={cat.uuid} text={cat.name} />
+            ))}
+          </Select>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}

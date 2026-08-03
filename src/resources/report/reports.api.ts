@@ -41,6 +41,7 @@ export type ListReportsParams = {
 
 export type CompileReportPayload = {
     reportUuid: string;
+    category?: string; // Optional category UUID/name to add report to library
 };
 
 export type CompileReportResult = {
@@ -49,6 +50,8 @@ export type CompileReportResult = {
     reportDefinitionName?: string;
     reportDesignPath?: string;
     compiled?: boolean;
+    addedToLibrary?: boolean;
+    reportLibraryUuid?: string;
 };
 
 function normalizeReportDto(r: ReportDto): ReportDto {
@@ -128,8 +131,10 @@ export async function updateReport(
 
 export async function compileReport(
     reportUuid: string,
+    category?: string,
     signal?: AbortSignal,
 ): Promise<CompileReportResult> {
-    const payload: CompileReportPayload = { reportUuid };
+    const payload: CompileReportPayload = { reportUuid, category };
+    console.log('compileReport sending:', payload);
     return omrsPost<CompileReportResult>(COMPILE_RESOURCE, payload, signal);
 }

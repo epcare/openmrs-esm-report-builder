@@ -80,6 +80,8 @@ import {
 import dayjs from "dayjs";
 import { showModal, showNotification, showToast } from "@openmrs/esm-framework";
 import ModifierComponent from "./components/popover/modifier-panel";
+import ReportParameterModal from "../components/data-visualizer/report-parameter-modal.component";
+import type { LinelistParameter } from "../types/linelist-types";
 
 type ChartType = "list" | "pivot" | "aggregate" | "linelist";
 type ReportingDuration = "fixed" | "relative";
@@ -104,6 +106,7 @@ type ReportLibraryItem = {
     display?: string;
     description?: string;
   };
+  metaJson?: string;
 };
 
 const DataVisualizer: React.FC = () => {
@@ -228,6 +231,9 @@ const DataVisualizer: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSendingReport, setIsSendingReport] = useState(false);
   const [dhisJson, setDhisJson] = useState({});
+  const [parameterModalOpen, setParameterModalOpen] = useState(false);
+  const [reportParameters, setReportParameters] = useState<LinelistParameter[]>([]);
+  const [parameterValues, setParameterValues] = useState<Record<string, any>>({});
 
   const [selectedDynamicReportType, setSelectedDynamicReportType] =
     useState<Item | null>(null);
@@ -246,6 +252,23 @@ const DataVisualizer: React.FC = () => {
 
   const handleSelectedReport = ({ selectedItem }) => {
     setSelectedReport(selectedItem ?? null);
+
+    // Parse parameters from metaJson
+    if (selectedItem?.metaJson) {
+      try {
+        const meta = JSON.parse(selectedItem.metaJson);
+        if (meta?.parameters && Array.isArray(meta.parameters)) {
+          setReportParameters(meta.parameters);
+        } else {
+          setReportParameters([]);
+        }
+      } catch (error) {
+        console.error('Failed to parse metaJson:', error);
+        setReportParameters([]);
+      }
+    } else {
+      setReportParameters([]);
+    }
 
     // Detect linelist reports by reportType
     if (selectedItem?.reportType === 'LINE_LIST' || selectedItem?.reportType === 'linelist') {
@@ -696,6 +719,13 @@ const DataVisualizer: React.FC = () => {
   const handleUpdateReport = useCallback(() => {
     if (!selectedReport) return;
 
+    // If report has parameters, open parameter modal instead of running directly
+    if (reportParameters.length > 0) {
+      setParameterModalOpen(true);
+      return;
+    }
+
+    // Original logic for reports without parameters
     setHTML("");
     setShowLineList(true);
     setLoading(true);
@@ -713,6 +743,131 @@ const DataVisualizer: React.FC = () => {
       reportType: reportType,
       reportingCohort: cqiReportingCohort,
       type: selectedDynamicReportType?.label,
+    }).then(
+      (response) => {
+        if (response.status === 200) {
+          let headers = [];
+          let dataForReport: any = [];
+          const reportData = response?.data;
+
+          if (reportType === "fixed") {
+            if (reportCategory.category === "cqi") {
+              dataForReport = response?.data?.A;
+              headers = CQIReportHeaders;
+            } else if (reportCategory.renderType === "html") {
+              setHTML(reportData?.html ?? "");
+              setDhisJson(reportData?.json ?? {});
+            } else if (chartType === "linelist" && reportData?._html) {
+              // Handle linelist HTML from backend _html key
+              setHTML(reportData?._html?.[0]?.html ?? "");
+              setDhisJson(reportData?.json ?? {});
+            } else {
+              const responseReportName = Object.keys(reportData)[0];
+
+              if (
+                reportData[responseReportName] &&
+                reportData[responseReportName][0]
+              ) {
+                let columnNames = Object.keys(reportData[responseReportName][0]);
+
+                if (
+                  selectedReport.id === "bf79f017-8591-4eaf-88c9-1cde33226517"
+                ) {
+                  columnNames = columnNames
+                    .reverse()
+                    .filter((column) => column !== "EDD" && column !== "Names");
+
+                  headers = createColumns(columnNames);
+                  dataForReport = reportData[responseReportName]
+                    .filter((row) => row.PhoneNumber)
+                    .map((row) => {
+                      const formattedDate = extractDate(row.LastVisitDate);
+
+                      if (row.PhoneNumber && row.PhoneNumber.startsWith("0")) {
+                        return {
+                          ...row,
+                          PhoneNumber: "256" + row.PhoneNumber.substring(1),
+                          LastVisitDate: formattedDate,
+                        };
+                      }
+
+                      return row;
+                    });
+                } else {
+                  headers = createColumns(columnNames);
+                  dataForReport = reportData[responseReportName];
+                }
+              } else {
+                setShowLineList(false);
+              }
+            }
+          } else {
+            if (chartType === "linelist" && reportData?._html) {
+              // Handle linelist HTML from backend _html key
+              setHTML(reportData?._html?.[0]?.html ?? "");
+              setDhisJson(reportData?.json ?? {});
+            } else if (reportData[0]) {
+              const columnNames = Object.keys(reportData[0]);
+              headers = createColumns(columnNames);
+              dataForReport = reportData;
+            } else {
+              setShowLineList(false);
+            }
+          }
+
+          setLoading(false);
+          setShowFilters(false);
+          setTableHeaders(headers);
+          setData(dataForReport);
+          setPivotTableData(dataForReport);
+          setReportName(selectedReport?.label);
+        }
+      },
+      (error) => {
+        setLoading(false);
+        setShowFilters(false);
+        showNotification({
+          title: "Error fetching report",
+          kind: "error",
+          critical: true,
+          description: error?.message,
+        });
+      }
+    );
+  }, [
+    cqiReportingCohort,
+    chartType,
+    endDate,
+    reportCategory,
+    reportType,
+    selectedParameters,
+    selectedReport,
+    startDate,
+    selectedDynamicReportType?.label,
+    reportParameters,
+  ]);
+
+  const handleRunReportWithParameters = useCallback((params: Record<string, any>) => {
+    setParameterValues(params);
+    setParameterModalOpen(false);
+    setHTML("");
+    setShowLineList(true);
+    setLoading(true);
+    setShowFilters(false);
+
+    getReport({
+      uuid: selectedReport.id,
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate),
+      reportCategory: reportCategory as {
+        category: ReportCategory;
+        renderType?: RenderType;
+      },
+      reportIndicators: selectedParameters,
+      reportType: reportType,
+      reportingCohort: cqiReportingCohort,
+      type: selectedDynamicReportType?.label,
+      parameters: params,
     }).then(
       (response) => {
         if (response.status === 200) {
@@ -1470,6 +1625,16 @@ const DataVisualizer: React.FC = () => {
               </div>
             </Modal>
           )}
+
+          {/* Parameter Modal */}
+          <ReportParameterModal
+            open={parameterModalOpen}
+            onClose={() => setParameterModalOpen(false)}
+            onRun={handleRunReportWithParameters}
+            parameters={reportParameters}
+            initialValues={parameterValues}
+            loading={loading}
+          />
         </>
       ) : (
         <Layer className={styles.layer}>

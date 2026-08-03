@@ -336,6 +336,41 @@
   color: #666;
 }
 
+.htmlPreview {
+  width: 100%;
+  overflow: auto;
+  max-height: calc(100vh - 300px);
+
+  // Style the embedded HTML table
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      background-color: #fff;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    tbody tr:hover {
+      background-color: #f0f0f0;
+    }
+  }
+}
+
 /* Responsive */
 @media (max-width: 1439px) {
   .panels {

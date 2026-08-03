@@ -230,7 +230,8 @@ async function omrsDelete(url: string, signal?: AbortSignal): Promise<void> {
  * @returns Evaluation result with patient rows
  */
 export type LinelistEvaluationParams = {
-  reportUuid: string;
+  reportDefinitionUuid?: string; // The compiled report definition UUID (from compile result)
+  reportLibraryUuid?: string; // Alternative: use report library UUID to resolve the report definition
   parameters?: Record<string, any>; // Dynamic parameters from report config
   startDate?: string; // Deprecated: Use parameters instead
   endDate?: string; // Deprecated: Use parameters instead
@@ -248,6 +249,7 @@ export type LinelistEvaluationResult = {
  */
 export type CompileLinelistReportPayload = {
   reportUuid: string;
+  category?: string; // Optional category UUID/name to add report to library
 };
 
 /**
@@ -259,14 +261,25 @@ export type CompileLinelistReportResult = {
   reportDefinitionName?: string;
   reportDesignPath?: string;
   compiled?: boolean;
+  addedToLibrary?: boolean;
+  reportLibraryUuid?: string;
 };
 
 export async function evaluateLinelistReport(
   params: LinelistEvaluationParams,
   signal?: AbortSignal
 ): Promise<LinelistEvaluationResult> {
+  // Use reportDefinitionUuid (from compile result) or reportLibraryUuid
+  const uuid = params.reportDefinitionUuid || params.reportLibraryUuid;
+  if (!uuid) {
+    return {
+      success: false,
+      error: 'Either reportDefinitionUuid or reportLibraryUuid is required',
+    };
+  }
+
   const qs = new URLSearchParams();
-  qs.set('uuid', params.reportUuid);
+  qs.set('uuid', uuid);
   qs.set('renderType', 'list'); // Get patient list data
 
   // Support both new parameters format and legacy startDate/endDate
@@ -325,14 +338,17 @@ export async function evaluateLinelistReport(
  * This generates the runtime report definition from the saved linelist report.
  *
  * @param reportUuid - The UUID of the saved linelist report to compile
+ * @param category - Optional category UUID/name to add the compiled report to library
  * @param signal - AbortSignal for cancellation
  * @returns Compile result with report definition UUID and status
  */
 export async function compileLinelistReport(
   reportUuid: string,
+  category?: string,
   signal?: AbortSignal
 ): Promise<CompileLinelistReportResult> {
-  const payload: CompileLinelistReportPayload = { reportUuid };
+  const payload: CompileLinelistReportPayload = { reportUuid, category };
+  console.log('compileLinelistReport sending:', payload);
   return omrsPost<CompileLinelistReportResult>('/reportbuilder/reportcompile', payload, signal);
 }
 
@@ -405,4 +421,136 @@ export function configToSavePayload(
     configJson: JSON.stringify(configWithBuilder),
     metaJson: builderMeta ? JSON.stringify(builderMeta) : undefined,
   };
+}
+
+/**
+ * Preview a linelist report before saving
+ *
+ * This function creates a temporary draft report, compiles it, evaluates it,
+ * and then deletes the temporary report. The user gets to see preview data
+ * without cluttering their report list.
+ *
+ * @param params - Preview parameters including config and optional parameters
+ * @param signal - AbortSignal for cancellation
+ * @returns Preview result with data or error
+ */
+export type PreviewLinelistParams = {
+  reportUuid: string; // UUID of the draft report to preview
+  config: LinelistReportDefinitionConfig;
+  parameters?: Record<string, any>;
+  maxRows?: number;
+};
+
+export type PreviewLinelistResult = {
+  success: boolean;
+  data?: {
+    columns: string[];
+    rows: Record<string, any>[];
+    rowCount: number;
+    html?: string; // HTML rendering from backend (for linelist reports)
+  };
+  error?: string;
+};
+
+export async function previewLinelistReport(
+  params: PreviewLinelistParams,
+  signal?: AbortSignal
+): Promise<PreviewLinelistResult> {
+  const { reportUuid, config, parameters = {}, maxRows = 100 } = params;
+
+  try {
+    // Step 1: Compile the report to get the reportDefinitionUuid
+    // This compiles the existing report (not a temp one)
+    const compileResult = await compileLinelistReport(reportUuid, config.categoryUuid, signal);
+
+    if (!compileResult.compiled || !compileResult.reportDefinitionUuid) {
+      return {
+        success: false,
+        error: 'Failed to compile report for preview',
+      };
+    }
+
+    // Step 2: Build parameter values from config defaults and overrides
+    const configParameters = config.parameters || [];
+    const paramValues: Record<string, any> = {};
+
+    for (const param of configParameters) {
+      if (param.defaultValue) {
+        paramValues[param.name] = param.defaultValue;
+      }
+      // Override with explicitly provided parameters
+      if (parameters && parameters[param.name] !== undefined) {
+        paramValues[param.name] = parameters[param.name];
+      }
+    }
+
+    // Default date range if no parameters provided at all
+    if (configParameters.length === 0) {
+      paramValues.startDate = parameters.startDate || getDefaultStartDate();
+      paramValues.endDate = parameters.endDate || new Date().toISOString().split('T')[0];
+    }
+
+    // Step 3: Evaluate the compiled report with parameters
+    const evalParams: LinelistEvaluationParams = {
+      reportDefinitionUuid: compileResult.reportDefinitionUuid,
+      parameters: paramValues,
+      maxRows,
+    };
+
+    const evalResult = await evaluateLinelistReport(evalParams, signal);
+
+    if (!evalResult.success) {
+      return {
+        success: false,
+        error: evalResult.error || 'Failed to evaluate report for preview',
+      };
+    }
+
+    // Step 5: Transform the result into a preview format
+    // The evaluation returns data as Record<string, any[]> where the key is the dataset name
+    const datasets = evalResult.data;
+    const firstDataset = datasets ? Object.values(datasets)[0] : null;
+
+    // Extract HTML if available (for linelist reports)
+    const htmlData = datasets?._html ? datasets._html[0]?.html : null;
+
+    if (!firstDataset || !Array.isArray(firstDataset) || firstDataset.length === 0) {
+      return {
+        success: true,
+        data: {
+          columns: [],
+          rows: [],
+          rowCount: 0,
+          html: htmlData, // Include HTML even if no data
+        },
+      };
+    }
+
+    // Extract column names from the first row
+    const columns = Object.keys(firstDataset[0]);
+
+    return {
+      success: true,
+      data: {
+        columns,
+        rows: firstDataset,
+        rowCount: firstDataset.length,
+        html: htmlData, // Include HTML rendering
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Preview failed',
+    };
+  }
+}
+
+/**
+ * Get a default start date (30 days ago) for preview
+ */
+function getDefaultStartDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  return date.toISOString().split('T')[0];
 }

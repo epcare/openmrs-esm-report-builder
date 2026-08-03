@@ -1,0 +1,47 @@
+/**
+ * Date Range Input Component Styles
+ */
+
+.date-range-input {
+  width: 100%;
+
+  .cds--label {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+    color: var(--cds-text-01);
+  }
+
+  .cds--radio-button-group {
+    margin-bottom: 1rem;
+  }
+
+  .cds--radio-button-wrapper {
+    margin-right: 1rem;
+  }
+
+  .cds--date-picker,
+  .cds--select {
+    width: 100%;
+  }
+
+  .resolved-date-display {
+    font-size: 0.75rem;
+    color: var(--cds-text-02);
+    margin-top: 0.25rem;
+    font-style: italic;
+  }
+
+  .cds--inline-notification {
+    margin-top: 0.5rem;
+    min-width: 100%;
+  }
+
+  // Validation state
+  &.invalid {
+    .cds--label {
+      color: var(--cds-text-01);
+    }
+  }
+}

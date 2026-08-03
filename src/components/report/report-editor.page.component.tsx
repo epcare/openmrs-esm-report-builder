@@ -32,6 +32,7 @@ import {
   type ReportDto,
 } from '../../resources/report/reports.api';
 import { listSections } from '../../resources/report-section/report-sections.api';
+import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
 import CompileSetupModal, { type CompileSetupResult } from '../shared/compile-setup-modal.component';
 
 type TabKey = 'details' | 'definition' | 'design';
@@ -125,6 +126,7 @@ export default function ReportEditorPage() {
 
   const [savedReport, setSavedReport] = React.useState<ReportDto | null>(null);
   const [allSections, setAllSections] = React.useState<SectionDtoLike[]>([]);
+  const [categories, setCategories] = React.useState<ReportCategoryDto[]>([]);
 
   const [loading, setLoading] = React.useState(mode === 'edit');
   const [sectionsLoading, setSectionsLoading] = React.useState(true);
@@ -147,6 +149,11 @@ export default function ReportEditorPage() {
         .then((rows: SectionDtoLike[]) => setAllSections(Array.isArray(rows) ? rows : []))
         .catch(() => setAllSections([]))
         .finally(() => setSectionsLoading(false));
+
+    // Fetch categories for compile
+    listReportCategories()
+        .then((cats) => setCategories(cats))
+        .catch(() => setCategories([]));
 
     return () => ac.abort();
   }, []);
@@ -344,7 +351,17 @@ export default function ReportEditorPage() {
         throw new Error('Save the report first before compiling.');
       }
 
-      const result = await compileReport(targetUuid);
+      // Get category name from the selected category UUID
+      const category = categories.find((c) => c.uuid === form.categoryUuid)?.name;
+
+      console.log('Aggregate Editor - Compiling with:', {
+        reportUuid: targetUuid,
+        categoryUuid: form.categoryUuid,
+        categoryName: category,
+        categoriesCount: categories.length,
+      });
+
+      const result = await compileReport(targetUuid, category);
 
       setCompileSuccess(
           result?.reportDefinitionUuid
@@ -356,7 +373,7 @@ export default function ReportEditorPage() {
     } finally {
       setCompiling(false);
     }
-  }, [form.categoryUuid, handleDraftSave, reportId, savedReport?.uuid]);
+  }, [categories, form.categoryUuid, handleDraftSave, reportId, savedReport?.uuid]);
 
   const handleCompileSetupConfirm = React.useCallback(async (result: CompileSetupResult) => {
     setShowCompileSetupModal(false);
@@ -390,7 +407,17 @@ export default function ReportEditorPage() {
     setCompileSuccess(null);
 
     try {
-      const compiledResult = await compileReport(targetUuid);
+      // Get category name from the selected category UUID
+      const category = categories.find((c) => c.uuid === form.categoryUuid)?.name;
+
+      console.log('Aggregate Editor (compile setup) - Compiling with:', {
+        reportUuid: targetUuid,
+        categoryUuid: form.categoryUuid,
+        categoryName: category,
+        categoriesCount: categories.length,
+      });
+
+      const compiledResult = await compileReport(targetUuid, category);
 
       setCompileSuccess(
           compiledResult?.reportDefinitionUuid
@@ -402,7 +429,7 @@ export default function ReportEditorPage() {
     } finally {
       setCompiling(false);
     }
-  }, [savedReport?.uuid, reportId, handleDraftSave]);
+  }, [categories, form.categoryUuid, savedReport?.uuid, reportId, handleDraftSave]);
 
   const handleCompileSetupCancel = React.useCallback(() => {
     setShowCompileSetupModal(false);

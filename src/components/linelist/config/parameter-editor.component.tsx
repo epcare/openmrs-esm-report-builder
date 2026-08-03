@@ -120,9 +120,12 @@ const TYPE_COLORS: Record<LinelistParameterType, 'blue' | 'cyan' | 'gray' | 'gre
   PROVIDER: 'magenta',
   CONCEPT: 'red',
   CODED_VALUE: 'warm-gray',
+  IDENTIFIER_TYPE: 'teal',
+  PERSON_ATTRIBUTE: 'purple',
   BOOLEAN: 'gray',
   NUMBER: 'teal',
   TEXT: 'cool-gray',
+  LIST: 'blue',
 };
 
 export default function ParameterEditor({
@@ -144,7 +147,7 @@ export default function ParameterEditor({
       required: false,
       defaultValue: '',
       displayOrder: parameters.length,
-      config: {},
+      config: { type: 'TEXT' },
     };
     onChange([...parameters, newParameter]);
   };
@@ -161,7 +164,7 @@ export default function ParameterEditor({
       required: true,
       defaultValue: '',
       displayOrder: parameters.length,
-      config: {},
+      config: { type: 'DATE', includeTime: false },
     };
     onChange([...parameters, newParameter]);
   };
@@ -241,10 +244,10 @@ export default function ParameterEditor({
           <Toggle
             id={`param-include-time-${parameter.id}`}
             labelText="Include time component"
-            toggled={parameter.config?.includeTime || false}
+            toggled={(parameter.config as any)?.includeTime || false}
             onToggle={(checked) =>
               updateParameter(parameter.id, {
-                config: { ...parameter.config, includeTime: checked },
+                config: { ...(parameter.config as any), includeTime: checked, type: parameter.type },
               })
             }
             disabled={disabled}
@@ -257,11 +260,12 @@ export default function ParameterEditor({
             id={`param-locations-${parameter.id}`}
             labelText="Allowed Location UUIDs (comma-separated)"
             placeholder="e.g., uuid1,uuid2,uuid3"
-            value={parameter.config?.locationUuids?.join(',') || ''}
+            value={(parameter.config as any)?.locationUuids?.join(',') || ''}
             onChange={(e) =>
               updateParameter(parameter.id, {
                 config: {
-                  ...parameter.config,
+                  ...(parameter.config as any),
+                  type: 'LOCATION',
                   locationUuids: (e.target as HTMLInputElement).value
                     .split(',')
                     .map((s) => s.trim())
@@ -283,14 +287,77 @@ export default function ParameterEditor({
             id={`param-source-${parameter.id}`}
             labelText="Source UUID (for data source)"
             placeholder="e.g., program-uuid, concept-uuid"
-            value={parameter.config?.sourceUuid || ''}
+            value={(parameter.config as any)?.sourceUuid || ''}
             onChange={(e) =>
               updateParameter(parameter.id, {
-                config: { ...parameter.config, sourceUuid: (e.target as HTMLInputElement).value },
+                config: { ...(parameter.config as any), type: parameter.type, sourceUuid: (e.target as HTMLInputElement).value },
               })
             }
             disabled={disabled}
             helperText="The UUID of the data source for this parameter type"
+          />
+        );
+
+      case 'LIST':
+        return (
+          <TextInput
+            id={`param-list-options-${parameter.id}`}
+            labelText="List Options (JSON format)"
+            placeholder='[{"value":"1","label":"One"},{"value":"2","label":"Two"}]'
+            value={(parameter.config as any)?.options ? JSON.stringify((parameter.config as any).options) : ''}
+            onChange={(e) => {
+              try {
+                const options = JSON.parse((e.target as HTMLInputElement).value);
+                updateParameter(parameter.id, {
+                  config: { type: 'LIST', options },
+                });
+              } catch {
+                // Invalid JSON, don't update
+              }
+            }}
+            disabled={disabled}
+            helperText="Array of objects with value and label properties"
+          />
+        );
+
+      case 'IDENTIFIER_TYPE':
+        return (
+          <TextInput
+            id={`param-ident-types-${parameter.id}`}
+            labelText="Allowed Identifier Type UUIDs (comma-separated)"
+            placeholder="e.g., uuid1,uuid2,uuid3"
+            value={(parameter.config as any)?.identifierTypeUuids?.join(',') || ''}
+            onChange={(e) =>
+              updateParameter(parameter.id, {
+                config: {
+                  ...(parameter.config as any),
+                  type: 'IDENTIFIER_TYPE',
+                  identifierTypeUuids: (e.target as HTMLInputElement).value
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                },
+              })
+            }
+            disabled={disabled}
+            helperText="Leave empty for all identifier types"
+          />
+        );
+
+      case 'PERSON_ATTRIBUTE':
+        return (
+          <TextInput
+            id={`param-attr-format-${parameter.id}`}
+            labelText="Format filter (e.g., org.openmrs.Concept)"
+            placeholder="e.g., org.openmrs.Concept"
+            value={(parameter.config as any)?.format || ''}
+            onChange={(e) =>
+              updateParameter(parameter.id, {
+                config: { ...(parameter.config as any), type: 'PERSON_ATTRIBUTE', format: (e.target as HTMLInputElement).value },
+              })
+            }
+            disabled={disabled}
+            helperText="Filter by attribute type format"
           />
         );
 
@@ -337,7 +404,7 @@ export default function ParameterEditor({
                   required: false,
                   defaultValue: '',
                   displayOrder: parameters.length,
-                  config: {},
+                  config: { type: 'LOCATION' },
                 };
                 onChange([...parameters, newParam]);
               }}
@@ -474,12 +541,29 @@ export default function ParameterEditor({
                                     id={`param-type-${param.id}`}
                                     labelText="Parameter Type"
                                     value={param.type}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                      const newType = (e.target as HTMLSelectElement).value as LinelistParameterType;
+                                      // Set appropriate default config based on type
+                                      let defaultConfig: any = { type: newType };
+                                      switch (newType) {
+                                        case 'DATE':
+                                        case 'DATETIME':
+                                          defaultConfig = { type: newType, includeTime: false };
+                                          break;
+                                        case 'LIST':
+                                          defaultConfig = { type: 'LIST', options: [] };
+                                          break;
+                                        case 'TEXT':
+                                          defaultConfig = { type: 'TEXT' };
+                                          break;
+                                        default:
+                                          defaultConfig = { type: newType };
+                                      }
                                       updateParameter(param.id, {
-                                        type: (e.target as HTMLSelectElement).value as LinelistParameterType,
-                                        config: {}, // Reset config when type changes
-                                      })
-                                    }
+                                        type: newType,
+                                        config: defaultConfig,
+                                      });
+                                    }}
                                     disabled={disabled}
                                   >
                                     {PARAMETER_TYPES.map((type) => (

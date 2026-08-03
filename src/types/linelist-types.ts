@@ -138,11 +138,8 @@ export type LinelistParameter = {
   displayOrder?: number;
   /**
    * Type-specific configuration
-   * For LOCATION: locationUuids array of allowed locations
-   * For CONCEPT/PROGRAM/PROVIDER/CODED_VALUE: sourceUuid for the data source
-   * For DATE: includeTime boolean
    */
-  config?: Record<string, any>;
+  config?: LinelistParameterConfig;
 };
 
 /**
@@ -156,9 +153,96 @@ export type LinelistParameterType =
   | 'PROVIDER'
   | 'CONCEPT'
   | 'CODED_VALUE'
+  | 'IDENTIFIER_TYPE'     // Patient identifier types
+  | 'PERSON_ATTRIBUTE'     // Person attribute types
   | 'BOOLEAN'
   | 'NUMBER'
-  | 'TEXT';
+  | 'TEXT'
+  | 'LIST';                // Configurable list with predefined options
+
+/**
+ * Type-specific configuration for parameters
+ */
+export type LinelistParameterConfig =
+  // DATE/DATETIME configuration
+  | {
+      type: 'DATE' | 'DATETIME';
+      includeTime?: boolean;
+      minDate?: string;  // ISO date string
+      maxDate?: string;  // ISO date string
+    }
+  // LOCATION configuration
+  | {
+      type: 'LOCATION';
+      locationUuids?: string[];  // Restrict to specific locations
+      userDefaultToSessionLocation?: boolean;
+      tagUuid?: string;  // Filter by location tag
+    }
+  // CONCEPT configuration
+  | {
+      type: 'CONCEPT';
+      conceptClassUuids?: string[];  // Restrict to concept classes
+      sourceUuid?: string;  // Concept source UUID
+      allowMultiSelect?: boolean;
+    }
+  // CODED_VALUE configuration
+  | {
+      type: 'CODED_VALUE';
+      sourceUuid?: string;  // Data source for coded values
+      options?: Array<{ uuid: string; label: string; }>;
+      allowMultiSelect?: boolean;
+    }
+  // IDENTIFIER_TYPE configuration
+  | {
+      type: 'IDENTIFIER_TYPE';
+      identifierTypeUuids?: string[];  // Restrict to specific types
+    }
+  // PERSON_ATTRIBUTE configuration
+  | {
+      type: 'PERSON_ATTRIBUTE';
+      attributeTypeUuids?: string[];  // Restrict to specific types
+      format?: string;  // Filter by format (e.g., 'org.openmrs.Concept')
+    }
+  // LIST configuration (predefined options)
+  | {
+      type: 'LIST';
+      options: Array<{
+        value: string;
+        label: string;
+      }>;
+      allowMultiSelect?: boolean;
+    }
+  // TEXT configuration
+  | {
+      type: 'TEXT';
+      minLength?: number;
+      maxLength?: number;
+      pattern?: string;  // Regex pattern for validation
+    }
+  // NUMBER configuration
+  | {
+      type: 'NUMBER';
+      min?: number;
+      max?: number;
+      step?: number;
+      integerOnly?: boolean;
+    }
+  // BOOLEAN configuration
+  | {
+      type: 'BOOLEAN';
+      trueLabel?: string;   // Custom label for true value
+      falseLabel?: string;  // Custom label for false value
+    }
+  // PROGRAM configuration
+  | {
+      type: 'PROGRAM';
+      programUuids?: string[];  // Restrict to specific programs
+    }
+  // PROVIDER configuration
+  | {
+      type: 'PROVIDER';
+      providerRole?: string;  // Filter by provider role
+    };
 
 /**
  * Parameter draft for builder UI
@@ -171,7 +255,7 @@ export type LinelistParameterDraft = {
   required: boolean;
   defaultValue: string;
   displayOrder: number;
-  config?: Record<string, any>;
+  config?: LinelistParameterConfig;
 };
 
 /**

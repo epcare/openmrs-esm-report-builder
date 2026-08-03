@@ -21,6 +21,13 @@ import {
   TextInput,
   OverflowMenu,
   OverflowMenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@carbon/react';
 import {
   Save,
@@ -43,6 +50,7 @@ import type {
   LinelistDataDefinitionMap,
   PopulationDefinition,
   PopulationSource,
+  LinelistParameterConfig,
 } from '../../../types/linelist-types';
 import type { EtlStructure } from '../../../types/etl/etl-types';
 import {
@@ -59,6 +67,7 @@ import {
   updateLinelistReport,
   configToSavePayload,
   compileLinelistReport,
+  previewLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistBuilderMeta } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto } from '../../../types/linelist-types';
@@ -71,6 +80,7 @@ import MultiDatasourceSelector from './multi-datasource-selector.component';
 import PopulationSourceSelector from './population-source-selector.component';
 import type { CatalogueField } from './data-catalogue.component';
 import type { CustomSqlColumnConfig } from './custom-sql-column-modal.component';
+import PreviewParameterModal from './preview-parameter-modal.component';
 import styles from './linelist-builder-workspace.scss';
 import type { LinelistReportDefinitionConfig } from '../../../types/linelist-types';
 import CompileSetupModal, { type CompileSetupResult } from '../../shared/compile-setup-modal.component';
@@ -344,7 +354,7 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     required: param.required || false,
     defaultValue: param.defaultValue || '',
     displayOrder: param.displayOrder || idx,
-    config: param.config || {},
+    config: (param.config || { type: param.type }) as LinelistParameterConfig,
   })) || [];
 
   // === EXTRACT BUILDER METADATA (build method, indicators) ===
@@ -541,8 +551,14 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
 
   // Preview state
   const [previewRunning, setPreviewRunning] = useState(false);
-  const [previewData, setPreviewData] = useState<any[] | null>(null);
+  const [previewData, setPreviewData] = useState<{
+    columns: string[];
+    rows: Record<string, any>[];
+    rowCount: number;
+    html?: string;
+  } | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewParamModalOpen, setPreviewParamModalOpen] = useState(false);
 
   // Available fields from data catalogue (for visual filter builder)
   const [availableFields, setAvailableFields] = useState<Array<{ name: string; label: string; type: FilterFieldType }>>([]);
@@ -715,7 +731,17 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     setCompileSuccess(null);
 
     try {
-      const compiledResult = await compileLinelistReport(initialReport.uuid);
+      // Get category name from the selected category UUID
+      const category = categories.find((c) => c.uuid === draft.categoryUuid)?.name;
+
+      console.log('Compiling with:', {
+        reportUuid: initialReport.uuid,
+        categoryUuid: draft.categoryUuid,
+        categoryName: category,
+        categoriesCount: categories.length,
+      });
+
+      const compiledResult = await compileLinelistReport(initialReport.uuid, category);
 
       setCompileSuccess(
         compiledResult?.reportDefinitionUuid
@@ -727,7 +753,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     } finally {
       setCompiling(false);
     }
-  }, [draft, initialReport?.uuid, handleSave, updateDraft]);
+  }, [draft, initialReport?.uuid, handleSave, updateDraft, categories]);
 
   /**
    * Handle datasources change
@@ -806,22 +832,77 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
   }, []);
 
   /**
-   * Run preview
+   * Open preview parameter modal
    */
-  const handleRunPreview = useCallback(async () => {
+  const handleRunPreview = useCallback(() => {
+    // Check if draft has required fields
+    if (!draft.population?.sqlTemplate || draft.columns.length === 0) {
+      setPreviewError('Please add a base cohort definition and at least one column before running preview.');
+      return;
+    }
+
+    // Check if report needs to be saved first (for new reports)
+    if (!initialReport?.uuid) {
+      setPreviewError('Please save the report first before running preview.');
+      return;
+    }
+
+    // Open the parameter modal
+    setPreviewParamModalOpen(true);
+    setPreviewError(null);
+  }, [draft.population?.sqlTemplate, draft.columns.length, initialReport?.uuid]);
+
+  /**
+   * Run preview with parameters
+   */
+  const handleRunPreviewWithParams = useCallback(async (parameterValues: Record<string, any>) => {
+    // Close the modal
+    setPreviewParamModalOpen(false);
     setPreviewRunning(true);
     setPreviewError(null);
 
     try {
-      // TODO: Call preview API
-      // const results = await previewLinelistReport(draftToConfig(draft));
-      setPreviewData([]); // Mock data
+      // Convert indicators array to Map for draftToConfig
+      const indicatorRules = draft.indicatorRules || draft.population?.indicatorRules || [];
+      const indicatorsMap = new Map(
+        indicatorRules.map(rule => [
+          rule.indicatorUuid,
+          { sqlTemplate: rule.sqlTemplate, configJson: rule.configJson }
+        ])
+      );
+
+      // Convert draft to config
+      const config = draftToConfig(draft, indicatorsMap);
+
+      // Call preview API with report UUID and parameters
+      // Only works with saved reports (not new drafts)
+      const result = await previewLinelistReport({
+        reportUuid: initialReport?.uuid || '',
+        config,
+        parameters: parameterValues,
+        maxRows: 100, // Limit preview to 100 rows
+      });
+
+      if (!result.success) {
+        setPreviewError(result.error || 'Preview failed');
+        return;
+      }
+
+      if (result.data) {
+        // Store the full result with metadata
+        setPreviewData({
+          columns: result.data.columns,
+          rows: result.data.rows,
+          rowCount: result.data.rowCount,
+          html: result.data.html,
+        });
+      }
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : 'Preview failed');
     } finally {
       setPreviewRunning(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Handle adding field from catalogue as column
@@ -1317,6 +1398,15 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
         reportType="linelist"
       />
 
+      {/* Preview Parameter Modal */}
+      <PreviewParameterModal
+        open={previewParamModalOpen}
+        onClose={() => setPreviewParamModalOpen(false)}
+        onRun={handleRunPreviewWithParams}
+        parameters={draft.parameters}
+        loading={previewRunning}
+      />
+
       {/* Three-Panel Layout */}
       <div className={styles.panels}>
         {/* Left Panel - Data Catalogue */}
@@ -1462,14 +1552,48 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
               </div>
             )}
 
-            {previewData && previewData.length > 0 && (
+            {previewData && previewData.rowCount > 0 && (
               <div className={styles.previewResults}>
                 <div className={styles.previewStatus}>
-                  <span>Matching rows: —</span>
-                  <span>Preview rows: {previewData.length}</span>
+                  <span>Preview rows: {previewData.rowCount}</span>
                   <span>Query duration: —</span>
                 </div>
-                {/* Preview table would go here */}
+                {previewData.html ? (
+                  <div
+                    className={styles.htmlPreview}
+                    dangerouslySetInnerHTML={{ __html: previewData.html }}
+                  />
+                ) : (
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          {previewData.columns.map((column) => (
+                            <TableHeader key={column}>{column}</TableHeader>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {previewData.rows.map((row, index) => (
+                          <TableRow key={index}>
+                            {previewData.columns.map((column) => (
+                              <TableCell key={`${index}-${column}`}>
+                                {row[column]?.toString() ?? ''}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </div>
+            )}
+
+            {previewData && previewData.rowCount === 0 && (
+              <div className={styles.emptyPreview}>
+                <Document size={32} />
+                <p>No data found for the current configuration</p>
               </div>
             )}
           </div>

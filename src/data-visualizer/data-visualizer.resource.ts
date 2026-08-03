@@ -16,6 +16,7 @@ type ReportRequest = {
   reportIndicators?: Array<Indicator>;
   reportType: ReportType;
   reportingCohort?: CQIReportingCohort;
+  parameters?: Record<string, any>;
 };
 
 type saveReportRequest = {
@@ -55,6 +56,7 @@ type ReportLibraryItem = {
   migrated?: boolean;
   retired?: boolean;
   category?: ReportLibraryCategoryRef;
+  metaJson?: string;
 };
 
 type ReportLibraryResponse = {

@@ -580,7 +580,17 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
     setCompileSuccess(null);
 
     try {
-      const result = await compileLinelistReport(savedReportUuid);
+      // Get category name from the selected category UUID
+      const category = categories.find((c) => c.uuid === draft.categoryUuid)?.name;
+
+      console.log('Linelist Modal - Compiling with:', {
+        reportUuid: savedReportUuid,
+        categoryUuid: draft.categoryUuid,
+        categoryName: category,
+        categoriesCount: categories.length,
+      });
+
+      const result = await compileLinelistReport(savedReportUuid, category);
 
       setCompileSuccess(
         result?.reportDefinitionUuid
@@ -592,7 +602,7 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
     } finally {
       setCompiling(false);
     }
-  }, [savedReportUuid]);
+  }, [savedReportUuid, draft.categoryUuid, categories]);
 
   /**
    * Get panel step number
