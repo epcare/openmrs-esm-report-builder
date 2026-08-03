@@ -741,7 +741,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
         categoriesCount: categories.length,
       });
 
-      const compiledResult = await compileLinelistReport(initialReport.uuid, category);
+      const compiledResult = await compileLinelistReport(initialReport.uuid, draft.categoryUuid);
 
       setCompileSuccess(
         compiledResult?.reportDefinitionUuid
@@ -1496,11 +1496,11 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
             {!middlePanelCollapsed && (
               <>
                 <h3 className={styles.panelTitle}>Query Configuration</h3>
-                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Collapse middle panel" onClick={() => setMiddlePanelCollapsed(true)} />
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Collapse middle panel" onClick={() => setMiddlePanelCollapsed(true)} />
               </>
             )}
             {middlePanelCollapsed && (
-              <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Expand middle panel" onClick={() => setMiddlePanelCollapsed(false)} />
+              <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Expand middle panel" onClick={() => setMiddlePanelCollapsed(false)} />
             )}
           </div>
 

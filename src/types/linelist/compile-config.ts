@@ -50,6 +50,10 @@ export type BackendColumn = {
     type: string;
     config: Record<string, any>;
   };
+  _metadata?: {
+    id?: string;
+    position?: number;
+  };
 };
 
 export type BackendCohortDefinition = {
@@ -142,17 +146,22 @@ function compileColumn(
   const defConfig = def.config || {};
   const sql: string = defConfig.sql || '';
 
+  // Extract metadata (if present) to preserve column position
+  const colMetadata = col._metadata || col._meta || null;
+
   // --- Detect column type ---
   const isCustomSql = /^\s*SELECT\s/i.test(sql) || /:patientId\b/i.test(sql);
   const simpleRefMatch = sql.match(/`?(\w+)`?\.\s*`?(\w+)`?/);
 
   // --- CUSTOM SQL: keep as-is ---
   if (isCustomSql) {
-    return {
+    const compiled: BackendColumn = {
       name: col.name,
       dataDefinition: { type: 'SQL', config: { sql } },
       ...(col.repeatResolution ? { repeatResolution: col.repeatResolution } : {}),
+      ...(colMetadata ? { _metadata: colMetadata } : {}),
     };
+    return compiled;
   }
 
   // --- CALCULATION: fix onDate ---
@@ -181,6 +190,7 @@ function compileColumn(
           onDate: finalOnDate,
         },
       },
+      ...(colMetadata ? { _metadata: colMetadata } : {}),
     };
   }
 
@@ -193,6 +203,7 @@ function compileColumn(
         config: { ...defConfig, preferred: true },
       },
       ...(col.repeatResolution ? { repeatResolution: col.repeatResolution } : {}),
+      ...(colMetadata ? { _metadata: colMetadata } : {}),
     };
   }
 
@@ -202,6 +213,7 @@ function compileColumn(
       name: col.name,
       dataDefinition: { type: defType, config: defConfig },
       ...(col.repeatResolution ? { repeatResolution: col.repeatResolution } : {}),
+      ...(colMetadata ? { _metadata: colMetadata } : {}),
     };
   }
 
@@ -213,6 +225,7 @@ function compileColumn(
       return {
         ...compiled,
         ...(col.repeatResolution ? { repeatResolution: col.repeatResolution } : {}),
+        ...(colMetadata ? { _metadata: colMetadata } : {}),
       };
     }
   }
@@ -222,6 +235,7 @@ function compileColumn(
     name: col.name,
     dataDefinition: { type: defType || 'SQL', config: defConfig },
     ...(col.repeatResolution ? { repeatResolution: col.repeatResolution } : {}),
+    ...(colMetadata ? { _metadata: colMetadata } : {}),
   };
 }
 
