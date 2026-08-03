@@ -92,8 +92,10 @@ const PreviewParameterModal: React.FC<Props> = ({
   // Only show FIXED/RELATIVE toggle if both start and end date params exist
   const supportsRelativePeriod = hasStartAndEndDateParams;
 
-  // Initialize values from defaults or previously set values
+  // Initialize values from defaults or previously set values - only when modal opens
   useEffect(() => {
+    if (!open) return;
+
     const initialValuesFromParams: Record<string, any> = {};
 
     for (const param of parameters) {
@@ -103,9 +105,9 @@ const PreviewParameterModal: React.FC<Props> = ({
     }
 
     setValues(initialValuesFromParams);
-  }, [parameters, initialValues]);
+  }, [open]); // Only run when modal opens, not when parameters change
 
-  // Reset errors when modal opens
+  // Reset errors and other state when modal opens
   useEffect(() => {
     if (open) {
       setErrors({});
