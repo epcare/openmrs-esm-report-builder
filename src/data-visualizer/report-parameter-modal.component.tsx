@@ -27,13 +27,13 @@ import {
   InlineLoading,
 } from '@carbon/react';
 
-import type { LinelistParameter } from '../../types/linelist-types';
+import type { LinelistParameter } from '../types/linelist-types';
 import {
   RELATIVE_PERIOD_OPTIONS,
   type RelativePeriod,
   resolveRelativePeriod,
   formatDate,
-} from '../../utils/parameter-resolution';
+} from '../utils/parameter-resolution';
 
 // Import parameter input components
 import DateParameterInput from './parameter-inputs/date-parameter-input.component';

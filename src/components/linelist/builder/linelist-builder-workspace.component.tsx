@@ -551,6 +551,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
 
   // Preview state
   const [previewRunning, setPreviewRunning] = useState(false);
+  const [cachedReportDefinitionUuid, setCachedReportDefinitionUuid] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<{
     columns: string[];
     rows: Record<string, any>[];
@@ -590,6 +591,10 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
           // Convert report to draft
           const draft = reportToDraft(report);
           setDraft(draft);
+          // Cache the compiledReportDefinitionUuid from the loaded report for preview
+          if (report.compiledReportDefinitionUuid) {
+            setCachedReportDefinitionUuid(report.compiledReportDefinitionUuid);
+          }
         })
         .catch((err) => {
           console.error('Failed to load report:', err);
@@ -617,6 +622,15 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     };
     loadData();
   }, []);
+
+  /**
+   * Invalidate compiled cache when draft structure changes
+   * This ensures we recompile when columns, data sources, or SQL changes
+   */
+  useEffect(() => {
+    // Clear cache when draft structure changes
+    setCachedReportDefinitionUuid(null);
+  }, [draft.columns.length, draft.dataSources.length, draft.population.sqlTemplate, draft.rowGrain]);
 
   /**
    * Handle save draft
@@ -742,6 +756,11 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
       });
 
       const compiledResult = await compileLinelistReport(initialReport.uuid, draft.categoryUuid);
+
+      // Cache the reportDefinitionUuid for subsequent previews
+      if (compiledResult?.reportDefinitionUuid) {
+        setCachedReportDefinitionUuid(compiledResult.reportDefinitionUuid);
+      }
 
       setCompileSuccess(
         compiledResult?.reportDefinitionUuid
@@ -881,6 +900,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
         config,
         parameters: parameterValues,
         maxRows: 100, // Limit preview to 100 rows
+        cachedReportDefinitionUuid: cachedReportDefinitionUuid || undefined,
       });
 
       if (!result.success) {
@@ -1533,7 +1553,9 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
                 kind="primary"
                 size="sm"
                 onClick={handleRunPreview}
-                disabled={previewRunning}
+                disabled={previewRunning || !initialReport?.compiledReportDefinitionUuid}
+                tooltipAlignment="end"
+                tooltipPosition="bottom"
               >
                 {previewRunning ? 'Loading...' : 'Run Preview'}
               </Button>
@@ -1541,11 +1563,20 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
           </div>
 
           <div className={styles.panelContent}>
+            {!initialReport?.compiledReportDefinitionUuid && mode === 'edit' && (
+              <InlineNotification
+                kind="info"
+                title="Report Not Compiled"
+                subtitle="Please compile the report first before running preview. Click the 'Compile' button above to generate the report definition."
+                lowContrast
+              />
+            )}
+
             {previewError && (
               <InlineNotification kind="error" title="Preview Error" subtitle={previewError} />
             )}
 
-            {!previewData && !previewError && (
+            {!previewData && !previewError && initialReport?.compiledReportDefinitionUuid && (
               <div className={styles.emptyPreview}>
                 <Document size={32} />
                 <p>Run a preview to see sample data</p>

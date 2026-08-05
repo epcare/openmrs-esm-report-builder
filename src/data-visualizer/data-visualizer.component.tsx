@@ -80,7 +80,7 @@ import {
 import dayjs from "dayjs";
 import { showModal, showNotification, showToast } from "@openmrs/esm-framework";
 import ModifierComponent from "./components/popover/modifier-panel";
-import ReportParameterModal from "../components/data-visualizer/report-parameter-modal.component";
+import ReportParameterModal from "./report-parameter-modal.component";
 import type { LinelistParameter } from "../types/linelist-types";
 
 type ChartType = "list" | "pivot" | "aggregate" | "linelist";
@@ -1190,83 +1190,95 @@ const DataVisualizer: React.FC = () => {
                 </Form>
               </div>
 
-              <div className={`${styles.form} ${styles.formRight}`}>
-                <Form>
-                  <Stack gap={3}>
-                    <FormGroup legendText={``}>
-                      <FormLabel className={styles.label}>
-                        Do you want your report to cover a fixed reporting
-                        period or a relative one?
-                      </FormLabel>
-                      <RadioButtonGroup
-                        legendText=""
-                        name="reportingDuration"
-                        onChange={handleReportingDurationChange}
-                        defaultSelected="fixed"
-                      >
-                        <RadioButton
-                          id="fixedPeriod"
-                          labelText="Fixed period"
-                          value="fixed"
-                        />
-                        <RadioButton
-                          id="relativePeriod"
-                          labelText="Relative period"
-                          value="relative"
-                        />
-                      </RadioButtonGroup>
-                    </FormGroup>
-
-                    {reportingDuration === "fixed" && (
-                      <FormGroup legendText={``} className={styles.dateForm}>
-                        <DatePicker
-                          datePickerType="single"
-                          onChange={handleStartDateChange}
-                          dateFormat={"d/m/Y"}
-                          value={startDate}
-                        >
-                          <DatePickerInput
-                            id="date-picker-input-id-start"
-                            placeholder="dd/mm/yyyy"
-                            labelText="Start Date"
-                          />
-                        </DatePicker>
-                        <br />
-                        <DatePicker
-                          datePickerType="single"
-                          onChange={handleEndDateChange}
-                          dateFormat={"d/m/Y"}
-                          value={endDate}
-                        >
-                          <DatePickerInput
-                            id="date-picker-input-id-end"
-                            placeholder="dd/mm/yyyy"
-                            labelText="End Date"
-                          />
-                        </DatePicker>
-                      </FormGroup>
-                    )}
-
-                    {reportingDuration === "relative" && (
+              {/* Only show hardcoded parameters when no report is selected OR report has no parameters */}
+              {(!selectedReport || reportParameters.length === 0) && (
+                <div className={`${styles.form} ${styles.formRight}`}>
+                  <Form>
+                    <Stack gap={3}>
                       <FormGroup legendText={``}>
                         <FormLabel className={styles.label}>
-                          Select your desired reporting period
+                          Do you want your report to cover a fixed reporting
+                          period or a relative one?
                         </FormLabel>
-
-                        <ComboBox
-                          ariaLabel="Select reporting period"
-                          id="reportingPeriodCombobox"
-                          items={reportPeriod}
-                          placeholder="Choose the reporting period"
-                          onChange={handleReportingPeriod}
-                          selectedItem={reportingPeriod}
-                          itemToString={(item) => item?.label ?? ""}
-                        />
+                        <RadioButtonGroup
+                          legendText=""
+                          name="reportingDuration"
+                          onChange={handleReportingDurationChange}
+                          defaultSelected="fixed"
+                        >
+                          <RadioButton
+                            id="fixedPeriod"
+                            labelText="Fixed period"
+                            value="fixed"
+                          />
+                          <RadioButton
+                            id="relativePeriod"
+                            labelText="Relative period"
+                            value="relative"
+                          />
+                        </RadioButtonGroup>
                       </FormGroup>
-                    )}
-                  </Stack>
-                </Form>
-              </div>
+
+                      {reportingDuration === "fixed" && (
+                        <FormGroup legendText={``} className={styles.dateForm}>
+                          <DatePicker
+                            datePickerType="single"
+                            onChange={handleStartDateChange}
+                            dateFormat={"d/m/Y"}
+                            value={startDate}
+                          >
+                            <DatePickerInput
+                              id="date-picker-input-id-start"
+                              placeholder="dd/mm/yyyy"
+                              labelText="Start Date"
+                            />
+                          </DatePicker>
+                          <br />
+                          <DatePicker
+                            datePickerType="single"
+                            onChange={handleEndDateChange}
+                            dateFormat={"d/m/Y"}
+                            value={endDate}
+                          >
+                            <DatePickerInput
+                              id="date-picker-input-id-end"
+                              placeholder="dd/mm/yyyy"
+                              labelText="End Date"
+                            />
+                          </DatePicker>
+                        </FormGroup>
+                      )}
+
+                      {reportingDuration === "relative" && (
+                        <FormGroup legendText={``}>
+                          <FormLabel className={styles.label}>
+                            Select your desired reporting period
+                          </FormLabel>
+
+                          <ComboBox
+                            ariaLabel="Select reporting period"
+                            id="reportingPeriodCombobox"
+                            items={reportPeriod}
+                            placeholder="Choose the reporting period"
+                            onChange={handleReportingPeriod}
+                            selectedItem={reportingPeriod}
+                            itemToString={(item) => item?.label ?? ""}
+                          />
+                        </FormGroup>
+                      )}
+                    </Stack>
+                  </Form>
+                </div>
+              )}
+
+              {/* Show placeholder when report has parameters (they'll appear in modal) */}
+              {selectedReport && reportParameters.length > 0 && (
+                <div className={`${styles.form} ${styles.formRight}`}>
+                  <div style={{ padding: '1rem', color: '#525252', fontStyle: 'italic' }}>
+                    Report parameters will be configured when you click "View Report"
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

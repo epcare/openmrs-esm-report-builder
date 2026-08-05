@@ -1089,14 +1089,17 @@ export function generateLinelistWarnings(draft: LinelistReportDraft): LinelistVa
     warnings.category = 'No category selected. Reports are easier to find when organized into categories.';
   }
 
-  // Warn about missing population sources (v3)
-  if (!draft.populationSources || draft.populationSources.length === 0) {
-    warnings.population = 'No population sources selected. Select at least one datasource to define the patient cohort.';
-  } else {
-    const enabledCount = draft.populationSources.filter(ps => ps.enabled).length;
-    if (enabledCount === 0) {
-      warnings.population = 'No enabled population sources. Enable at least one datasource.';
-    }
+  // Warn about population definition based on build method
+  const buildMethod = draft.population?.buildMethod || 'SQL_BUILDER';
+  const indicatorRules = draft.population?.indicatorRules || draft.indicatorRules;
+
+  // For SQL_BUILDER and VISUAL_FILTER modes, warn about missing SQL
+  if (buildMethod !== 'INDICATOR_BASED' && !draft.population.sqlTemplate?.trim()) {
+    warnings.population = 'No population SQL defined. Add SQL to define the patient cohort.';
+  }
+  // For INDICATOR_BASED mode, warn about missing indicator rules
+  else if (buildMethod === 'INDICATOR_BASED' && (!indicatorRules || indicatorRules.length === 0)) {
+    warnings.population = 'No indicator rules defined. Add at least one indicator to define the patient cohort.';
   }
 
   // SQL warnings
@@ -1141,6 +1144,10 @@ export type LinelistReportDto = {
   configJson?: string;
   metaJson?: string;
   retired?: boolean;
+  compiledReportDefinitionUuid?: string; // Compiled report definition UUID from backend
+  compiledReportDesignUuid?: string;
+  lastCompiledAt?: string;
+  compileStatus?: string;
 };
 
 /**
@@ -1541,12 +1548,25 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
       } else {
         // For SQL columns that may return multiple values, add default repeat resolution
         // if one isn't already configured. This prevents backend compilation errors.
+        const sql = col.dataDefinitionConfig.sql || '';
+
+        // Check if SQL uses an aggregate function (always returns single value)
+        const hasAggregate = /^(?:SELECT\s+(?:DISTINCT\s+)?(?:COUNT|MAX|MIN|SUM|AVG|GROUP_CONCAT|ARRAY_AGG|STRING_AGG|JSON_AGG)\s*\()/i.test(sql) ||
+          /GROUP\s+BY\s+/i.test(sql);
+
+        // Check if SQL already has LIMIT 1
+        const hasLimitOne = /\bLIMIT\s+1\b/i.test(sql);
+
+        // Only add repeat resolution if:
+        // 1. It references patient-related tables (encounter, observation, etc.)
+        // 2. It's NOT an aggregate query
+        // 3. It doesn't have LIMIT 1
         const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
-          /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
+          /appointment|observation|encounter|program_enrollment|visit/i.test(sql) &&
+          !hasAggregate && !hasLimitOne;
 
         if (isPotentiallyRepeated) {
           // Use the SQL's ORDER BY field if present, otherwise use a default
-          const sql = col.dataDefinitionConfig.sql || '';
           const orderByMatch = sql.match(/ORDER BY\s+([a-z_][a-z0-9_]*)/i);
           const orderByField = orderByMatch ? orderByMatch[1] : 'encounter_date';
 
@@ -1695,14 +1715,19 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
   //   errors.categoryUuid = 'Category is required';
   // }
 
-  // Validate population sources (v3 - at least one enabled source required)
-  if (!draft.populationSources || draft.populationSources.length === 0) {
-    errors.dataSources = 'At least one population source is required';
-  } else {
-    const hasEnabled = draft.populationSources.some(ps => ps.enabled);
-    if (!hasEnabled) {
-      errors.dataSources = 'At least one enabled population source is required';
+  // Validate population definition based on build method
+  const buildMethod = draft.population?.buildMethod || 'SQL_BUILDER';
+  const indicatorRules = draft.population?.indicatorRules || draft.indicatorRules;
+
+  // For INDICATOR_BASED mode, validate indicator rules instead of population sources
+  if (buildMethod === 'INDICATOR_BASED') {
+    if (!indicatorRules || indicatorRules.length === 0) {
+      errors.population = 'At least one indicator rule is required for indicator-based population';
     }
+  }
+  // For SQL_BUILDER and VISUAL_FILTER modes, validate population SQL
+  else if (!draft.population.sqlTemplate?.trim()) {
+    errors.population = 'Population SQL is required';
   }
 
   // Validate data sources for columns (v2 - at least one primary data source required)
@@ -1761,20 +1786,38 @@ export function validateLinelistDraft(draft: LinelistReportDraft): LinelistValid
     // Check for repeated fields without resolution strategy (v2 - using dataDefinitionConfig.sql)
     const repeatedColumnsWithoutResolution: string[] = [];
     draft.columns.forEach((col) => {
-      // SQL columns that select from one-to-many tables might need resolution
-      const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
-        /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
+      // Only check SQL columns
+      if (col.dataDefinitionType !== 'SQL') return;
+
+      const sql = col.dataDefinitionConfig.sql || '';
+
+      // Skip empty SQL
+      if (!sql.trim()) return;
 
       // Check if repeatResolution is configured
       const hasResolution = col.repeatResolution?.strategy && col.repeatResolution.strategy !== 'NONE';
 
       // Check if SQL already handles multiple values with LIMIT 1
-      const sql = col.dataDefinitionConfig.sql || '';
       const hasLimitOne = /\bLIMIT\s+1\b/i.test(sql);
 
-      // Collect columns that are potentially repeated and have no resolution strategy
-      // and don't have LIMIT 1 in their SQL
-      if (isPotentiallyRepeated && !hasResolution && !hasLimitOne) {
+      // Check if SQL uses an aggregate function (always returns single value)
+      // Common aggregate functions: COUNT, MAX, MIN, SUM, AVG, GROUP_CONCAT, etc.
+      const hasAggregate = /^(?:SELECT\s+(?:DISTINCT\s+)?(?:COUNT|MAX|MIN|SUM|AVG|GROUP_CONCAT|ARRAY_AGG|STRING_AGG|JSON_AGG)\s*\()/i.test(sql) ||
+        /GROUP\s+BY\s+/i.test(sql);
+
+      // Check if SQL is a scalar subquery (single value return)
+      // Pattern: SELECT single_column FROM ... WHERE patient_id = :patientId AND specific condition LIMIT 1
+      const isScalarSubquery = /\bpatient_id\s*=\s*:patientId\b/i.test(sql) && /\bLIMIT\s+1\b/i.test(sql);
+
+      // A query is potentially repeated (returns multiple rows) if:
+      // 1. It references patient-related tables (encounter, observation, etc.)
+      // 2. It's NOT an aggregate query (COUNT, MAX, etc.)
+      // 3. It doesn't have LIMIT 1
+      // 4. It's not a scalar subquery with proper conditions
+      const referencesPatientData = /appointment|observation|encounter|program_enrollment|visit/i.test(sql);
+      const isPotentiallyRepeated = referencesPatientData && !hasAggregate && !hasLimitOne && !isScalarSubquery && !hasResolution;
+
+      if (isPotentiallyRepeated) {
         repeatedColumnsWithoutResolution.push(col.name);
       }
     });
@@ -1848,14 +1891,28 @@ export function isLinelistDraftReadyToCompile(draft: LinelistReportDraft): boole
 
   // Check for unresolved repeated fields
   const hasUnresolvedRepeatedFields = draft.columns.some((col) => {
-    const isPotentiallyRepeated = col.dataDefinitionType === 'SQL' &&
-      /appointment|observation|encounter|program_enrollment|visit/i.test(col.dataDefinitionConfig.sql || '');
+    if (col.dataDefinitionType !== 'SQL') return false;
+
+    const sql = col.dataDefinitionConfig.sql || '';
+    if (!sql.trim()) return false;
+
+    // Check if SQL uses an aggregate function (always returns single value)
+    const hasAggregate = /^(?:SELECT\s+(?:DISTINCT\s+)?(?:COUNT|MAX|MIN|SUM|AVG|GROUP_CONCAT|ARRAY_AGG|STRING_AGG|JSON_AGG)\s*\()/i.test(sql) ||
+      /GROUP\s+BY\s+/i.test(sql);
+
+    // Check if SQL already has LIMIT 1
+    const hasLimitOne = /\bLIMIT\s+1\b/i.test(sql);
+
     // Check if a valid resolution strategy is configured
     const hasValidResolution = col.repeatResolution?.strategy &&
       col.repeatResolution.strategy !== 'NONE';
-    // Check if SQL already handles multiple values with LIMIT 1
-    const hasLimitOne = /\bLIMIT\s+1\b/i.test(col.dataDefinitionConfig.sql || '');
-    return isPotentiallyRepeated && !hasValidResolution && !hasLimitOne;
+
+    // Only consider unresolved if it references patient-related tables,
+    // doesn't have aggregate, doesn't have LIMIT 1, and no valid resolution
+    const referencesPatientData = /appointment|observation|encounter|program_enrollment|visit/i.test(sql);
+    const isPotentiallyRepeated = referencesPatientData && !hasAggregate && !hasLimitOne;
+
+    return isPotentiallyRepeated && !hasValidResolution;
   });
 
   if (hasUnresolvedRepeatedFields) {

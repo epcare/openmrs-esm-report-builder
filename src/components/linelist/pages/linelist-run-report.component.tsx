@@ -12,7 +12,6 @@ import {
   InlineNotification,
   Tag,
   Tile,
-  TextInput,
   Select,
   SelectItem,
   DataTable,
@@ -27,6 +26,8 @@ import {
   Loading,
   Grid,
   Column,
+  RadioButton,
+  RadioButtonGroup,
 } from '@carbon/react';
 import { ArrowLeft, Download, Renew, Play, Save, View } from '@carbon/react/icons';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -38,7 +39,23 @@ import {
   compileLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
 import type { LinelistReportDto, LinelistParameter } from '../../../types/linelist-types';
-import DateParameterInput from '../../data-visualizer/parameter-inputs/date-parameter-input.component';
+import {
+  RELATIVE_PERIOD_OPTIONS,
+  type RelativePeriod,
+  resolveRelativePeriod,
+  formatDate,
+} from '../../../utils/parameter-resolution';
+
+// Import parameter input components from data-visualizer (reuse)
+import DateParameterInput from '../../../data-visualizer/parameter-inputs/date-parameter-input.component';
+import NumberParameterInput from '../../../data-visualizer/parameter-inputs/number-parameter-input.component';
+import BooleanParameterInput from '../../../data-visualizer/parameter-inputs/boolean-parameter-input.component';
+import ListParameterInput from '../../../data-visualizer/parameter-inputs/list-parameter-input.component';
+import LocationParameterInput from '../../../data-visualizer/parameter-inputs/location-parameter-input.component';
+import ConceptParameterInput from '../../../data-visualizer/parameter-inputs/concept-parameter-input.component';
+import IdentifierTypeParameterInput from '../../../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
+import PersonAttributeParameterInput from '../../../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
+import TextParameterInput from '../../../data-visualizer/parameter-inputs/text-parameter-input.component';
 
 import styles from './linelist-run-report.scss';
 
@@ -56,6 +73,12 @@ const LinelistRunReport: React.FC<Props> = () => {
 
   // Runtime parameters
   const [paramValues, setParamValues] = useState<Record<string, any>>({});
+  const [paramErrors, setParamErrors] = useState<Record<string, string>>({});
+  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
+
+  // Date mode (FIXED or RELATIVE)
+  const [dateMode, setDateMode] = useState<'FIXED' | 'RELATIVE'>('FIXED');
+  const [relativePeriod, setRelativePeriod] = useState<RelativePeriod | ''>('');
 
   // Results
   const [results, setResults] = useState<any[] | null>(null);
@@ -131,10 +154,58 @@ const LinelistRunReport: React.FC<Props> = () => {
   }, [report]);
 
   /**
+   * Get date parameters from report config
+   */
+  const getDateParameters = useCallback((): LinelistParameter[] => {
+    const params = getParameters();
+    return params.filter(p => p.type === 'DATE' || p.type === 'DATETIME');
+  }, [getParameters]);
+
+  /**
+   * Check if report has both startDate and endDate for relative period support
+   */
+  const supportsRelativePeriod = useCallback(() => {
+    const dateParams = getDateParameters();
+    return (
+      dateParams.some(p => p.name.toLowerCase() === 'startdate' || p.name.toLowerCase() === 'start_date') &&
+      dateParams.some(p => p.name.toLowerCase() === 'enddate' || p.name.toLowerCase() === 'end_date')
+    );
+  }, [getDateParameters]);
+
+  /**
    * Update parameter value
    */
   const updateParamValue = (paramName: string, value: any) => {
     setParamValues((prev) => ({ ...prev, [paramName]: value }));
+    // Clear error for this parameter
+    if (paramErrors[paramName]) {
+      setParamErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[paramName];
+        return newErrors;
+      });
+    }
+  };
+
+  /**
+   * Update parameter error
+   */
+  const updateParamError = (paramName: string, error: string | undefined) => {
+    setParamErrors((prev) => {
+      if (error) {
+        return { ...prev, [paramName]: error };
+      }
+      const newErrors = { ...prev };
+      delete newErrors[paramName];
+      return newErrors;
+    });
+  };
+
+  /**
+   * Update search query for a parameter
+   */
+  const updateSearchQuery = (paramName: string, query: string) => {
+    setSearchQueries((prev) => ({ ...prev, [paramName]: query }));
   };
 
   /**
@@ -142,13 +213,26 @@ const LinelistRunReport: React.FC<Props> = () => {
    */
   const areParamsValid = useCallback(() => {
     const params = getParameters();
+
+    // If in RELATIVE mode but no period selected, invalid
+    if (dateMode === 'RELATIVE' && supportsRelativePeriod() && !relativePeriod) {
+      return false;
+    }
+
     for (const param of params) {
+      // Skip date parameters in RELATIVE mode
+      if ((param.type === 'DATE' || param.type === 'DATETIME') && dateMode === 'RELATIVE') {
+        const isStartDate = param.name.toLowerCase() === 'startdate' || param.name.toLowerCase() === 'start_date';
+        const isEndDate = param.name.toLowerCase() === 'enddate' || param.name.toLowerCase() === 'end_date';
+        if (isStartDate || isEndDate) continue;
+      }
+
       if (param.required && !paramValues[param.name]) {
         return false;
       }
     }
     return true;
-  }, [getParameters, paramValues]);
+  }, [getParameters, paramValues, dateMode, relativePeriod, supportsRelativePeriod]);
 
   /**
    * Run the report
@@ -156,6 +240,12 @@ const LinelistRunReport: React.FC<Props> = () => {
   const runReport = useCallback(async () => {
     if (!report || !areParamsValid()) {
       setRunError('Please fill in all required parameters');
+      return;
+    }
+
+    // If in RELATIVE mode but no period selected, show error
+    if (dateMode === 'RELATIVE' && supportsRelativePeriod() && !relativePeriod) {
+      setRunError('Please select a reporting period');
       return;
     }
 
@@ -169,11 +259,35 @@ const LinelistRunReport: React.FC<Props> = () => {
 
       // Build parameters object from the report config
       const reportParams: Record<string, any> = {};
-      params.forEach((param) => {
-        if (paramValues[param.name]) {
-          reportParams[param.name] = paramValues[param.name];
-        }
-      });
+
+      // If in RELATIVE mode with period selected, resolve dates
+      if (dateMode === 'RELATIVE' && relativePeriod && supportsRelativePeriod()) {
+        const { start, end } = resolveRelativePeriod(relativePeriod);
+        const dateParams = getDateParameters();
+
+        // Map resolved dates to date parameters
+        dateParams.forEach((param, index) => {
+          if (index === 0) {
+            reportParams[param.name] = formatDate(start);
+          } else if (index === 1) {
+            reportParams[param.name] = formatDate(end);
+          }
+        });
+
+        // Add non-date parameters
+        params.forEach((param) => {
+          if (param.type !== 'DATE' && param.type !== 'DATETIME' && paramValues[param.name]) {
+            reportParams[param.name] = paramValues[param.name];
+          }
+        });
+      } else {
+        // FIXED mode - use all parameter values
+        params.forEach((param) => {
+          if (paramValues[param.name]) {
+            reportParams[param.name] = paramValues[param.name];
+          }
+        });
+      }
 
       // Step 1: Compile the report to get the reportDefinitionUuid
       const compileResult = await compileLinelistReport(report.uuid);
@@ -208,7 +322,7 @@ const LinelistRunReport: React.FC<Props> = () => {
     } finally {
       setRunning(false);
     }
-  }, [report, paramValues, pageSize, areParamsValid, getParameters]);
+  }, [report, paramValues, pageSize, areParamsValid, getParameters, getDateParameters, dateMode, relativePeriod, supportsRelativePeriod]);
 
   /**
    * Export report data
@@ -250,80 +364,69 @@ const LinelistRunReport: React.FC<Props> = () => {
    * Render parameter input based on type
    */
   const renderParameterInput = (param: LinelistParameter) => {
-    const value = paramValues[param.name];
-    const required = param.required;
+    const value = paramValues[param.name] || '';
+    const error = paramErrors[param.name];
+
+    // Skip start/end date parameters in RELATIVE mode - they're handled by the global relative period selector
+    if (supportsRelativePeriod() && dateMode === 'RELATIVE') {
+      const isStartDate = param.name.toLowerCase() === 'startdate' || param.name.toLowerCase() === 'start_date';
+      const isEndDate = param.name.toLowerCase() === 'enddate' || param.name.toLowerCase() === 'end_date';
+      if ((param.type === 'DATE' || param.type === 'DATETIME') && (isStartDate || isEndDate)) {
+        return null;
+      }
+    }
+
+    const commonProps = {
+      key: param.name,
+      parameter: param,
+      value,
+      error,
+      onChange: (newValue: any) => updateParamValue(param.name, newValue),
+    };
 
     switch (param.type) {
       case 'DATE':
       case 'DATETIME':
-        return (
-          <DateParameterInput
-            key={param.name}
-            parameter={param}
-            value={value}
-            onChange={(newValue) => updateParamValue(param.name, newValue)}
-          />
-        );
+        return <DateParameterInput {...commonProps} />;
 
-      case 'TEXT':
       case 'NUMBER':
-        return (
-          <TextInput
-            id={`param-${param.name}`}
-            labelText={param.label}
-            value={value || ''}
-            onChange={(e) => updateParamValue(param.name, (e.target as HTMLInputElement).value)}
-            disabled={running}
-            required={required}
-            placeholder={param.name}
-          />
-        );
+        return <NumberParameterInput {...commonProps} />;
 
       case 'BOOLEAN':
-        return (
-          <Select
-            id={`param-${param.name}`}
-            labelText={param.label}
-            value={value !== undefined ? String(value) : ''}
-            onChange={(e) => updateParamValue(param.name, (e.target as HTMLSelectElement).value === 'true')}
-            disabled={running}
-            required={required}
-          >
-            <SelectItem value="" text="Select..." />
-            <SelectItem value="true" text="Yes" />
-            <SelectItem value="false" text="No" />
-          </Select>
-        );
+        return <BooleanParameterInput {...commonProps} />;
+
+      case 'LIST':
+        return <ListParameterInput {...commonProps} />;
 
       case 'LOCATION':
-      case 'PROGRAM':
-      case 'PROVIDER':
-      case 'CONCEPT':
-      case 'CODED_VALUE':
-        // These would typically use specialized pickers
-        // For now, use a simple text input
         return (
-          <TextInput
-            id={`param-${param.name}`}
-            labelText={param.label}
-            value={value || ''}
-            onChange={(e) => updateParamValue(param.name, (e.target as HTMLInputElement).value)}
-            disabled={running}
-            required={required}
-            placeholder={`Enter ${param.label.toLowerCase()}...`}
-            helperText={`${param.type} - In production, this would use a specialized picker`}
+          <LocationParameterInput
+            {...commonProps}
+            onSearchQueryChange={(query) => updateSearchQuery(param.name, query)}
           />
         );
 
+      case 'CONCEPT':
+        return (
+          <ConceptParameterInput
+            {...commonProps}
+            searchQuery={searchQueries[param.name] || ''}
+            onSearchQueryChange={(query) => updateSearchQuery(param.name, query)}
+          />
+        );
+
+      case 'IDENTIFIER_TYPE':
+        return <IdentifierTypeParameterInput {...commonProps} />;
+
+      case 'PERSON_ATTRIBUTE':
+        return <PersonAttributeParameterInput {...commonProps} />;
+
+      case 'TEXT':
       default:
         return (
-          <TextInput
-            id={`param-${param.name}`}
-            labelText={param.label}
-            value={value || ''}
-            onChange={(e) => updateParamValue(param.name, (e.target as HTMLInputElement).value)}
-            disabled={running}
-            required={required}
+          <TextParameterInput
+            {...commonProps}
+            onError={(error) => updateParamError(param.name, error)}
           />
         );
     }
@@ -392,14 +495,77 @@ const LinelistRunReport: React.FC<Props> = () => {
             </p>
           </div>
 
-          <Grid fullWidth className={styles.parametersGrid}>
-            {parameters.map((param) => (
-              <Column key={param.name} md={4} lg={4}>
-                <div className={styles.parameterField}>
-                  {renderParameterInput(param)}
+          {/* Date Mode Toggle - shown ONLY if report has both startDate AND endDate */}
+          {supportsRelativePeriod() && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label className="cds--label">Date Selection Mode</label>
+              <RadioButtonGroup
+                legendText=""
+                name="date-mode"
+                valueSelected={dateMode}
+                onChange={(mode) => {
+                  setDateMode(mode as 'FIXED' | 'RELATIVE');
+                  // Clear relative period when switching to FIXED
+                  if (mode === 'FIXED') {
+                    setRelativePeriod('');
+                  }
+                }}
+              >
+                <RadioButton
+                  id="date-mode-fixed"
+                  labelText="Specific dates"
+                  value="FIXED"
+                />
+                <RadioButton
+                  id="date-mode-relative"
+                  labelText="Relative period"
+                  value="RELATIVE"
+                />
+              </RadioButtonGroup>
+            </div>
+          )}
+
+          {/* Relative Period Selector - shown in RELATIVE mode */}
+          {dateMode === 'RELATIVE' && supportsRelativePeriod() && (
+            <div style={{ marginBottom: '1.5rem', maxWidth: '300px' }}>
+              <Select
+                id="relative-period-select"
+                labelText="Select reporting period"
+                value={relativePeriod}
+                onChange={(e) => {
+                  setRelativePeriod(e.target.value as RelativePeriod);
+                }}
+                size="sm"
+              >
+                <SelectItem value="" text="Select period" />
+                {RELATIVE_PERIOD_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    text={option.label}
+                  />
+                ))}
+              </Select>
+              {paramErrors.relativePeriod && (
+                <div style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                  {paramErrors.relativePeriod}
                 </div>
-              </Column>
-            ))}
+              )}
+            </div>
+          )}
+
+          <Grid fullWidth className={styles.parametersGrid}>
+            {parameters.map((param) => {
+              const rendered = renderParameterInput(param);
+              if (!rendered) return null;
+              return (
+                <Column key={param.name} md={4} lg={4}>
+                  <div className={styles.parameterField}>
+                    {rendered}
+                  </div>
+                </Column>
+              );
+            })}
           </Grid>
 
           <div className={styles.actions}>
@@ -412,7 +578,11 @@ const LinelistRunReport: React.FC<Props> = () => {
               >
                 {running ? 'Running...' : 'Run Report'}
               </Button>
-              <Button kind="secondary" renderIcon={Renew} onClick={() => setParamValues({})} disabled={running}>
+              <Button kind="secondary" renderIcon={Renew} onClick={() => {
+                setParamValues({});
+                setRelativePeriod('');
+                setDateMode('FIXED');
+              }} disabled={running}>
                 Reset
               </Button>
               <Button

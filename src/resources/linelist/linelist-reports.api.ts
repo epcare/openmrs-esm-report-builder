@@ -430,6 +430,9 @@ export function configToSavePayload(
  * and then deletes the temporary report. The user gets to see preview data
  * without cluttering their report list.
  *
+ * If a cachedReportDefinitionUuid is provided, the compilation step is skipped
+ * to avoid unnecessary recompilation.
+ *
  * @param params - Preview parameters including config and optional parameters
  * @param signal - AbortSignal for cancellation
  * @returns Preview result with data or error
@@ -439,6 +442,7 @@ export type PreviewLinelistParams = {
   config: LinelistReportDefinitionConfig;
   parameters?: Record<string, any>;
   maxRows?: number;
+  cachedReportDefinitionUuid?: string; // Cached compiled report UUID to skip recompilation
 };
 
 export type PreviewLinelistResult = {
@@ -456,18 +460,23 @@ export async function previewLinelistReport(
   params: PreviewLinelistParams,
   signal?: AbortSignal
 ): Promise<PreviewLinelistResult> {
-  const { reportUuid, config, parameters = {}, maxRows = 100 } = params;
+  const { reportUuid, config, parameters = {}, maxRows = 100, cachedReportDefinitionUuid } = params;
 
   try {
     // Step 1: Compile the report to get the reportDefinitionUuid
-    // This compiles the existing report (not a temp one)
-    const compileResult = await compileLinelistReport(reportUuid, config.categoryUuid, signal);
+    // Skip if cached UUID is provided
+    let reportDefinitionUuid = cachedReportDefinitionUuid;
 
-    if (!compileResult.compiled || !compileResult.reportDefinitionUuid) {
-      return {
-        success: false,
-        error: 'Failed to compile report for preview',
-      };
+    if (!reportDefinitionUuid) {
+      const compileResult = await compileLinelistReport(reportUuid, config.categoryUuid, signal);
+
+      if (!compileResult.compiled || !compileResult.reportDefinitionUuid) {
+        return {
+          success: false,
+          error: 'Failed to compile report for preview',
+        };
+      }
+      reportDefinitionUuid = compileResult.reportDefinitionUuid;
     }
 
     // Step 2: Build parameter values from config defaults and overrides
@@ -492,7 +501,7 @@ export async function previewLinelistReport(
 
     // Step 3: Evaluate the compiled report with parameters
     const evalParams: LinelistEvaluationParams = {
-      reportDefinitionUuid: compileResult.reportDefinitionUuid,
+      reportDefinitionUuid: reportDefinitionUuid,
       parameters: paramValues,
       maxRows,
     };

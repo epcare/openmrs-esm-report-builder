@@ -1,22 +1,20 @@
 /**
- * Location Parameter Input Component
+ * Person Attribute Parameter Input Component
  *
- * Handles LOCATION parameter inputs with ComboBox using useLocations hook.
+ * Handles PERSON_ATTRIBUTE parameter inputs with ComboBox using usePersonAttributeTypes hook.
  */
 
 import React, { useCallback } from 'react';
 import { ComboBox } from '@carbon/react';
 
-import type { LinelistParameter } from '../../../types/linelist-types';
-import { useLocations } from '../../../hooks/openmrs-reference-data';
+import type { LinelistParameter } from '../../types/linelist-types';
+import { usePersonAttributeTypes } from '../../hooks/openmrs-reference-data';
 
 type Props = {
   parameter: LinelistParameter;
   value: string;
   error?: string;
   onChange: (value: string) => void;
-  // searchQuery: string; // TODO: Implement location search filtering
-  onSearchQueryChange?: (query: string) => void;
 };
 
 type SelectedItem = {
@@ -24,29 +22,22 @@ type SelectedItem = {
   label: string;
 };
 
-const LocationParameterInput: React.FC<Props> = ({
+const PersonAttributeParameterInput: React.FC<Props> = ({
   parameter,
   value,
   error,
-  onChange,
-  onSearchQueryChange
+  onChange
 }) => {
   const config = parameter.config as any;
-  const tagUuid = config?.tagUuid;
+  const format = config?.format;
+  const { attributeTypes } = usePersonAttributeTypes(false, format);
 
-  // Load all locations
-  const { locations } = useLocations(tagUuid);
-
-  const items = locations.map((loc) => ({
-    uuid: loc.uuid,
-    label: loc.display || loc.name,
+  const items = attributeTypes.map((attrType) => ({
+    uuid: attrType.uuid,
+    label: attrType.display || attrType.name || attrType.uuid,
   }));
 
   const selectedItemSelected: SelectedItem | undefined = items.find((item) => item.uuid === value);
-
-  const handleInputChange = useCallback((input: string) => {
-    onSearchQueryChange?.(input);
-  }, [onSearchQueryChange]);
 
   const handleChange = useCallback(({ selectedItem }: { selectedItem?: SelectedItem }) => {
     if (selectedItem) {
@@ -67,7 +58,6 @@ const LocationParameterInput: React.FC<Props> = ({
         items={items}
         itemToString={(item: any) => item?.label || ''}
         initialSelectedItem={selectedItemSelected}
-        onInputChange={handleInputChange}
         onChange={handleChange}
         invalid={!!error}
         invalidText={error}
@@ -78,4 +68,4 @@ const LocationParameterInput: React.FC<Props> = ({
   );
 };
 
-export default LocationParameterInput;
+export default PersonAttributeParameterInput;

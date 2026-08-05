@@ -17,14 +17,14 @@ import {
   InlineNotification,
 } from '@carbon/react';
 
-import type { RelativePeriod } from '../../../utils/parameter-resolution';
+import type { RelativePeriod } from '../../utils/parameter-resolution';
 import {
   RELATIVE_PERIOD_OPTIONS,
   formatDate,
   formatDisplayDate,
   parseDate,
   resolveRelativePeriod,
-} from '../../../utils/parameter-resolution';
+} from '../../utils/parameter-resolution';
 import './date-range-input.component.scss';
 
 export type DateRangeValue = {

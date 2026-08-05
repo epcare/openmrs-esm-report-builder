@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DatePicker, DatePickerInput } from '@carbon/react';
 
-import type { LinelistParameter } from '../../../types/linelist-types';
+import type { LinelistParameter } from '../../types/linelist-types';
 
 type Props = {
   parameter: LinelistParameter;
@@ -52,7 +52,8 @@ const DateParameterInput: React.FC<Props> = ({ parameter, value, error, onChange
       setInternalValue(parsedDate);
     }
     isUpdatingFromRef.current = false;
-  }, [parsedDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedDate]); // Only sync when parsedDate changes
 
   const handleDateChange = (date: Date | Array<Date>) => {
     console.log('DateParameterInput handleDateChange called:', {
