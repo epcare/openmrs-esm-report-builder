@@ -27,13 +27,13 @@ import {
   InlineLoading,
 } from '@carbon/react';
 
-import type { LinelistParameter } from '../types/linelist-types';
+import type { LinelistParameter } from '../../types/linelist-types';
 import {
   RELATIVE_PERIOD_OPTIONS,
   type RelativePeriod,
   resolveRelativePeriod,
   formatDate,
-} from '../utils/parameter-resolution';
+} from '../../utils/parameter-resolution';
 
 // Import parameter input components
 import DateParameterInput from './parameter-inputs/date-parameter-input.component';
@@ -94,9 +94,17 @@ const ReportParameterModal: React.FC<Props> = ({
 
   // Initialize values from defaults or previously set values
   useEffect(() => {
+    console.log('=== ReportParameterModal: initializing values ===');
+    console.log('Received parameters:', parameters);
+    console.log('Received initialValues:', initialValues);
+
     const initialValuesFromParams: Record<string, any> = {};
 
     for (const param of parameters) {
+      console.log(`  Processing param: ${param.name}, type: ${param.type}`);
+      if (param.config) {
+        console.log(`    config:`, param.config);
+      }
       // Use explicit value if provided, otherwise use default
       const paramValue = initialValues[param.name] || param.defaultValue || '';
       initialValuesFromParams[param.name] = paramValue;

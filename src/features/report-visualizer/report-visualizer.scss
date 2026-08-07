@@ -1,0 +1,178 @@
+/**
+ * Report Visualizer Styles
+ *
+ * Two-panel layout for report explorer and workspace.
+ * Adapted from linelist-builder-workspace.scss patterns.
+ */
+
+.page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+}
+
+.panels {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Resize Handle - adapted from linelist-builder-workspace.scss */
+.resizeHandle {
+  position: relative;
+  width: 4px;
+  background-color: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: transparent;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &:active::before {
+    background-color: #00665A;
+    opacity: 0.3;
+  }
+
+  &:active {
+    background-color: #00665A;
+  }
+}
+
+/* Common Panel Styles - adapted from linelist-builder-workspace.scss */
+.explorerPanel,
+.workspacePanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* Left Panel - Explorer */
+.explorerPanel {
+  min-width: 48px;
+  width: 350px;
+  max-width: 700px;
+  border-right: 1px solid #e0e0e0;
+  background-color: #ffffff;
+
+  &.collapsed {
+    width: 48px;
+  }
+}
+
+/* Right Panel - Workspace */
+.workspacePanel {
+  flex: 1;
+  min-width: 720px;
+  background-color: #ffffff;
+}
+
+/* Panel Header - adapted from linelist-builder-workspace.scss */
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  min-height: 56px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #161616;
+}
+
+/* Panel Content */
+.panelContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent full panel scroll, let child sections scroll */
+  padding: 1rem;
+  background-color: #fafafa;
+}
+
+/* Filter Section - compact spacing */
+.filterSection {
+  flex-shrink: 0;
+}
+
+/* Parameter Section - compact */
+.parameterSection {
+  flex-shrink: 0;
+}
+
+/* Reports List Wrapper - takes remaining space */
+.reportsListWrapper {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0; /* Required for flex child to scroll */
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+  padding: 2rem;
+
+  svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: #666;
+    max-width: 400px;
+  }
+}
+
+/* Responsive - adapted from linelist-builder-workspace.scss */
+@media (max-width: 1439px) {
+  .panels {
+    flex-wrap: wrap;
+  }
+
+  .explorerPanel {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .workspacePanel {
+    width: 100%;
+    min-width: unset;
+  }
+}
+
+@media (max-width: 1023px) {
+  .panelHeader {
+    padding: 0.75rem;
+  }
+
+  .panelContent {
+    padding: 0.75rem;
+  }
+}

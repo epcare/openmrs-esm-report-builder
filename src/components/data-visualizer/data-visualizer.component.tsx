@@ -20,9 +20,15 @@ import {
   List as ListIcon,
 } from "@carbon/react/icons";
 import {
+  RadioButton,
+  RadioButtonGroup,
+  InlineLoading,
+  Select,
+  SelectItem,
   Accordion,
   AccordionItem,
   Button,
+  ButtonSet,
   ComboBox,
   ContentSwitcher,
   DataTableSkeleton,
@@ -33,15 +39,11 @@ import {
   FormLabel,
   Layer,
   Modal,
-  RadioButton,
-  RadioButtonGroup,
   Stack,
   Switch,
   TextInput,
   TextArea,
   Tile,
-  ButtonSet,
-  InlineLoading,
 } from "@carbon/react";
 import ReportingHomeHeader from "./components/header/header.component";
 import {
@@ -81,7 +83,23 @@ import dayjs from "dayjs";
 import { showModal, showNotification, showToast } from "@openmrs/esm-framework";
 import ModifierComponent from "./components/popover/modifier-panel";
 import ReportParameterModal from "./report-parameter-modal.component";
-import type { LinelistParameter } from "../types/linelist-types";
+import type { LinelistParameter } from "../../types/linelist-types";
+import {
+  RELATIVE_PERIOD_OPTIONS,
+  type RelativePeriod,
+  resolveRelativePeriod,
+} from "../../utils/parameter-resolution";
+
+// Import parameter input components
+import DateParameterInput from "./parameter-inputs/date-parameter-input.component";
+import NumberParameterInput from "./parameter-inputs/number-parameter-input.component";
+import BooleanParameterInput from "./parameter-inputs/boolean-parameter-input.component";
+import ListParameterInput from "./parameter-inputs/list-parameter-input.component";
+import LocationParameterInput from "./parameter-inputs/location-parameter-input.component";
+import ConceptParameterInput from "./parameter-inputs/concept-parameter-input.component";
+import IdentifierTypeParameterInput from "./parameter-inputs/identifier-type-parameter-input.component";
+import PersonAttributeParameterInput from "./parameter-inputs/person-attribute-parameter-input.component";
+import TextParameterInput from "./parameter-inputs/text-parameter-input.component";
 
 type ChartType = "list" | "pivot" | "aggregate" | "linelist";
 type ReportingDuration = "fixed" | "relative";
@@ -166,6 +184,7 @@ const DataVisualizer: React.FC = () => {
     reportType: report?.reportType,
     code: report?.code,
     category: report?.category?.name,
+    metaJson: report?.metaJson,
   });
 
   const getReportsByCategoryName = useCallback(
@@ -235,6 +254,12 @@ const DataVisualizer: React.FC = () => {
   const [reportParameters, setReportParameters] = useState<LinelistParameter[]>([]);
   const [parameterValues, setParameterValues] = useState<Record<string, any>>({});
 
+  // Parameter state for inline rendering
+  const [paramErrors, setParamErrors] = useState<Record<string, string>>({});
+  const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
+  const [dateMode, setDateMode] = useState<'FIXED' | 'RELATIVE'>('FIXED');
+  const [relativePeriod, setRelativePeriod] = useState<RelativePeriod | ''>('');
+
   const [selectedDynamicReportType, setSelectedDynamicReportType] =
     useState<Item | null>(null);
   const [dynamicReportTypes, setDynamicReportTypes] = useState([]);
@@ -251,24 +276,63 @@ const DataVisualizer: React.FC = () => {
   }, [reportCategory, reportType]);
 
   const handleSelectedReport = ({ selectedItem }) => {
+    console.log('=== handleSelectedReport called ===');
+    console.log('selectedItem:', selectedItem);
+
     setSelectedReport(selectedItem ?? null);
 
-    // Parse parameters from metaJson
+    // Parse parameters from metaJson and initialize default values
     if (selectedItem?.metaJson) {
       try {
         const meta = JSON.parse(selectedItem.metaJson);
+        console.log('Parsed metaJson:', meta);
+
         if (meta?.parameters && Array.isArray(meta.parameters)) {
+          console.log('Found parameters in metaJson:', meta.parameters);
+          console.log('Number of parameters:', meta.parameters.length);
+          meta.parameters.forEach((param, idx) => {
+            console.log(`  Param ${idx}:`, param);
+          });
           setReportParameters(meta.parameters);
+
+          // Initialize parameter values with defaults
+          const defaults: Record<string, any> = {};
+          meta.parameters.forEach((param) => {
+            if (param.defaultValue) {
+              defaults[param.name] = param.defaultValue;
+            } else if (param.type === 'DATE' || param.type === 'DATETIME') {
+              // Set default dates for date parameters without defaults
+              if (param.name === 'startDate') {
+                const startDate = new Date();
+                startDate.setMonth(startDate.getMonth() - 6);
+                defaults[param.name] = startDate.toISOString().split('T')[0];
+              } else if (param.name === 'endDate') {
+                defaults[param.name] = new Date().toISOString().split('T')[0];
+              }
+            }
+          });
+          setParameterValues(defaults);
         } else {
+          console.log('No parameters found in metaJson, setting to empty array');
           setReportParameters([]);
+          setParameterValues({});
         }
       } catch (error) {
         console.error('Failed to parse metaJson:', error);
         setReportParameters([]);
+        setParameterValues({});
       }
     } else {
+      console.log('No metaJson on selected report, setting parameters to empty array');
       setReportParameters([]);
+      setParameterValues({});
     }
+
+    // Reset date mode and errors for new selection
+    setDateMode('FIXED');
+    setRelativePeriod('');
+    setParamErrors({});
+    setSearchQueries({});
 
     // Detect linelist reports by reportType
     if (selectedItem?.reportType === 'LINE_LIST' || selectedItem?.reportType === 'linelist') {
@@ -716,12 +780,64 @@ const DataVisualizer: React.FC = () => {
     );
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleUpdateReport = useCallback(() => {
     if (!selectedReport) return;
 
-    // If report has parameters, open parameter modal instead of running directly
+    // If report has parameters, validate and run with inline values
     if (reportParameters.length > 0) {
-      setParameterModalOpen(true);
+      // Validate required parameters
+      const newErrors: Record<string, string> = {};
+      for (const param of reportParameters) {
+        const value = parameterValues[param.name];
+
+        // Skip validation for date parameters in RELATIVE mode (they'll be resolved)
+        if ((param.type === 'DATE' || param.type === 'DATETIME') && dateMode === 'RELATIVE') {
+          const isStartDate = param.name.toLowerCase() === 'startdate' || param.name.toLowerCase() === 'start_date';
+          const isEndDate = param.name.toLowerCase() === 'enddate' || param.name.toLowerCase() === 'end_date';
+          if (isStartDate || isEndDate) continue;
+        }
+
+        if (param.required && (!value || value.toString().trim() === '')) {
+          newErrors[param.name] = `${param.label} is required`;
+        }
+      }
+
+      // Check relative period is selected in RELATIVE mode
+      if (dateMode === 'RELATIVE' && !relativePeriod) {
+        newErrors.relativePeriod = 'Please select a reporting period';
+      }
+
+      if (Object.keys(newErrors).length > 0) {
+        setParamErrors(newErrors);
+        showNotification({
+          title: 'Validation Error',
+          kind: 'error',
+          critical: false,
+          description: 'Please fill in all required parameters',
+        });
+        return;
+      }
+
+      // Clear errors and run report
+      setParamErrors({});
+
+      // Build parameter values (resolve relative dates if needed)
+      const finalParams = { ...parameterValues };
+      if (dateMode === 'RELATIVE' && relativePeriod) {
+        const { start, end } = resolveRelativePeriod(relativePeriod);
+        const dateParams = reportParameters.filter(p => p.type === 'DATE' || p.type === 'DATETIME');
+        dateParams.forEach((param, index) => {
+          if (index === 0) {
+            finalParams[param.name] = formatDate(start);
+          } else if (index === 1) {
+            finalParams[param.name] = formatDate(end);
+          }
+        });
+      }
+
+      // Run report with parameters
+      handleRunReportWithParameters(finalParams);
       return;
     }
 
@@ -834,20 +950,30 @@ const DataVisualizer: React.FC = () => {
         });
       }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     cqiReportingCohort,
     chartType,
+    dateMode,
     endDate,
+    parameterValues,
+    relativePeriod,
     reportCategory,
+    reportParameters,
     reportType,
     selectedParameters,
     selectedReport,
     startDate,
     selectedDynamicReportType?.label,
-    reportParameters,
+    // Note: handleRunReportWithParameters omitted to avoid circular dependency (defined below)
   ]);
 
   const handleRunReportWithParameters = useCallback((params: Record<string, any>) => {
+    console.log('=== handleRunReportWithParameters called ===');
+    console.log('chartType:', chartType);
+    console.log('Params from modal:', params);
+    console.log('selectedReport:', selectedReport);
+
     setParameterValues(params);
     setParameterModalOpen(false);
     setHTML("");
@@ -855,10 +981,10 @@ const DataVisualizer: React.FC = () => {
     setLoading(true);
     setShowFilters(false);
 
-    getReport({
+    // For linelist reports, only send the parameters defined in the report (from params)
+    // For legacy reports, send startDate/endDate as before
+    const requestOptions: any = {
       uuid: selectedReport.id,
-      startDate: formatDate(startDate),
-      endDate: formatDate(endDate),
       reportCategory: reportCategory as {
         category: ReportCategory;
         renderType?: RenderType;
@@ -868,7 +994,22 @@ const DataVisualizer: React.FC = () => {
       reportingCohort: cqiReportingCohort,
       type: selectedDynamicReportType?.label,
       parameters: params,
-    }).then(
+    };
+
+    console.log('requestOptions before date check:', requestOptions);
+
+    // Only add startDate/endDate for non-linelist reports
+    if (chartType !== 'linelist') {
+      requestOptions.startDate = formatDate(startDate);
+      requestOptions.endDate = formatDate(endDate);
+      console.log('Added startDate/endDate (non-linelist report)');
+    } else {
+      console.log('NOT adding startDate/endDate (linelist report)');
+    }
+
+    console.log('Final requestOptions:', requestOptions);
+
+    getReport(requestOptions).then(
       (response) => {
         if (response.status === 200) {
           let headers = [];
@@ -1190,8 +1331,8 @@ const DataVisualizer: React.FC = () => {
                 </Form>
               </div>
 
-              {/* Only show hardcoded parameters when no report is selected OR report has no parameters */}
-              {(!selectedReport || reportParameters.length === 0) && (
+              {/* Only show hardcoded parameters when a report is selected but has no parameters */}
+              {selectedReport && reportParameters.length === 0 && (
                 <div className={`${styles.form} ${styles.formRight}`}>
                   <Form>
                     <Stack gap={3}>
@@ -1271,11 +1412,147 @@ const DataVisualizer: React.FC = () => {
                 </div>
               )}
 
-              {/* Show placeholder when report has parameters (they'll appear in modal) */}
+              {/* Show inline parameters when report has parameters */}
               {selectedReport && reportParameters.length > 0 && (
                 <div className={`${styles.form} ${styles.formRight}`}>
-                  <div style={{ padding: '1rem', color: '#525252', fontStyle: 'italic' }}>
-                    Report parameters will be configured when you click "View Report"
+                  <Stack gap={5}>
+                    {/* Date Mode Toggle - shown if report has date parameters */}
+                    {reportParameters.some(p => p.type === 'DATE' || p.type === 'DATETIME') && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <label className="cds--label">Date Selection Mode</label>
+                        <RadioButtonGroup
+                          legendText=""
+                          name="date-mode"
+                          valueSelected={dateMode}
+                          onChange={(mode) => {
+                            setDateMode(mode as 'FIXED' | 'RELATIVE');
+                            if (mode === 'FIXED') {
+                              setRelativePeriod('');
+                            }
+                          }}
+                        >
+                          <RadioButton
+                            id="date-mode-fixed"
+                            labelText="Specific dates"
+                            value="FIXED"
+                          />
+                          <RadioButton
+                            id="date-mode-relative"
+                            labelText="Relative period"
+                            value="RELATIVE"
+                          />
+                        </RadioButtonGroup>
+                      </div>
+                    )}
+
+                    {/* Relative Period Selector - shown in RELATIVE mode */}
+                    {dateMode === 'RELATIVE' && reportParameters.some(p => p.type === 'DATE' || p.type === 'DATETIME') && (
+                      <div style={{ marginBottom: '1rem', maxWidth: '300px' }}>
+                        <Select
+                          id="relative-period-select"
+                          labelText="Select reporting period"
+                          value={relativePeriod}
+                          onChange={(e) => {
+                            setRelativePeriod(e.target.value as RelativePeriod);
+                          }}
+                          size="sm"
+                        >
+                          <SelectItem value="" text="Select period" />
+                          {RELATIVE_PERIOD_OPTIONS.map((option) => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              text={option.label}
+                            />
+                          ))}
+                        </Select>
+                        {paramErrors.relativePeriod && (
+                          <div style={{ color: '#da1e28', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                            {paramErrors.relativePeriod}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Render parameter inputs inline */}
+                    {reportParameters.map((param) => {
+                      const value = parameterValues[param.name] || '';
+                      const error = paramErrors[param.name];
+
+                      // Skip start/end date parameters in RELATIVE mode
+                      if (dateMode === 'RELATIVE') {
+                        const isStartDate = param.name.toLowerCase() === 'startdate' || param.name.toLowerCase() === 'start_date';
+                        const isEndDate = param.name.toLowerCase() === 'enddate' || param.name.toLowerCase() === 'end_date';
+                        if ((param.type === 'DATE' || param.type === 'DATETIME') && (isStartDate || isEndDate)) {
+                          return null;
+                        }
+                      }
+
+                      const commonProps = {
+                        key: param.name,
+                        parameter: param,
+                        value,
+                        error,
+                        onChange: (newValue: any) => {
+                          setParameterValues((prev) => ({ ...prev, [param.name]: newValue }));
+                          if (paramErrors[param.name]) {
+                            setParamErrors((prev) => {
+                              const newErrors = { ...prev };
+                              delete newErrors[param.name];
+                              return newErrors;
+                            });
+                          }
+                        },
+                      };
+
+                      switch (param.type) {
+                        case 'DATE':
+                        case 'DATETIME':
+                          return <DateParameterInput {...commonProps} />;
+                        case 'NUMBER':
+                          return <NumberParameterInput {...commonProps} />;
+                        case 'BOOLEAN':
+                          return <BooleanParameterInput {...commonProps} />;
+                        case 'LIST':
+                          return <ListParameterInput {...commonProps} />;
+                        case 'LOCATION':
+                          return (
+                            <LocationParameterInput
+                              {...commonProps}
+                              onSearchQueryChange={(query) => setSearchQueries((prev) => ({ ...prev, [param.name]: query }))}
+                            />
+                          );
+                        case 'CONCEPT':
+                          return (
+                            <ConceptParameterInput
+                              {...commonProps}
+                              searchQuery={searchQueries[param.name] || ''}
+                              onSearchQueryChange={(query) => setSearchQueries((prev) => ({ ...prev, [param.name]: query }))}
+                            />
+                          );
+                        case 'IDENTIFIER_TYPE':
+                          return <IdentifierTypeParameterInput {...commonProps} />;
+                        case 'PERSON_ATTRIBUTE':
+                          return <PersonAttributeParameterInput {...commonProps} />;
+                        case 'TEXT':
+                        default:
+                          return (
+                            <TextParameterInput
+                              {...commonProps}
+                              onError={(error) => setParamErrors((prev) => ({ ...prev, [param.name]: error }))}
+                            />
+                          );
+                      }
+                    })}
+                  </Stack>
+                </div>
+              )}
+
+              {/* Show empty state when no report is selected */}
+              {!selectedReport && (
+                <div className={`${styles.form} ${styles.formRight}`}>
+                  <div style={{ padding: '1rem', color: '#525252', fontStyle: 'italic', textAlign: 'center', marginTop: '2rem' }}>
+                    Select a report above to configure and run
                   </div>
                 </div>
               )}

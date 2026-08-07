@@ -7,7 +7,7 @@
 import React from 'react';
 import { Toggle } from '@carbon/react';
 
-import type { LinelistParameter } from '../../types/linelist-types';
+import type { LinelistParameter } from '../../../types/linelist-types';
 
 type Props = {
   parameter: LinelistParameter;

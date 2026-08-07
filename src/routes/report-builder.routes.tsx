@@ -9,7 +9,7 @@ import ReportEditorPage from '../components/report/report-editor.page.component'
 
 import IndicatorsPage from '../components/indicators/indicators-page.component';
 import SectionsPage from '../components/report-sections/report-sections-page.component';
-import RunReportsPage from '../components/run-reports/run-reports-page.component';
+import ReportVisualizerPage from '../features/report-visualizer/ReportVisualizerPage';
 import DataThemesPage from '../components/data-themes/data-themes-page.component';
 
 import AdminPage from '../components/admin/admin-page.component';
@@ -47,7 +47,8 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/sections" element={<SectionsPage />} />
 
                 {/* Run */}
-                <Route path="/run" element={<RunReportsPage />} />
+                <Route path="/run" element={<ReportVisualizerPage />} />
+                <Route path="/run-reports" element={<ReportVisualizerPage />} />
 
                 {/* Admin */}
                 <Route path="/admin" element={<AdminPage />} />

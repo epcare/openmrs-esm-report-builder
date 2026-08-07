@@ -346,7 +346,7 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
   });
 
   // === EXTRACT PARAMETERS ===
-  const parameters = config.parameters?.map((param, idx) => ({
+  let parameters = config.parameters?.map((param, idx) => ({
     id: `param-${idx}`,
     name: param.name,
     label: param.label,
@@ -375,8 +375,9 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     }));
   }
 
-  // Fall back to metaJson for buildMethod and indicator rules if not in config
-  if (report.metaJson && (!indicatorRules || buildMethod === 'SQL_BUILDER')) {
+  // Fall back to metaJson for buildMethod, indicator rules, and parameters if not in config
+  // Load parameters from metaJson if available (for dynamic parameter options like LIST options)
+  if (report.metaJson) {
     try {
       const meta = JSON.parse(report.metaJson);
       // Try to get buildMethod from metaJson as fallback
@@ -392,6 +393,20 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
           conditions: rule.conditions,
           logicalOperator: rule.logicalOperator || 'AND',
           negate: rule.negate || false,
+        }));
+      }
+      // Load parameters from metaJson if available (for dynamic parameter options)
+      // This takes precedence over config parameters since metaJson may have updated options
+      if (meta.parameters && Array.isArray(meta.parameters) && meta.parameters.length > 0) {
+        parameters = meta.parameters.map((param: any, idx: number) => ({
+          id: param.id || `param-${idx}`,
+          name: param.name,
+          label: param.label,
+          type: param.type,
+          required: param.required || false,
+          defaultValue: param.defaultValue || '',
+          displayOrder: param.displayOrder !== undefined ? param.displayOrder : idx,
+          config: (param.config || { type: param.type }) as LinelistParameterConfig,
         }));
       }
     } catch (e) {

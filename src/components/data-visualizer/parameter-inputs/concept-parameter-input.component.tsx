@@ -7,8 +7,8 @@
 import React, { useCallback } from 'react';
 import { ComboBox } from '@carbon/react';
 
-import type { LinelistParameter } from '../../types/linelist-types';
-import { useConceptSearch } from '../../hooks/openmrs-reference-data';
+import type { LinelistParameter } from '../../../types/linelist-types';
+import { useConceptSearch } from '../../../hooks/openmrs-reference-data';
 
 type Props = {
   parameter: LinelistParameter;

@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DatePicker, DatePickerInput } from '@carbon/react';
 
-import type { LinelistParameter } from '../../types/linelist-types';
+import type { LinelistParameter } from '../../../types/linelist-types';
 
 type Props = {
   parameter: LinelistParameter;

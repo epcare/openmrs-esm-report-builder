@@ -35,6 +35,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   getLinelistReport,
   parseLinelistConfig,
+  parseLinelistParameters,
   evaluateLinelistReport,
   compileLinelistReport,
 } from '../../../resources/linelist/linelist-reports.api';
@@ -47,15 +48,15 @@ import {
 } from '../../../utils/parameter-resolution';
 
 // Import parameter input components from data-visualizer (reuse)
-import DateParameterInput from '../../../data-visualizer/parameter-inputs/date-parameter-input.component';
-import NumberParameterInput from '../../../data-visualizer/parameter-inputs/number-parameter-input.component';
-import BooleanParameterInput from '../../../data-visualizer/parameter-inputs/boolean-parameter-input.component';
-import ListParameterInput from '../../../data-visualizer/parameter-inputs/list-parameter-input.component';
-import LocationParameterInput from '../../../data-visualizer/parameter-inputs/location-parameter-input.component';
-import ConceptParameterInput from '../../../data-visualizer/parameter-inputs/concept-parameter-input.component';
-import IdentifierTypeParameterInput from '../../../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
-import PersonAttributeParameterInput from '../../../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
-import TextParameterInput from '../../../data-visualizer/parameter-inputs/text-parameter-input.component';
+import DateParameterInput from '../../data-visualizer/parameter-inputs/date-parameter-input.component';
+import NumberParameterInput from '../../data-visualizer/parameter-inputs/number-parameter-input.component';
+import BooleanParameterInput from '../../data-visualizer/parameter-inputs/boolean-parameter-input.component';
+import ListParameterInput from '../../data-visualizer/parameter-inputs/list-parameter-input.component';
+import LocationParameterInput from '../../data-visualizer/parameter-inputs/location-parameter-input.component';
+import ConceptParameterInput from '../../data-visualizer/parameter-inputs/concept-parameter-input.component';
+import IdentifierTypeParameterInput from '../../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
+import PersonAttributeParameterInput from '../../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
+import TextParameterInput from '../../data-visualizer/parameter-inputs/text-parameter-input.component';
 
 import styles from './linelist-run-report.scss';
 
@@ -146,11 +147,12 @@ const LinelistRunReport: React.FC<Props> = () => {
 
   /**
    * Get parameters from report config
+   * Uses parseLinelistParameters which reads from metaJson first (for dynamic options)
+   * then falls back to configJson
    */
   const getParameters = useCallback((): LinelistParameter[] => {
     if (!report) return [];
-    const config = parseLinelistConfig(report);
-    return config?.parameters || [];
+    return parseLinelistParameters(report);
   }, [report]);
 
   /**

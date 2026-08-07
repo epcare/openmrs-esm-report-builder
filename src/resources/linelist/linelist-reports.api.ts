@@ -12,6 +12,7 @@ import { decodeHtmlEntities } from '../../utils/html-entities.utils';
 import type {
   LinelistReportDto,
   LinelistReportDefinitionConfig,
+  LinelistParameter,
 } from '../../types/linelist-types';
 import { compileToBackendConfig } from '../../types/linelist/compile-config';
 
@@ -92,6 +93,31 @@ export function parseLinelistConfig(
   }
 
   return null;
+}
+
+/**
+ * Parse parameters from metaJson (with fallback to configJson)
+ * This is used for reports from the report library which may only have metaJson
+ * and need dynamic parameter options (e.g., LIST parameter options)
+ */
+export function parseLinelistParameters(
+  report: LinelistReportDefinitionDto
+): LinelistParameter[] {
+  // First try to get parameters from metaJson (may have dynamic options)
+  if (report.metaJson) {
+    try {
+      const meta = JSON.parse(report.metaJson);
+      if (meta?.parameters && Array.isArray(meta.parameters) && meta.parameters.length > 0) {
+        return meta.parameters as LinelistParameter[];
+      }
+    } catch (e) {
+      console.warn('Failed to parse metaJson parameters:', e);
+    }
+  }
+
+  // Fallback to configJson parameters
+  const config = parseLinelistConfig(report);
+  return config?.parameters || [];
 }
 
 /**

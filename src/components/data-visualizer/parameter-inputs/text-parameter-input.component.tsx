@@ -7,7 +7,7 @@
 import React, { useCallback } from 'react';
 import { TextInput } from '@carbon/react';
 
-import type { LinelistParameter } from '../../types/linelist-types';
+import type { LinelistParameter } from '../../../types/linelist-types';
 
 type Props = {
   parameter: LinelistParameter;
