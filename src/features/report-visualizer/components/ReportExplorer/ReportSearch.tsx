@@ -14,7 +14,7 @@
  * Phase 2.1: Search functionality (Enhanced)
  */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, TextInput, Button } from '@carbon/react';
+import { TextInput, Button } from '@carbon/react';
 import { Close, Search as SearchIcon } from '@carbon/react/icons';
 
 interface ReportSearchProps {
