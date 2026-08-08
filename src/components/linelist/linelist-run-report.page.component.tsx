@@ -38,27 +38,27 @@ import {
   parseLinelistParameters,
   evaluateLinelistReport,
   compileLinelistReport,
-} from '../../../resources/linelist/linelist-reports.api';
-import type { LinelistReportDto, LinelistParameter } from '../../../types/linelist-types';
+} from '../../resources/linelist/linelist-reports.api';
+import type { LinelistReportDto, LinelistParameter } from '../../types/linelist-types';
 import {
   RELATIVE_PERIOD_OPTIONS,
   type RelativePeriod,
   resolveRelativePeriod,
   formatDate,
-} from '../../../utils/parameter-resolution';
+} from '../../utils/parameter-resolution';
 
 // Import parameter input components from data-visualizer (reuse)
-import DateParameterInput from '../../data-visualizer/parameter-inputs/date-parameter-input.component';
-import NumberParameterInput from '../../data-visualizer/parameter-inputs/number-parameter-input.component';
-import BooleanParameterInput from '../../data-visualizer/parameter-inputs/boolean-parameter-input.component';
-import ListParameterInput from '../../data-visualizer/parameter-inputs/list-parameter-input.component';
-import LocationParameterInput from '../../data-visualizer/parameter-inputs/location-parameter-input.component';
-import ConceptParameterInput from '../../data-visualizer/parameter-inputs/concept-parameter-input.component';
-import IdentifierTypeParameterInput from '../../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
-import PersonAttributeParameterInput from '../../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
-import TextParameterInput from '../../data-visualizer/parameter-inputs/text-parameter-input.component';
+import DateParameterInput from '../data-visualizer/parameter-inputs/date-parameter-input.component';
+import NumberParameterInput from '../data-visualizer/parameter-inputs/number-parameter-input.component';
+import BooleanParameterInput from '../data-visualizer/parameter-inputs/boolean-parameter-input.component';
+import ListParameterInput from '../data-visualizer/parameter-inputs/list-parameter-input.component';
+import LocationParameterInput from '../data-visualizer/parameter-inputs/location-parameter-input.component';
+import ConceptParameterInput from '../data-visualizer/parameter-inputs/concept-parameter-input.component';
+import IdentifierTypeParameterInput from '../data-visualizer/parameter-inputs/identifier-type-parameter-input.component';
+import PersonAttributeParameterInput from '../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
+import TextParameterInput from '../data-visualizer/parameter-inputs/text-parameter-input.component';
 
-import styles from './linelist-run-report.scss';
+import styles from './linelist-run-report.page.scss';
 
 type Props = {};
 
@@ -292,7 +292,8 @@ const LinelistRunReport: React.FC<Props> = () => {
       }
 
       // Step 1: Compile the report to get the reportDefinitionUuid
-      const compileResult = await compileLinelistReport(report.uuid);
+      // Pass categoryUuid from config to avoid "category is required" error
+      const compileResult = await compileLinelistReport(report.uuid, config?.categoryUuid);
       if (!compileResult.reportDefinitionUuid) {
         setRunError('Failed to compile report - no report definition UUID returned');
         return;

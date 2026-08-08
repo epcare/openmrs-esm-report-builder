@@ -361,7 +361,8 @@ export default function ReportEditorPage() {
         categoriesCount: categories.length,
       });
 
-      const result = await compileReport(targetUuid, category);
+      // Pass category UUID instead of name to avoid "category is required" error
+      const result = await compileReport(targetUuid, form.categoryUuid);
 
       setCompileSuccess(
           result?.reportDefinitionUuid
@@ -417,7 +418,8 @@ export default function ReportEditorPage() {
         categoriesCount: categories.length,
       });
 
-      const compiledResult = await compileReport(targetUuid, category);
+      // Pass category UUID instead of name to avoid "category is required" error
+      const compiledResult = await compileReport(targetUuid, form.categoryUuid);
 
       setCompileSuccess(
           compiledResult?.reportDefinitionUuid

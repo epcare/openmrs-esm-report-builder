@@ -25,8 +25,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from '@carbon/react/icons';
-import type { PopulationSource, PopulationJoinType } from '../../../types/linelist-types';
-import { useETLTables } from '../../../hooks/theme';
+import type { PopulationSource, PopulationJoinType } from '../../../../types/linelist-types';
+import { useETLTables } from '../../../../hooks/theme';
 import styles from './population-source-selector.scss';
 
 type Props = {

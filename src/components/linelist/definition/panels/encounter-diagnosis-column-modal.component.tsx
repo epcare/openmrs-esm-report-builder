@@ -15,9 +15,9 @@ import {
   Stack,
   FormGroup,
 } from '@carbon/react';
-import ConceptSelector from '../../shared/concept-selector.component';
-import type { ConceptSummary } from '../../../resources/concepts/concept-types';
-import type { LinelistColumnDraft } from '../../../types/linelist-types';
+import ConceptSelector from '../../../shared/concept-selector.component';
+import type { ConceptSummary } from '../../../../resources/concepts/concept-types';
+import type { LinelistColumnDraft } from '../../../../types/linelist-types';
 import styles from './encounter-diagnosis-column-modal.scss';
 
 type Props = {

@@ -5,7 +5,7 @@
  * into SQL suitable for linelist cohort definitions.
  */
 
-import type { IndicatorPopulationConfig, PopulationConfiguration } from '../types/indicator-population.types';
+import type { IndicatorPopulationConfig, PopulationConfiguration } from './linelist-definition.types';
 import type { DataThemeConfig } from '../../indicators/types/data-theme-config.types';
 import { applyConditionClauses } from '../../indicators/utils/indicator-sql.utils';
 

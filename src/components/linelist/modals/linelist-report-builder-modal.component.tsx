@@ -70,12 +70,12 @@ import { listReportCategories, type ReportCategoryDto } from '../../../resources
 import { useETLTables } from '../../../hooks/theme';
 import { enhanceConfigForPreview } from '../../../utils/config-enhancer';
 
-import CohortSQLEditor from '../config/cohort-sql-editor.component';
-import ColumnSelector from '../builder/column-selector.component';
-import ColumnCategorySelector from '../builder/column-category-selector.component';
-import SortConfiguration from '../config/sort-config.component';
-import ParameterEditor from '../config/parameter-editor.component';
-import DisplayExportSettings from '../config/display-export-settings.component';
+import CohortSQLEditor from '../design/panels/sql-builder-panel.component';
+import ColumnSelector from '../definition/panels/column-selector-panel.component';
+import ColumnCategorySelector from '../design/panels/column-category-selector.component';
+import SortConfiguration from '../design/panels/sort-config-panel.component';
+import ParameterEditor from '../definition/panels/parameter-panel.component';
+import DisplayExportSettings from '../design/panels/display-settings-panel.component';
 import styles from './linelist-report-builder-modal.scss';
 
 type Props = {
@@ -590,7 +590,8 @@ export default function LinelistReportBuilderModal({ open, mode, initialReport, 
         categoriesCount: categories.length,
       });
 
-      const result = await compileLinelistReport(savedReportUuid, category);
+      // Pass category UUID instead of name to avoid "category is required" error
+      const result = await compileLinelistReport(savedReportUuid, draft.categoryUuid);
 
       setCompileSuccess(
         result?.reportDefinitionUuid

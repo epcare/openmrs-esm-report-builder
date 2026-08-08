@@ -19,21 +19,21 @@ import {
 } from '@carbon/react';
 import { User, Tag as TagIcon, Function, Hashtag } from '@carbon/react/icons';
 
-// import { useETLTables } from '../../../hooks/theme';
-import { useETLTableMeta } from '../../../hooks/theme';
-// import { useDataThemes } from '../../../hooks/theme';
+// import { useETLTables } from '../../../../hooks/theme';
+import { useETLTableMeta } from '../../../../hooks/theme';
+// import { useDataThemes } from '../../../../hooks/theme';
 // TableColumn type imported as needed
-import type { FilterFieldType, DataSourceInfo, PopulationSource, LinelistColumnDraft } from '../../../types/linelist-types';
+import type { FilterFieldType, DataSourceInfo, PopulationSource, LinelistColumnDraft } from '../../../../types/linelist-types';
 import type {
   EtlStructure,
-} from '../../../types/etl/etl-types';
-import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../resources/person-attribute-type/person-attribute-type.api';
-import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../resources/patient-identifier-type/patient-identifier-type.api';
-import { useAddressFields } from '../../../hooks/address-template';
-import CustomSqlColumnModal, { type CustomSqlColumnConfig } from './custom-sql-column-modal.component';
-import PopulationSourceSelector from './population-source-selector.component';
-import ObservationColumnModal from './observation-column-modal.component';
-import EncounterDiagnosisColumnModal from './encounter-diagnosis-column-modal.component';
+} from '../../../../types/etl/etl-types';
+import { listPersonAttributeTypes, type PersonAttributeTypeDto } from '../../../../resources/person-attribute-type/person-attribute-type.api';
+import { listPatientIdentifierTypes, type PatientIdentifierTypeDto } from '../../../../resources/patient-identifier-type/patient-identifier-type.api';
+import { useAddressFields } from '../../../../hooks/address-template';
+import CustomSqlColumnModal, { type CustomSqlColumnConfig } from '../../definition/panels/custom-sql-column-modal.component';
+import PopulationSourceSelector from '../../definition/panels/population-source-selector.component';
+import ObservationColumnModal from '../../definition/panels/observation-column-modal.component';
+import EncounterDiagnosisColumnModal from '../../definition/panels/encounter-diagnosis-column-modal.component';
 import styles from './data-catalogue.scss';
 
 /**
@@ -599,7 +599,7 @@ const DataCatalogue: React.FC<Props> = ({
     }
 
     // Import the detection function dynamically to avoid circular deps
-    import('../../../types/etl/etl-types').then(({ detectEtlStructure }) => {
+    import('../../../../types/etl/etl-types').then(({ detectEtlStructure }) => {
       const columnNames = columns.map((c) => c.name);
       const detected = detectEtlStructure(primaryTable, columnNames);
       setEtlStructure(detected);

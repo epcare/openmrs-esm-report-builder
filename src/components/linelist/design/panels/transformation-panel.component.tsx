@@ -21,7 +21,7 @@ import {
   SelectItem,
 } from '@carbon/react';
 import { TrashCan, Add, ChevronUp, ChevronDown } from '@carbon/react/icons';
-import type { LinelistColumnTransformation } from '../../../types/linelist-types';
+import type { LinelistColumnTransformation } from '../../../../types/linelist-types';
 import styles from './transformation-pipeline.scss';
 
 type TransformationType =

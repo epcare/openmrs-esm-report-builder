@@ -31,10 +31,10 @@ import type {
   LinelistColumnDraft,
   RepeatResolutionStrategy,
   LinelistRepeatResolution,
-} from '../../../types/linelist-types';
-import { useETLTables, useETLTableMeta } from '../../../hooks/theme';
-import type { TableColumn } from '../../../resources/theme/etl-table-meta.api';
-import TransformationPipeline from '../config/transformation-pipeline.component';
+} from '../../../../types/linelist-types';
+import { useETLTables, useETLTableMeta } from '../../../../hooks/theme';
+import type { TableColumn } from '../../../../resources/theme/etl-table-meta.api';
+import TransformationPipeline from '../../design/panels/transformation-panel.component';
 import styles from './column-selector.scss';
 
 type ColumnDataType =

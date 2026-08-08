@@ -74,14 +74,14 @@ import type { LinelistReportDto } from '../../../types/linelist-types';
 import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
 import { useIndicatorsByTheme } from '../../../hooks/indicator';
 
-import DataCatalogue from './data-catalogue.component';
-import QueryConfigPanel from '../config/query-config-panel.component';
-import MultiDatasourceSelector from './multi-datasource-selector.component';
-import PopulationSourceSelector from './population-source-selector.component';
-import type { CatalogueField } from './data-catalogue.component';
-import type { CustomSqlColumnConfig } from './custom-sql-column-modal.component';
-import PreviewParameterModal from './preview-parameter-modal.component';
-import styles from './linelist-builder-workspace.scss';
+import DataCatalogue from '../design/panels/data-catalogue.component';
+import QueryConfigPanel from '../design/panels/query-config-panel.component';
+import MultiDatasourceSelector from './panels/multi-datasource-selector.component';
+import PopulationSourceSelector from './panels/population-source-selector.component';
+import type { CatalogueField } from '../design/panels/data-catalogue.component';
+import type { CustomSqlColumnConfig } from './panels/custom-sql-column-modal.component';
+import PreviewParameterModal from '../modals/preview-parameter-modal.component';
+import styles from './linelist-definition-editor.scss';
 import type { LinelistReportDefinitionConfig } from '../../../types/linelist-types';
 import CompileSetupModal, { type CompileSetupResult } from '../../shared/compile-setup-modal.component';
 

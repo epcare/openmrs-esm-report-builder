@@ -29,8 +29,8 @@ import { TrashCan, Add, ChevronUp, ChevronDown } from '@carbon/react/icons';
 import type {
   LinelistParameterDraft,
   LinelistParameterType,
-} from '../../../types/linelist-types';
-import styles from './parameter-editor.scss';
+} from '../../../../types/linelist-types';
+import styles from './parameter-panel.scss';
 
 type Props = {
   parameters: LinelistParameterDraft[];

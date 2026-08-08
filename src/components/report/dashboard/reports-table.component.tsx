@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Button,
+  Checkbox,
   DataTable,
   Table,
   TableBody,
@@ -35,31 +36,61 @@ type Props = {
   searchValue: string;
   onSearchChange: (value: string) => void;
   onCreateReport: () => void;
+  // Selection props
+  selectedReports?: Set<string>;
+  onSelectReport?: (reportId: string) => void;
+  onSelectAll?: () => void;
+  showSelection?: boolean;
 };
 
 const ReportsTable: React.FC<Props> = ({
-                                         reports,
-                                         headers,
-                                         onRowClick,
-                                         searchValue,
-                                         onSearchChange,
-                                         onCreateReport,
-                                       }) => {
+  reports,
+  headers,
+  onRowClick,
+  searchValue,
+  onSearchChange,
+  onCreateReport,
+  selectedReports = new Set(),
+  onSelectReport,
+  onSelectAll,
+  showSelection = false,
+}) => {
   const { t } = useTranslation();
 
+  // Debug logging
+  console.log('ReportsTable props:', { showSelection, reportsCount: reports.length });
+
+  // Build headers with selection column when needed
+  const tableHeaders = React.useMemo(() => {
+    if (showSelection) {
+      return [{ key: 'select', header: 'Select' }, ...headers];
+    }
+    return headers;
+  }, [headers, showSelection]);
+
+  console.log('tableHeaders:', tableHeaders);
+
   const rows = React.useMemo(
-      () =>
-          reports.map((r) => ({
-            id: r.id,
-            name: r.name,
-            status: r.status,
-            updatedAt: r.updatedAt,
-          })),
-      [reports],
+    () =>
+      reports.map((r) => {
+        const row: any = {
+          id: r.id,
+        };
+        // Add all fields in the order they appear in tableHeaders
+        tableHeaders.forEach((h) => {
+          if (h.key === 'select') {
+            row.select = r.id;
+          } else {
+            row[h.key] = (r as any)[h.key];
+          }
+        });
+        return row;
+      }),
+    [reports, tableHeaders],
   );
 
   return (
-      <DataTable rows={rows} headers={headers} useZebraStyles>
+      <DataTable rows={rows} headers={tableHeaders} useZebraStyles>
         {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
             <TableContainer
                 data-testid="reports-table"
@@ -95,27 +126,24 @@ const ReportsTable: React.FC<Props> = ({
               </TableToolbar>
 
               <Table {...getTableProps()}>
-                <TableHead
-                    style={{
-                      display: 'table-header-group',
-                      visibility: 'visible',
-                    }}
-                >
+                <TableHead>
                   <TableRow>
                     {headers.map((header) => (
                         <TableHeader
                             {...getHeaderProps({ header })}
                             key={header.key}
-                            style={{
-                              fontWeight: 600,
-                              backgroundColor: 'var(--cds-layer-accent, #f4f4f4)',
-                              color: 'var(--cds-text-primary, #161616)',
-                              borderBottom: '1px solid var(--cds-border-subtle, #e0e0e0)',
-                              display: 'table-cell',
-                              visibility: 'visible',
-                            }}
                         >
-                          {header.header}
+                          {header.key === 'select' ? (
+                            <Checkbox
+                              id="select-all-reports"
+                              checked={selectedReports.size === reports.length && reports.length > 0}
+                              indeterminate={selectedReports.size > 0 && selectedReports.size < reports.length}
+                              onChange={onSelectAll}
+                              labelText=""
+                            />
+                          ) : (
+                            header.header
+                          )}
                         </TableHeader>
                     ))}
                   </TableRow>
@@ -123,16 +151,29 @@ const ReportsTable: React.FC<Props> = ({
 
                 <TableBody>
                   {rows.map((row) => (
-                      <TableRow
-                          {...getRowProps({ row })}
-                          key={row.id}
-                          onClick={() => onRowClick(row.id)}
-                          style={{ cursor: 'pointer' }}
-                      >
-                        {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value}</TableCell>
-                        ))}
-                      </TableRow>
+                    <TableRow
+                      {...getRowProps({ row })}
+                      key={row.id}
+                      onClick={() => !showSelection && onRowClick(row.id)}
+                    >
+                      {row.cells.map((cell, cellIndex) => {
+                        const isFirstCell = showSelection && cellIndex === 0;
+                        return (
+                          <TableCell key={cell.id}>
+                            {isFirstCell ? (
+                              <Checkbox
+                                id={`select-report-${row.id}`}
+                                checked={selectedReports.has(row.id)}
+                                onChange={() => onSelectReport?.(row.id)}
+                                labelText=""
+                              />
+                            ) : (
+                              cell.value
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>

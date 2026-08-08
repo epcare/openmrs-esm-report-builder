@@ -8,10 +8,10 @@
 import React, { useCallback, useMemo } from 'react';
 import { Button, Tag, CodeSnippet } from '@carbon/react';
 import { Code } from '@carbon/react/icons';
-import type { LinelistReportDraft } from '../../../types/linelist-types';
-import { draftToConfig } from '../../../types/linelist-types';
-import type { IndicatorDto } from '../../../resources/indicator/indicators.api';
-import { enhanceConfigForPreview } from '../../../utils/config-enhancer';
+import type { LinelistReportDraft } from '../../../../types/linelist-types';
+import { draftToConfig } from '../../../../types/linelist-types';
+import type { IndicatorDto } from '../../../../resources/indicator/indicators.api';
+import { enhanceConfigForPreview } from '../../../../utils/config-enhancer';
 import styles from './json-preview.scss';
 
 type Props = {

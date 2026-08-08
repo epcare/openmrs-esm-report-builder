@@ -10,13 +10,13 @@ import { Button, InlineNotification } from '@carbon/react';
 import { ArrowLeft } from '@carbon/react/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import LinelistReportBuilderModal from '../modals/linelist-report-builder-modal.component';
+import LinelistReportBuilderModal from './modals/linelist-report-builder-modal.component';
 import {
   getLinelistReport,
-} from '../../../resources/linelist/linelist-reports.api';
-import type { LinelistReportDto } from '../../../types/linelist-types';
+} from '../../resources/linelist/linelist-reports.api';
+import type { LinelistReportDto } from '../../types/linelist-types';
 
-import styles from './linelist-report-editor-page.scss';
+import styles from './linelist-editor.page.scss';
 
 type Props = {};
 

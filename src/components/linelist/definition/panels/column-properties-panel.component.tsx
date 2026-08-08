@@ -25,7 +25,7 @@ import {
   Toggle,
   Stack,
 } from '@carbon/react';
-import type { LinelistColumnDraft } from '../../../types/linelist-types';
+import type { LinelistColumnDraft } from '../../../../types/linelist-types';
 
 // Scoped styles for equal-width buttons and SQL editor
 const editModalStyles = `

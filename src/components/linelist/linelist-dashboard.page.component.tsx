@@ -47,12 +47,12 @@ import {
   compileLinelistReport,
   type LinelistReportDefinitionDto,
   parseLinelistConfig,
-} from '../../../resources/linelist/linelist-reports.api';
-import { listReportCategories, type ReportCategoryDto } from '../../../resources/report-category/report-category.api';
-import { listDataThemes, type DataThemeDto } from '../../../resources/theme/data-theme.api';
-import type { LinelistRowGrain } from '../../../types/linelist-types';
+} from '../../resources/linelist/linelist-reports.api';
+import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
+import { listDataThemes, type DataThemeDto } from '../../resources/theme/data-theme.api';
+import type { LinelistRowGrain } from '../../types/linelist-types';
 
-import styles from './linelist-reports-page.scss';
+import styles from './linelist-dashboard.page.scss';
 
 type Props = {};
 
@@ -400,10 +400,10 @@ const LinelistReportsPage: React.FC<Props> = () => {
   const headers = [
     { key: 'select', header: 'Select' },
     { key: 'name', header: 'Name' },
+    { key: 'code', header: 'Code' },
     { key: 'category', header: 'Category' },
-    { key: 'theme', header: 'Data theme' },
-    { key: 'dataSource', header: 'Data source' },
     { key: 'rowGrain', header: 'One row represents' },
+    { key: 'status', header: 'Status' },
     { key: 'lastModified', header: 'Last modified' },
     { key: 'actions', header: 'Actions' },
   ];
@@ -607,78 +607,74 @@ const LinelistReportsPage: React.FC<Props> = () => {
       ) : (
         <>
           <DataTable rows={getRowItems()} headers={headers}>
-            {({ rows, headers, getHeaderProps, getTableProps }) => (
+            {({ rows: dtRows, headers, getHeaderProps, getRowProps }) => (
               <TableContainer>
-                <Table {...getTableProps()}>
+                <Table useZebraStyles>
                   <TableHead>
                     <TableRow>
-                      <TableHeader {...getHeaderProps({ header: headers[0] })} key={headers[0].key}>
-                        <Checkbox
-                          id="select-all-reports"
-                          checked={selectedReports.size === paginatedReports.length && paginatedReports.length > 0}
-                          indeterminate={selectedReports.size > 0 && selectedReports.size < paginatedReports.length}
-                          onChange={handleSelectAll}
-                          labelText=""
-                        />
-                      </TableHeader>
-                      {headers.slice(1).map((header) => (
-                        <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                          {header.header}
+                      {headers.map((header) => (
+                        <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                          {header.key === 'select' ? (
+                            <Checkbox
+                              id="select-all-reports"
+                              checked={selectedReports.size === paginatedReports.length && paginatedReports.length > 0}
+                              indeterminate={selectedReports.size > 0 && selectedReports.size < paginatedReports.length}
+                              onChange={handleSelectAll}
+                              labelText=""
+                            />
+                          ) : (
+                            header.header
+                          )}
                         </TableHeader>
                       ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {rows.map((row) => {
-                      const report = paginatedReports.find((r) => r.uuid === row.id);
-                      const cellValues = row.cells.map((cell) => cell.value);
+                    {dtRows.map((dtRow) => {
+                      const report = paginatedReports.find((r) => r.uuid === dtRow.id);
                       return (
-                        <TableRow key={row.id}>
+                        <TableRow key={dtRow.id} {...getRowProps({ row: dtRow })}>
                           <TableCell>
                             <Checkbox
-                              id={`select-report-${row.id}`}
-                              checked={selectedReports.has(row.id)}
-                              onChange={() => handleSelectReport(row.id)}
+                              id={`select-report-${dtRow.id}`}
+                              checked={selectedReports.has(dtRow.id)}
+                              onChange={() => handleSelectReport(dtRow.id)}
                               labelText=""
                             />
                           </TableCell>
                           <TableCell>
-                            <div className={styles.nameCell}>
-                              <div className={styles.name}>{cellValues[1]}</div>
-                              <div className={styles.code}>{cellValues[2]}</div>
-                            </div>
+                            {report?.name}
                           </TableCell>
-                          <TableCell>{cellValues[3]}</TableCell>
-                          <TableCell>{cellValues[4]}</TableCell>
-                          <TableCell>{cellValues[5]}</TableCell>
+                          <TableCell>{report?.code || '—'}</TableCell>
+                          <TableCell>{report?.categoryName || '—'}</TableCell>
                           <TableCell>
                             <Tag type="blue" size="sm">
-                              {cellValues[6]}
+                              {getRowGrainLabel(report?.parsedConfig?.rowGrain)}
                             </Tag>
                           </TableCell>
-                          <TableCell>{cellValues[7]}</TableCell>
+                          <TableCell>
+                            <Tag type={report?.retired ? 'gray' : 'green'} size="sm">
+                              {report?.retired ? 'Retired' : 'Active'}
+                            </Tag>
+                          </TableCell>
+                          <TableCell>-</TableCell>
                           <TableCell>
                             <OverflowMenu flipped>
                               <OverflowMenuItem
                                 itemText="Run"
-                                onClick={() => navigate(`/linelist/run/${row.id}`)}
+                                onClick={() => navigate(`/linelist/run/${dtRow.id}`)}
                               />
                               <OverflowMenuItem
                                 itemText="Edit"
-                                onClick={() => navigate(`/linelist/edit/${row.id}`)}
+                                onClick={() => navigate(`/linelist/edit/${dtRow.id}`)}
                               />
                               <OverflowMenuItem
                                 itemText="Duplicate"
                                 onClick={() => report && handleDuplicate(report)}
                               />
                               <OverflowMenuItem
-                                itemText="Export Definition"
+                                itemText="Export"
                                 onClick={() => report && handleExport(report)}
-                              />
-                              <OverflowMenuItem
-                                itemText={report?.retired ? 'Unretire' : 'Retire'}
-                                isDelete
-                                onClick={() => setDeleteConfirm(row.id)}
                               />
                             </OverflowMenu>
                           </TableCell>

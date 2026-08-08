@@ -17,8 +17,8 @@ import {
   MultiSelect,
 } from '@carbon/react';
 import { Close, Information } from '@carbon/react/icons';
-import type { DataSourceInfo } from '../../../types/linelist-types';
-import { useETLTables } from '../../../hooks/theme';
+import type { DataSourceInfo } from '../../../../types/linelist-types';
+import { useETLTables } from '../../../../hooks/theme';
 import styles from './multi-datasource-selector.scss';
 
 type Props = {

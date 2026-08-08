@@ -23,11 +23,11 @@ import {
 import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn, Edit, Copy, ArrowUp, ArrowDown, Settings } from '@carbon/react/icons';
 import type {
   LinelistColumnDraft,
-} from '../../../types/linelist-types';
+} from '../../../../types/linelist-types';
 import styles from './column-category-selector.scss';
-import EditColumnModal from './edit-column-modal.component';
-import ObservationColumnModal from './observation-column-modal.component';
-import EncounterDiagnosisColumnModal from './encounter-diagnosis-column-modal.component';
+import EditColumnModal from '../../definition/panels/column-properties-panel.component';
+import ObservationColumnModal from '../../definition/panels/observation-column-modal.component';
+import EncounterDiagnosisColumnModal from '../../definition/panels/encounter-diagnosis-column-modal.component';
 import ColumnDebugPanel from './column-debug-panel.component';
 
 /**

@@ -8,7 +8,7 @@
 import React from 'react';
 import { Button, Tag, CodeSnippet, Accordion, AccordionItem } from '@carbon/react';
 import { Settings, Information } from '@carbon/react/icons';
-import type { LinelistColumnDraft } from '../../../types/linelist-types';
+import type { LinelistColumnDraft } from '../../../../types/linelist-types';
 import styles from './column-debug-panel.scss';
 
 type Props = {

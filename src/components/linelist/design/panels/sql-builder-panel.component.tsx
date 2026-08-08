@@ -26,8 +26,8 @@ import {
   TableBody,
 } from '@carbon/react';
 import { Information, Checkmark, Warning } from '@carbon/react/icons';
-import VisualFilterBuilder from './visual-filter-builder.component';
-import type { VisualFilterState, FilterFieldType } from '../../../types/linelist-types';
+import VisualFilterBuilder from './visual-filter-panel.component';
+import type { VisualFilterState, FilterFieldType } from '../../../../types/linelist-types';
 import styles from './cohort-sql-editor.scss';
 
 type Props = {
