@@ -117,9 +117,6 @@ const ReportBuilderShell: React.FC = () => {
                           <SideNavMenuItem isActive={isActive('/admin/etl-tasks')} onClick={() => navigate('/admin/etl-tasks')}>
                             ETL Tasks
                           </SideNavMenuItem>
-                          <SideNavMenuItem isActive={isActive('/legacy-reports')} onClick={() => navigate('/legacy-reports')}>
-                            Legacy Reports
-                          </SideNavMenuItem>
                         </SideNavMenu>
                     </SideNavItems>
                 </SideNav>
