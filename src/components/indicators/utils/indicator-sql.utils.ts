@@ -89,14 +89,25 @@ export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: bo
     lines.push(`  ON mdp.${pid} = a.${pid}`);
     lines.push(`WHERE`);
 
-    // Only add date filtering if not excluded
+    // Build WHERE clause conditions
+    // - The first condition never needs AND
+    // - All subsequent conditions need AND prefix
     if (!excludeDateFilter) {
+        // Date filtering enabled - date filters come first
         lines.push(`  a.${dateCol} >= ':startDate'`);
         lines.push(`  AND a.${dateCol} <  ':endDate'`);
     }
 
-    lines.push(`  mdp.birthdate IS NOT NULL`);
-    lines.push(`  AND mdp.gender IS NOT NULL`);
+    // Demographic filters (always present, conditionally add AND prefix)
+    const needsAnd = !excludeDateFilter; // Need AND if date filters were added
+    if (needsAnd) {
+        lines.push(`  AND mdp.birthdate IS NOT NULL`);
+        lines.push(`  AND mdp.gender IS NOT NULL`);
+    } else {
+        lines.push(`  mdp.birthdate IS NOT NULL`);
+        lines.push(`  AND mdp.gender IS NOT NULL`);
+    }
+
     lines.push(`;`);
 
     return lines.join('\n');

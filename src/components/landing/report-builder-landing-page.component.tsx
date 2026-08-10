@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Tile } from '@carbon/react';
-import { Add, ChartColumn, Play, Report, Document, List } from '@carbon/icons-react';
+import { Add, ChartColumn, Play, Report, List, Folder } from '@carbon/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -74,6 +74,31 @@ const ReportBuilderLandingPage: React.FC = () => {
           <Tile className={styles.card}>
             <div className={styles.cardIllustration} aria-hidden>
               <div className={styles.illCircle}>
+                <Folder size={56} />
+              </div>
+            </div>
+
+            <h3 className={styles.cardTitle}>{t('manageSections', 'Manage Sections')}</h3>
+            <p className={styles.cardBody}>
+              {t('manageSectionsHint', 'Create and manage indicator sections for organized report disaggregation.')}
+            </p>
+
+            <div className={styles.cardActions}>
+              <Button
+                  kind="primary"
+                  size="lg"
+                  renderIcon={Folder}
+                  className={styles.cardButton}
+                  onClick={() => navigate('/sections')}
+              >
+                {t('viewSections', 'View sections')}
+              </Button>
+            </div>
+          </Tile>
+
+          <Tile className={styles.card}>
+            <div className={styles.cardIllustration} aria-hidden>
+              <div className={styles.illCircle}>
                 <Play size={56} />
               </div>
             </div>
@@ -99,31 +124,6 @@ const ReportBuilderLandingPage: React.FC = () => {
           <Tile className={styles.card}>
             <div className={styles.cardIllustration} aria-hidden>
               <div className={styles.illCircle}>
-                <Document size={56} />
-              </div>
-            </div>
-
-            <h3 className={styles.cardTitle}>{t('legacyReports', 'Legacy Reports')}</h3>
-            <p className={styles.cardBody}>
-              {t('legacyReportsHint', 'Manage and import existing legacy reports into the new report builder.')}
-            </p>
-
-            <div className={styles.cardActions}>
-              <Button
-                kind="primary"
-                size="lg"
-                renderIcon={Document}
-                className={styles.cardButton}
-                onClick={() => navigate('/legacy-reports')}
-              >
-                {t('viewLegacyReports', 'View legacy reports')}
-              </Button>
-            </div>
-          </Tile>
-
-          <Tile className={styles.card}>
-            <div className={styles.cardIllustration} aria-hidden>
-              <div className={styles.illCircle}>
                 <List size={56} />
               </div>
             </div>
@@ -135,11 +135,11 @@ const ReportBuilderLandingPage: React.FC = () => {
 
             <div className={styles.cardActions}>
               <Button
-                kind="primary"
-                size="lg"
-                renderIcon={List}
-                className={styles.cardButton}
-                onClick={() => navigate('/linelist')}
+                  kind="primary"
+                  size="lg"
+                  renderIcon={List}
+                  className={styles.cardButton}
+                  onClick={() => navigate('/linelist')}
               >
                 {t('viewLinelistReports', 'View linelist reports')}
               </Button>
