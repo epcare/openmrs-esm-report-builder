@@ -32,10 +32,10 @@ const ReportViewTabs: React.FC<ReportViewTabsProps> = ({
 }) => {
   // Build available views based on capabilities
   const views = [
-    ...(capabilities.table ? [{ label: 'Table', value: 'TABLE' as ReportViewType, icon: TableIcon }] : []),
+    ...(capabilities.reportLayout ? [{ label: 'Report Layout', value: 'REPORT_LAYOUT' as ReportViewType, icon: Document }] : []),
     ...(capabilities.pivot ? [{ label: 'Pivot', value: 'PIVOT' as ReportViewType, icon: CrossTab }] : []),
     ...(capabilities.chart ? [{ label: 'Chart', value: 'CHART' as ReportViewType, icon: ChartIcon }] : []),
-    ...(capabilities.reportLayout ? [{ label: 'Report Layout', value: 'REPORT_LAYOUT' as ReportViewType, icon: Document }] : []),
+    ...(capabilities.table ? [{ label: 'Table', value: 'TABLE' as ReportViewType, icon: TableIcon }] : []),
   ];
 
   if (views.length === 0) {

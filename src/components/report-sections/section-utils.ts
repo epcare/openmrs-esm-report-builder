@@ -28,6 +28,10 @@ export function normalizeCompiledSql(sql: string) {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
 
+    // Handle escaped newlines - convert literal \n to actual newlines
+    // This can happen when SQL is serialized through JSON in the backend
+    out = out.replace(/\\n/g, '\n');
+
     // convert quoted placeholders into named params
     out = out.replace(/':startDate'/g, ':startDate').replace(/':endDate'/g, ':endDate');
 

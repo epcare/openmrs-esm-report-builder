@@ -41,44 +41,69 @@ export function tryGetPatientIdColumnFromConfig(ind: IndicatorDto): string {
 }
 
 /**
+ * Check if an indicator is complex (has built-in disaggregation logic).
+ * Complex indicators should not be processed through COUNT-to-population conversion
+ * because they already have their own disaggregation structure.
+ * Note: Similar function exists in section-disaggregation.utils.ts which is actively used.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function isComplexIndicator(sql: string): boolean {
+    if (!sql) return false;
+
+    // Signs of complex indicators with built-in disaggregation:
+    // 1. Multiple GROUP BY clauses
+    const groupByCount = (sql.match(/GROUP BY/gi) || []).length;
+    if (groupByCount > 1) return true;
+
+    // 2. Has age_group/gender columns in SELECT with aggregation
+    if (/age_group.*AS.*aggregat|gender.*AS.*sex|disaggregat/i.test(sql)) return true;
+
+    // 3. Has complex WITH clauses (multiple CTEs with aggregation)
+    const withCount = (sql.match(/WITH.*AS\s*\(/gi) || []).length;
+    if (withCount > 1 && /GROUP BY/i.test(sql)) return true;
+
+    return false;
+}
+
+/**
  * ✅ Key fix:
  * Many times the backend returns sqlTemplate empty, but configJson contains sqlPreview.
  * We support all known config shapes.
  */
 export function tryGetCountSqlFromIndicator(ind: IndicatorDto): { sql: string; source: CountSqlSource } {
     const direct = (ind?.sqlTemplate ?? '').trim();
-    if (direct) return { sql: direct, source: 'indicator.sqlTemplate' };
+    if (direct) return { sql: normalizeEscapedNewlines(direct), source: 'indicator.sqlTemplate' };
 
     try {
         const parsed: any = ind?.configJson ? JSON.parse(ind.configJson) : null;
 
         // flat
         const flatPreview = (parsed?.sqlPreview ?? '').trim();
-        if (flatPreview) return { sql: flatPreview, source: 'configJson.sqlPreview' };
+        if (flatPreview) return { sql: normalizeEscapedNewlines(flatPreview), source: 'configJson.sqlPreview' };
 
         const flatTemplate = (parsed?.sqlTemplate ?? '').trim();
-        if (flatTemplate) return { sql: flatTemplate, source: 'configJson.sqlTemplate' };
+        if (flatTemplate) return { sql: normalizeEscapedNewlines(flatTemplate), source: 'configJson.sqlTemplate' };
 
         // base
         const basePreview = (parsed?.base?.sqlPreview ?? '').trim();
-        if (basePreview) return { sql: basePreview, source: 'configJson.base.sqlPreview' };
+        if (basePreview) return { sql: normalizeEscapedNewlines(basePreview), source: 'configJson.base.sqlPreview' };
 
         const baseTemplate = (parsed?.base?.sqlTemplate ?? '').trim();
-        if (baseTemplate) return { sql: baseTemplate, source: 'configJson.base.sqlTemplate' };
+        if (baseTemplate) return { sql: normalizeEscapedNewlines(baseTemplate), source: 'configJson.base.sqlTemplate' };
 
         // authoring.base
         const authPreview = (parsed?.authoring?.base?.sqlPreview ?? '').trim();
-        if (authPreview) return { sql: authPreview, source: 'configJson.authoring.base.sqlPreview' };
+        if (authPreview) return { sql: normalizeEscapedNewlines(authPreview), source: 'configJson.authoring.base.sqlPreview' };
 
         const authTemplate = (parsed?.authoring?.base?.sqlTemplate ?? '').trim();
-        if (authTemplate) return { sql: authTemplate, source: 'configJson.authoring.base.sqlTemplate' };
+        if (authTemplate) return { sql: normalizeEscapedNewlines(authTemplate), source: 'configJson.authoring.base.sqlTemplate' };
 
         // sometimes wrapped differently
         const biPreview = (parsed?.baseIndicator?.sqlPreview ?? '').trim();
-        if (biPreview) return { sql: biPreview, source: 'configJson.baseIndicator.sqlPreview' };
+        if (biPreview) return { sql: normalizeEscapedNewlines(biPreview), source: 'configJson.baseIndicator.sqlPreview' };
 
         const biTemplate = (parsed?.baseIndicator?.sqlTemplate ?? '').trim();
-        if (biTemplate) return { sql: biTemplate, source: 'configJson.baseIndicator.sqlTemplate' };
+        if (biTemplate) return { sql: normalizeEscapedNewlines(biTemplate), source: 'configJson.baseIndicator.sqlTemplate' };
 
         return { sql: '', source: 'none' };
     } catch {
@@ -115,19 +140,48 @@ function extractTableAlias(sql: string): string | null {
  *
  * For composite-style, we MUST preserve the WITH ... prefix,
  * otherwise the resulting query references A/B without defining them.
+ *
+ * Returns population SQL that always exposes the patient ID column.
  */
 export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Patients' | 'Encounters') {
     // Use idColumn (from theme config) as the output field name for consistency
     // This ensures base_pop uses the same column name as the source table
     const idField = idColumn || idFieldForUnit(unit);
 
-    const raw = (sql ?? '').trim();
+    let raw = (sql ?? '').trim();
     if (!raw) return '';
+
+    // Handle escaped newlines BEFORE pattern matching
+    // This ensures multi-line SQL with GROUP BY, HAVING, etc. on separate lines is preserved
+    raw = normalizeEscapedNewlines(raw);
 
     // normalize trailing semicolons
     const noSemi = raw.replace(/;+\s*$/, '');
 
-    // ✅ Case 0: Base COUNT DISTINCT SQL
+    // ✅ Case 0a: Base COUNT DISTINCT SQL without AS clause
+    // Handle "SELECT COUNT(DISTINCT column) FROM ... WHERE ..." (no AS alias)
+    // by converting to "SELECT DISTINCT column AS {idField} FROM ... WHERE ..."
+    const distinctPatternNoAlias = /SELECT\s+COUNT\s*\(\s*DISTINCT\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s*\)\s+FROM/i;
+    const distinctMatchNoAlias = noSemi.match(distinctPatternNoAlias);
+    if (distinctMatchNoAlias) {
+        const columnRef = distinctMatchNoAlias[1]; // e.g., "a.client_id" or "client_id"
+        // Get everything after "SELECT COUNT(DISTINCT ...) FROM " to preserve FROM, WHERE, JOINs, etc.
+        const fromIdx = distinctMatchNoAlias[0].length - 5; // -5 to account for " FROM" that we'll replace
+        const afterSelect = noSemi.substring(fromIdx).trim();
+
+        // If column is already qualified (e.g., "a.client_id"), use it as-is
+        if (columnRef.includes('.')) {
+            const result = `SELECT DISTINCT ${columnRef} AS ${idField} ${afterSelect}`.trim();
+            return validatePopulationSqlOutput(result, idField);
+        }
+
+        // Extract the actual table alias from FROM clause instead of assuming "a"
+        const tableAlias = extractTableAlias(afterSelect) || 'a';
+        const result = `SELECT DISTINCT ${tableAlias}.${columnRef} AS ${idField} ${afterSelect}`.trim();
+        return validatePopulationSqlOutput(result, idField);
+    }
+
+    // ✅ Case 0b: Base COUNT DISTINCT SQL with AS clause
     // Handle "SELECT COUNT(DISTINCT column) AS alias FROM ... WHERE ..."
     // by converting to "SELECT DISTINCT column AS {idField} FROM ... WHERE ..."
     // Preserves FROM, WHERE, JOINs, and all other clauses
@@ -143,12 +197,14 @@ export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Pa
         // If column is already qualified (e.g., "a.client_id"), use it as-is
         // Always add the AS alias for consistency
         if (columnRef.includes('.')) {
-            return `SELECT DISTINCT ${columnRef} AS ${idField} ${afterSelect}`.trim();
+            const result = `SELECT DISTINCT ${columnRef} AS ${idField} ${afterSelect}`.trim();
+            return validatePopulationSqlOutput(result, idField);
         }
 
         // Extract the actual table alias from FROM clause instead of assuming "a"
         const tableAlias = extractTableAlias(afterSelect) || 'a';
-        return `SELECT DISTINCT ${tableAlias}.${columnRef} AS ${idField} ${afterSelect}`.trim();
+        const result = `SELECT DISTINCT ${tableAlias}.${columnRef} AS ${idField} ${afterSelect}`.trim();
+        return validatePopulationSqlOutput(result, idField);
     }
 
     // ✅ Case 1: Composite COUNT SQL
@@ -161,13 +217,14 @@ export function countSqlToPopulationSql(sql: string, idColumn: string, unit: 'Pa
         const prefix = noSemi.slice(0, countIdx).trim(); // keeps WITH A,B if present
         const inner = innerMatch[1].trim().replace(/;+\s*$/, '');
 
-        return `
+        const result = `
 ${prefix}
 SELECT DISTINCT pop.${idField}
 FROM (
 ${inner}
 ) pop
 `.trim();
+        return validatePopulationSqlOutput(result, idField);
     }
 
     // ✅ Case 2: Base COUNT SQL
@@ -180,11 +237,33 @@ ${inner}
     );
 
     // If it didn't replace, fallback: try simpler replace
-    if (replaced === noSemi) {
-        return noSemi.replace(/COUNT\s*\(\s*\*\s*\)\s+AS\s+total/gi, `DISTINCT ${tableAlias}.${idColumn} AS ${idField}`);
+    let result = replaced;
+    if (result === noSemi) {
+        result = noSemi.replace(/COUNT\s*\(\s*\*\s*\)\s+AS\s+total/gi, `DISTINCT ${tableAlias}.${idColumn} AS ${idField}`);
     }
 
-    return replaced;
+    return validatePopulationSqlOutput(result, idField);
+}
+
+/**
+ * Validates that the output of countSqlToPopulationSql is proper population SQL.
+ * Logs a warning if the output doesn't start with SELECT DISTINCT.
+ */
+function validatePopulationSqlOutput(sql: string, idField: string): string {
+    const trimmed = sql.trim();
+
+    // Check if output is valid population SQL
+    if (!trimmed.startsWith('SELECT DISTINCT')) {
+        console.warn(`[countSqlToPopulationSql] Output does not start with SELECT DISTINCT. Output:`, trimmed.substring(0, 100));
+    }
+
+    // Check if the output exposes the expected ID field
+    const idPattern = new RegExp(`(?:SELECT\\s+DISTINCT\\s+(?:[\\w]+\\.)?${idField}\\b|(?:AS\\s+${idField}\\b))`, 'i');
+    if (!idPattern.test(trimmed)) {
+        console.warn(`[countSqlToPopulationSql] Output may not expose '${idField}' column. Output:`, trimmed.substring(0, 100));
+    }
+
+    return trimmed;
 }
 
 /**
@@ -382,4 +461,15 @@ FROM (
   ${innerSelect}
 ) X;
 `.trim();
+}
+
+/**
+ * Normalize SQL by converting escaped newlines to actual newlines.
+ * This handles cases where SQL is serialized through JSON in the backend,
+ * which can escape newlines as literal \n instead of actual newline characters.
+ */
+function normalizeEscapedNewlines(sql: string): string {
+    if (!sql) return sql;
+    // Convert literal \n to actual newlines
+    return sql.replace(/\\n/g, '\n');
 }

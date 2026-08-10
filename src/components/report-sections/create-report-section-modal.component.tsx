@@ -84,6 +84,17 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                     .map((s) => getIndicator(s.id, undefined, 'full')),
             );
 
+            console.log('📦 [Section] Loaded indicators:', fulls.map((ind) => ({
+                uuid: ind.uuid,
+                name: ind.name,
+                code: ind.code,
+                kind: ind.kind,
+                hasSqlTemplate: !!ind.sqlTemplate,
+                sqlTemplateLength: ind.sqlTemplate?.length || 0,
+                hasConfigJson: !!ind.configJson,
+                configJsonLength: ind.configJson?.length || 0
+            })));
+
             const byId = new Map(fulls.map((x) => [x.uuid, x]));
 
             // Create a getIndicator function for the async compiler
@@ -121,7 +132,9 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                     .sort((a, b) => a.sortOrder - b.sortOrder)
                     .map(async (s) => {
                         const ind: IndicatorDto | undefined = byId.get(s.id);
-                        const kind = s.type as SectionIndicatorType;
+                        // Use the actual indicator's kind from the database, not the selected type
+                        // This ensures CUSTOM indicators are correctly identified
+                        const kind = ind?.kind ?? (s.type as SectionIndicatorType);
 
                         if (!ind) {
                             return {
@@ -161,6 +174,7 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
 
                         const ageCode = state.selectedAgeCategory?.code ?? '';
                         let compiled: string;
+                        let compilationWarnings: string[] = [];
 
                         // For composite indicators, use the async builder to handle nested references
                         if (kind === 'COMPOSITE') {
@@ -172,6 +186,18 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                                 compilerOptions: { allowRetired: true }
                             });
                             compiled = result.sql;
+                            compilationWarnings = result.warnings || [];
+                        } else if (kind === 'CUSTOM') {
+                            // For CUSTOM indicators, use the async builder to handle complex SQL
+                            const result = await buildSectionDisaggregationSqlAsync({
+                                indicator: ind,
+                                ageCategoryCode: ageCode,
+                                genders: state.pickedGenders,
+                                getIndicator: getIndicatorFn,
+                                compilerOptions: { allowRetired: true }
+                            });
+                            compiled = result.sql;
+                            compilationWarnings = result.warnings || [];
                         } else {
                             // For BASE indicators, use the sync version
                             compiled = buildSectionDisaggregationSql({
@@ -179,6 +205,11 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                                 ageCategoryCode: ageCode,
                                 genders: state.pickedGenders,
                             });
+                        }
+
+                        // Log warnings for debugging (don't fail on warnings, just log them)
+                        if (compilationWarnings.length > 0) {
+                            console.warn(`⚠️ [Section] Compilation warnings for ${ind.code}:`, compilationWarnings);
                         }
 
                         compiled = normalizeCompiledSql(compiled);
@@ -191,12 +222,53 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                             sortOrder: s.sortOrder,
                             sql: {
                                 compiled,
-                                strategy: kind === 'COMPOSITE' ? 'COMPOSITE+SECTION_DISAGG' : 'BASE+SECTION_DISAGG',
+                                strategy: kind === 'COMPOSITE' ? 'COMPOSITE+SECTION_DISAGG' :
+                                          kind === 'CUSTOM' ? 'CUSTOM+SECTION_DISAGG' :
+                                          'BASE+SECTION_DISAGG',
                                 inputs: { sectionAgeCategoryCode: ageCode, sectionGenders: state.pickedGenders },
                             },
                         };
                     })
             );
+
+            // VALIDATION: Check for any compilation failures
+            const failedIndicators = indicatorConfigs.filter(
+                config => config.sql.compiled.trim().startsWith('-- Error:')
+            );
+
+            if (failedIndicators.length > 0) {
+                const errorSummary = failedIndicators
+                    .map(config => {
+                        const name = config.name || config.code || 'Unknown';
+                        const code = config.code || '???';
+                        const errorLines = config.sql.compiled.split('\n').filter(line => line.trim().startsWith('--'));
+                        return `❌ ${name} (${code}):\n${errorLines.slice(0, 3).join('\n')}`;
+                    })
+                    .join('\n\n');
+
+                throw new Error(
+                    `Failed to compile ${failedIndicators.length} indicator(s). Please fix the following issues:\n\n${errorSummary}`
+                );
+            }
+
+            // VALIDATION: Check for any empty SQL
+            const emptyIndicators = indicatorConfigs.filter(
+                config => !config.sql.compiled.trim() || config.sql.compiled.trim() === '--'
+            );
+
+            if (emptyIndicators.length > 0) {
+                const emptyNames = emptyIndicators
+                    .map(config => `• ${config.name} (${config.code})`)
+                    .join('\n');
+                throw new Error(
+                    `The following indicator(s) compiled to empty SQL:\n${emptyNames}`
+                );
+            }
+
+            console.log('✅ [Section] All indicators compiled successfully', {
+                total: indicatorConfigs.length,
+                withWarnings: indicatorConfigs.filter(config => config.sql.compiled.includes('--'))
+            });
 
             const config = {
                 version: 1,

@@ -744,4 +744,208 @@ describe('Population SQL Compiler', () => {
             expect(result.sql).toContain('SELECT DISTINCT');
         });
     });
+
+    describe('Population SQL Validation - Regression Tests', () => {
+        it('should validate that population SQL exposes patient ID column', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT DISTINCT a.client_id FROM table_a a WHERE a.date >= :startDate'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should not have an error
+            expect(result.error).toBeUndefined();
+            // Should expose client_id
+            expect(result.sql).toContain('client_id');
+        });
+
+        it('should handle cache invalidation when SQL changes', async () => {
+            const indicator = createIndicator({
+                uuid: 'test-cache-invalidation',
+                code: 'CACHE_TEST',
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(*) AS total FROM table_a a WHERE a.date >= :startDate'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+
+            // First compilation
+            const result1 = await compilePopulationSql(indicator, getIndicator);
+            expect(result1.sql).toContain('SELECT DISTINCT');
+
+            // Update the indicator SQL
+            indicator.sqlTemplate = 'SELECT COUNT(*) AS total FROM table_b b WHERE b.date >= :startDate';
+
+            // Second compilation should use fresh SQL (not cached)
+            const result2 = await compilePopulationSql(indicator, getIndicator);
+            expect(result2.sql).toContain('table_b');
+            expect(result2.sql).toContain('SELECT DISTINCT');
+        });
+
+        it('should include error when COUNT SQL cannot be converted properly', async () => {
+            // Create an indicator with COUNT SQL that should be converted to population SQL
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(DISTINCT a.client_id) AS total FROM table_a a'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // The conversion should work and produce SELECT DISTINCT normalized to patient_id
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('AS patient_id');  // Normalized to patient_id
+        });
+
+        it('should handle composite indicators with validation', async () => {
+            const indicatorA = createIndicator({
+                uuid: 'indicator-a',
+                code: 'A',
+                kind: 'BASE',
+                sqlTemplate: 'SELECT DISTINCT a.client_id FROM table_a a WHERE condition_a = 1'
+            });
+
+            const indicatorB = createIndicator({
+                uuid: 'indicator-b',
+                code: 'B',
+                kind: 'BASE',
+                sqlTemplate: 'SELECT DISTINCT b.client_id FROM table_b b WHERE condition_b = 1'
+            });
+
+            const composite = createIndicator({
+                uuid: 'composite-test',
+                code: 'A_AND_B',
+                kind: 'COMPOSITE',
+                configJson: JSON.stringify({
+                    version: 1,
+                    unit: 'Patients',
+                    operator: 'AND',
+                    indicatorAId: 'indicator-a',
+                    indicatorBId: 'indicator-b'
+                })
+            });
+
+            const indicators = new Map([
+                ['indicator-a', indicatorA],
+                ['indicator-b', indicatorB]
+            ]);
+            const getIndicator = createMockGetIndicator(indicators);
+
+            const result = await compilePopulationSql(composite, getIndicator);
+
+            // Should not have validation errors
+            expect(result.error).toBeUndefined();
+            // Should contain population SQL
+            expect(result.sql).toContain('SELECT DISTINCT');
+            // Should not contain COUNT(*)
+            expect(result.sql).not.toContain('COUNT(*)');
+        });
+
+        it('should convert COUNT(DISTINCT a.client_id) to population SQL normalized to patient_id', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(DISTINCT a.client_id) AS total FROM table_a a'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should convert to SELECT DISTINCT and normalize to patient_id
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('AS patient_id');  // Normalized to patient_id
+            expect(result.sql).not.toContain('COUNT(DISTINCT');
+            expect(result.sql).not.toContain('AS total');
+        });
+
+        it('should convert COUNT(DISTINCT a.client_id) with WHERE clause', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(DISTINCT a.client_id) AS total FROM table_a a WHERE a.active = 1'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should convert to SELECT DISTINCT, preserve WHERE clause, and normalize to patient_id
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('WHERE a.active = 1');
+            expect(result.sql).toContain('AS patient_id');  // Normalized to patient_id
+        });
+
+        it('should handle COUNT(DISTINCT) with patient_id column (stays as patient_id)', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(DISTINCT p.patient_id) AS total FROM patients p'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should convert to SELECT DISTINCT and stay as patient_id
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('AS patient_id');
+        });
+
+        it('should handle COUNT(DISTINCT) with encounter_id column (normalized to patient_id)', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: 'SELECT COUNT(DISTINCT e.encounter_id) AS total FROM encounters e'
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should convert to SELECT DISTINCT and normalize to patient_id
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('AS patient_id');  // Normalized to patient_id
+        });
+
+        it('should preserve WITH CTEs when converting COUNT(DISTINCT)', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: `
+WITH base AS (
+    SELECT client_id FROM some_table
+)
+SELECT COUNT(DISTINCT a.client_id) AS total FROM base a
+                `.trim()
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should preserve the WITH clause and normalize to patient_id
+            expect(result.sql).toContain('WITH base AS');
+            expect(result.sql).toContain('SELECT DISTINCT');
+            expect(result.sql).toContain('AS patient_id');  // Normalized to patient_id
+        });
+
+        it('should convert COUNT(DISTINCT) with subquery (no AS clause) and normalize to patient_id', async () => {
+            const indicator = createIndicator({
+                kind: 'BASE',
+                sqlTemplate: `
+SELECT COUNT(DISTINCT a.client_id)
+FROM (
+    SELECT
+        client_id,
+        TIMESTAMPDIFF(DAY, MAX(return_visit_date), :endDate) AS ltfp_days
+    FROM mamba_fact_encounter_hiv_art_card
+    WHERE encounter_date <= :endDate
+      AND return_visit_date >= :startDate
+    GROUP BY client_id
+) a
+                `.trim()
+            });
+
+            const getIndicator = createMockGetIndicator(new Map());
+            const result = await compilePopulationSql(indicator, getIndicator);
+
+            // Should convert to SELECT DISTINCT and normalize to patient_id
+            expect(result.sql).toContain('SELECT DISTINCT a.client_id AS patient_id');
+            expect(result.sql).toContain('FROM (');
+            expect(result.sql).not.toContain('COUNT(DISTINCT');
+        });
+    });
 });

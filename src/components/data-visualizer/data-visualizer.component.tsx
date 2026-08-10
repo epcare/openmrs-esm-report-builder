@@ -855,10 +855,7 @@ const DataVisualizer: React.FC = () => {
         category: ReportCategory;
         renderType?: RenderType;
       },
-      reportIndicators: selectedParameters,
-      reportType: reportType,
       reportingCohort: cqiReportingCohort,
-      type: selectedDynamicReportType?.label,
     }).then(
       (response) => {
         if (response.status === 200) {
@@ -989,10 +986,7 @@ const DataVisualizer: React.FC = () => {
         category: ReportCategory;
         renderType?: RenderType;
       },
-      reportIndicators: selectedParameters,
-      reportType: reportType,
       reportingCohort: cqiReportingCohort,
-      type: selectedDynamicReportType?.label,
       parameters: params,
     };
 
@@ -1106,10 +1100,8 @@ const DataVisualizer: React.FC = () => {
     endDate,
     reportCategory,
     reportType,
-    selectedParameters,
     selectedReport,
     startDate,
-    selectedDynamicReportType?.label,
   ]);
 
   useEffect(() => {

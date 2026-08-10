@@ -1,6 +1,6 @@
 import type { ReportSectionDto } from '../../resources/report-section/report-sections.api';
 
-export type SectionIndicatorType = 'BASE' | 'COMPOSITE' | 'FINAL';
+export type SectionIndicatorType = 'BASE' | 'COMPOSITE' | 'FINAL' | 'CUSTOM';
 
 export type SectionIndicatorRef = {
     id: string;

@@ -18,7 +18,7 @@ export type IndicatorRow = {
     code: string;
     name: string;
 
-    kind: 'BASE' | 'COMPOSITE' | 'FINAL' | string;
+    kind: 'BASE' | 'COMPOSITE' | 'FINAL' | 'CUSTOM' | string;
 
     themeName?: string;
     themeColor?: string; // hex

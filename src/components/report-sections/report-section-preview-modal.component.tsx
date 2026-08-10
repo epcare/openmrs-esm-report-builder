@@ -14,6 +14,11 @@ import {
   TableHeader,
   TableRow,
   TextInput,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from '@carbon/react';
 import { Play } from '@carbon/icons-react';
 
@@ -199,6 +204,11 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
   const [err, setErr] = React.useState<string | null>(null);
   const [data, setData] = React.useState<SectionPreviewResponse | null>(null);
 
+  // SQL preview state
+  const [sqlData, setSqlData] = React.useState<Record<string, string>>({});
+  const [loadingSql, setLoadingSql] = React.useState(false);
+  const [selectedTabIndex, setSelectedTabIndex] = React.useState(0);
+
   React.useEffect(() => {
     if (!open) return;
     setStartDate('');
@@ -208,9 +218,74 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
     setErr(null);
     setData(null);
     setLoading(false);
+    // Reset SQL preview state
+    setSqlData({});
+    setSelectedTabIndex(0);
   }, [open]);
 
+  // Load SQL when switching to SQL tab
+  React.useEffect(() => {
+    if (selectedTabIndex === 1 && section && data?.results) {
+      // Generate SQL for all indicators that have results
+      data.results.forEach((result) => {
+        if (result.indicatorUuid && !sqlData[result.indicatorUuid]) {
+          generateSql(result.indicatorUuid, section);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTabIndex, data, section]); // generateSql and sqlData are intentionally omitted to avoid infinite loops
+
   const canRun = Boolean(section?.uuid) && Boolean(startDate) && Boolean(endDate) && !loading;
+
+  // Function to extract pre-compiled SQL from section configJson
+  const generateSql = (indicatorUuid: string, section: ReportSectionDto) => {
+    if (sqlData[indicatorUuid]) {
+      return; // Already generated
+    }
+
+    setLoadingSql(true);
+    try {
+      // Parse section configJson to extract pre-compiled SQL
+      const sectionConfig = section.configJson ? JSON.parse(section.configJson) : {};
+      const indicators = sectionConfig.indicators || [];
+
+      // Find the indicator with matching UUID
+      const indicatorData = indicators.find((ind: any) => ind.indicatorUuid === indicatorUuid);
+
+      if (!indicatorData) {
+        setSqlData((prev) => ({ ...prev, [indicatorUuid]: '-- Error: Indicator not found in section config' }));
+        return;
+      }
+
+      const compiledSql = indicatorData.sql?.compiled;
+
+      if (!compiledSql) {
+        setSqlData((prev) => ({ ...prev, [indicatorUuid]: '-- Error: No compiled SQL found for this indicator in section config' }));
+        return;
+      }
+
+      // Decode HTML entities (same as backend does)
+      const decodedSql = compiledSql
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&gt;=/g, '>=')
+        .replace(/&lt;=/g, '<=')
+        .replace(/&gte;/g, '>=')
+        .replace(/&ge;/g, '>=')
+        .replace(/&lte;/g, '<=')
+        .replace(/&le;/g, '<=');
+
+      setSqlData((prev) => ({ ...prev, [indicatorUuid]: decodedSql }));
+    } catch (e: any) {
+      setSqlData((prev) => ({ ...prev, [indicatorUuid]: `-- Error extracting SQL from config: ${e?.message || 'Unknown error'}` }));
+    } finally {
+      setLoadingSql(false);
+    }
+  };
 
   const run = async () => {
     if (!section?.uuid) return;
@@ -317,101 +392,156 @@ export default function ReportSectionPreviewModal({ open, onClose, section }: Pr
         {loading ? <InlineLoading description="Running section preview…" /> : null}
         {err ? <InlineNotification kind="error" lowContrast title="Preview" subtitle={err} /> : null}
 
-        {data ? (
-          matrix.hasAnyDisagg ? (
-            <TableContainer
-              data-testid="section-preview-matrix"
-              title="Section preview matrix"
-              description="Indicators are rows; disaggregations are columns. Missing values show as 0."
-            >
-              <DataTable rows={matrix.rows} headers={matrix.headers} size="md" useZebraStyles>
-                {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                  <Table {...getTableProps()}>
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((h) => (
-                          <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
-                            {h.header}
-                          </TableHeader>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {rows.map((row) => (
-                        <TableRow key={row.id} {...getRowProps({ row })}>
-                          {row.cells.map((cell) => (
-                            <TableCell key={cell.id}>{cell.value as any}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </DataTable>
-            </TableContainer>
-          ) : (
-            <InlineNotification
-              kind="info"
-              lowContrast
-              title="No disaggregated results"
-              subtitle="No indicator returned (age_group, gender, value) rows for this preview."
-            />
-          )
-        ) : null}
-
-        {data && nonMatrix.length ? (
-          <Stack gap={4}>
-            <div style={{ fontWeight: 600, marginTop: '0.5rem' }}>Other results</div>
-
-            {nonMatrix.map((r, idx) => {
-              if (r.error) {
-                return (
-                  <InlineNotification
-                    key={`${r.indicatorUuid}-${idx}`}
-                    kind="error"
-                    lowContrast
-                    title={`Indicator error: ${decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}`}
-                    subtitle={r.error}
-                  />
-                );
-              }
-
-              const { headers, tableRows } = toGenericTableModel(r.columns ?? [], r.rows ?? []);
-              return (
-                <TableContainer
-                  key={`${r.indicatorUuid}-${idx}`}
-                  title={decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}
-                  description={`Returned columns: ${(r.columns ?? []).join(', ')}`}
-                >
-                  <DataTable rows={tableRows} headers={headers} size="md" useZebraStyles>
-                    {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
-                      <Table {...getTableProps()}>
-                        <TableHead>
-                          <TableRow>
-                            {headers.map((h) => (
-                              <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
-                                {h.header}
-                              </TableHeader>
-                            ))}
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {rows.map((row) => (
-                            <TableRow key={row.id} {...getRowProps({ row })}>
-                              {row.cells.map((cell) => (
-                                <TableCell key={cell.id}>{cell.value as any}</TableCell>
+        {/* Tabs for Results vs SQL */}
+        <Tabs
+          selectedIndex={selectedTabIndex}
+          onChange={({ selectedIndex }) => setSelectedTabIndex(selectedIndex)}
+          aria-label="Section preview tabs"
+        >
+          <TabList aria-label="Section preview tab list">
+            <Tab>Results</Tab>
+            <Tab>SQL</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel>
+              {!data ? (
+                <div style={{ opacity: 0.6 }}>Run the preview to see results.</div>
+              ) : (
+                <>
+                  {matrix.hasAnyDisagg ? (
+                    <TableContainer
+                      data-testid="section-preview-matrix"
+                      title="Section preview matrix"
+                      description="Indicators are rows; disaggregations are columns. Missing values show as 0."
+                    >
+                      <DataTable rows={matrix.rows} headers={matrix.headers} size="md" useZebraStyles>
+                        {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+                          <Table {...getTableProps()}>
+                            <TableHead>
+                              <TableRow>
+                                {headers.map((h) => (
+                                  <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
+                                    {h.header}
+                                  </TableHeader>
+                                ))}
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {rows.map((row) => (
+                                <TableRow key={row.id} {...getRowProps({ row })}>
+                                  {row.cells.map((cell) => (
+                                    <TableCell key={cell.id}>{cell.value as any}</TableCell>
+                                  ))}
+                                </TableRow>
                               ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </DataTable>
-                </TableContainer>
-              );
-            })}
-          </Stack>
-        ) : null}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </DataTable>
+                    </TableContainer>
+                  ) : (
+                    <InlineNotification
+                      kind="info"
+                      lowContrast
+                      title="No disaggregated results"
+                      subtitle="No indicator returned (age_group, gender, value) rows for this preview."
+                    />
+                  )}
+
+                  {nonMatrix.length ? (
+                    <Stack gap={4}>
+                      <div style={{ fontWeight: 600, marginTop: '0.5rem' }}>Other results</div>
+
+                      {nonMatrix.map((r, idx) => {
+                        if (r.error) {
+                          return (
+                            <InlineNotification
+                              key={`${r.indicatorUuid}-${idx}`}
+                              kind="error"
+                              lowContrast
+                              title={`Indicator error: ${decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}`}
+                              subtitle={r.error}
+                            />
+                          );
+                        }
+
+                        const { headers, tableRows } = toGenericTableModel(r.columns ?? [], r.rows ?? []);
+                        return (
+                          <TableContainer
+                            key={`${r.indicatorUuid}-${idx}`}
+                            title={decodeHtmlEntities(r.name || r.code || r.indicatorUuid)}
+                            description={`Returned columns: ${(r.columns ?? []).join(', ')}`}
+                          >
+                            <DataTable rows={tableRows} headers={headers} size="md" useZebraStyles>
+                              {({ rows, headers, getHeaderProps, getRowProps, getTableProps }) => (
+                                <Table {...getTableProps()}>
+                                  <TableHead>
+                                    <TableRow>
+                                      {headers.map((h) => (
+                                        <TableHeader key={h.key} {...getHeaderProps({ header: h })}>
+                                          {h.header}
+                                        </TableHeader>
+                                      ))}
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {rows.map((row) => (
+                                      <TableRow key={row.id} {...getRowProps({ row })}>
+                                        {row.cells.map((cell) => (
+                                          <TableCell key={cell.id}>{cell.value as any}</TableCell>
+                                        ))}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
+                            </DataTable>
+                          </TableContainer>
+                        );
+                      })}
+                    </Stack>
+                  ) : null}
+                </>
+              )}
+            </TabPanel>
+            <TabPanel>
+              {!data || results.length === 0 ? (
+                <div style={{ opacity: 0.6 }}>Run the preview first to generate SQL.</div>
+              ) : (
+                <div style={{ opacity: loadingSql ? 0.6 : 1 }}>
+                  {loadingSql && <InlineLoading description="Generating SQL preview…" />}
+                  <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.5rem' }}>
+                    Generated disaggregation SQL for each indicator in this section:
+                  </div>
+                  {results.map((result, idx) => {
+                    const indicatorSql = sqlData[result.indicatorUuid];
+                    return (
+                      <div key={result.indicatorUuid} style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+                          {idx + 1}. {decodeHtmlEntities(result.name || result.code || result.indicatorUuid)}
+                          {result.kind ? <span style={{ fontWeight: 400, color: '#666', marginLeft: '0.5rem' }}>({result.kind})</span> : null}
+                        </div>
+                        <pre
+                          style={{
+                            background: '#f4f4f4',
+                            padding: '1rem',
+                            borderRadius: '4px',
+                            fontSize: '0.875rem',
+                            overflow: 'auto',
+                            maxHeight: '400px',
+                            border: '1px solid #e0e0e0'
+                          }}
+                        >
+                          {indicatorSql || 'Loading SQL…'}
+                        </pre>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </Stack>
     </Modal>
   );

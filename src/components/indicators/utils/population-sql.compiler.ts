@@ -28,7 +28,19 @@ export type PopulationCompileResult = {
     warnings?: string[];
     /** Whether this indicator was retired (for informational purposes) */
     retired?: boolean;
+    /** Compilation error, if any */
+    error?: PopulationSqlError;
 };
+
+/**
+ * Error codes for population SQL compilation failures.
+ */
+export const POPULATION_ERRORS = {
+    AGGREGATE_SQL: 'AGGREGATE_SQL',
+    ID_NOT_EXPOSED: 'ID_NOT_EXPOSED',
+    EMPTY_SQL: 'EMPTY_SQL',
+    COMPILATION_FAILED: 'COMPILATION_FAILED'
+} as const;
 
 /**
  * Compiler options for population SQL generation.
@@ -74,6 +86,21 @@ export class UnsupportedOperatorError extends Error {
     ) {
         super(`Unsupported operator '${operator}' in indicator ${indicator}`);
         this.name = 'UnsupportedOperatorError';
+    }
+}
+
+/**
+ * Population SQL error.
+ * Used when the compiler produces invalid SQL (aggregate instead of population).
+ */
+export class PopulationSqlError extends Error {
+    constructor(
+        public code: string,
+        message: string,
+        public indicator?: { uuid: string; name: string; code: string }
+    ) {
+        super(message);
+        this.name = 'PopulationSqlError';
     }
 }
 
@@ -132,9 +159,129 @@ type CompositeIndicatorConfig = {
     };
 };
 
+type ValidationResult = {
+    valid: boolean;
+    error?: { code: string; message: string };
+};
+
+/**
+ * Validates that SQL is proper population SQL (not aggregate).
+ *
+ * Population SQL must:
+ * 1. Expose the patient ID column in the SELECT clause
+ * 2. Not be an aggregate query (COUNT, SUM, AVG in final projection)
+ * 3. Be a SELECT statement (may start with WITH CTEs)
+ *
+ * @param sql - The SQL to validate
+ * @param patientIdColumn - The patient ID column name that should be exposed
+ * @returns Validation result
+ */
+function validatePopulationSql(sql: string, patientIdColumn: string): ValidationResult {
+    const trimmed = sql.trim();
+
+    // Check for empty SQL
+    if (!trimmed) {
+        return {
+            valid: false,
+            error: { code: POPULATION_ERRORS.EMPTY_SQL, message: 'Population SQL is empty' }
+        };
+    }
+
+    // Check it's a SELECT statement (may have WITH CTEs first)
+    const upperSql = trimmed.toUpperCase();
+    if (!upperSql.startsWith('WITH') && !upperSql.startsWith('SELECT')) {
+        return {
+            valid: false,
+            error: { code: POPULATION_ERRORS.COMPILATION_FAILED, message: 'Population SQL must be a SELECT statement' }
+        };
+    }
+
+    // Check for aggregate functions in final projection
+    // This pattern matches SELECT COUNT(...), SELECT SUM(...), etc. at the start (after WITH)
+    // Need to skip past WITH clauses when checking
+    let sqlToCheck = trimmed;
+    if (upperSql.startsWith('WITH')) {
+        // Find the main SELECT after the CTEs
+        const selectMatch = trimmed.match(/\)\s*SELECT\s+/i);
+        if (selectMatch) {
+            const selectIndex = trimmed.indexOf(selectMatch[0]) + selectMatch[0].length;
+            sqlToCheck = trimmed.substring(selectIndex).trim();
+        }
+    }
+
+    // Check for aggregate in final projection
+    const aggregatePattern = /^SELECT\s+(?:COUNT|SUM|AVG|MAX|MIN)\s*\(/i;
+    if (aggregatePattern.test(sqlToCheck)) {
+        return {
+            valid: false,
+            error: {
+                code: POPULATION_ERRORS.AGGREGATE_SQL,
+                message: 'Population SQL cannot use aggregate functions (COUNT, SUM, AVG) in final projection. Use SELECT DISTINCT instead.'
+            }
+        };
+    }
+
+    // Check that patient ID column is exposed
+    // Pattern should match SELECT DISTINCT ... patient_idColumn ... or SELECT ... AS patient_idColumn
+    const columnPattern = new RegExp(
+        `SELECT\\s+DISTINCT\\s+[\\w\\.]+\\s+AS\\s+${patientIdColumn}\\b|` +
+        `SELECT\\s+DISTINCT\\s+(?:[\\w]+\\.)?${patientIdColumn}\\b`,
+        'i'
+    );
+
+    // Also check if it's in the main SELECT (after WITH)
+    if (upperSql.startsWith('WITH')) {
+        const mainSelectPattern = new RegExp(`\\bSELECT\\s+DISTINCT\\s+(?:[\\w]+\\.)?${patientIdColumn}\\b`, 'i');
+        if (!mainSelectPattern.test(trimmed) && !columnPattern.test(trimmed)) {
+            return {
+                valid: false,
+                error: {
+                    code: POPULATION_ERRORS.ID_NOT_EXPOSED,
+                    message: `Population SQL must expose '${patientIdColumn}' column in the main SELECT (e.g., SELECT DISTINCT a.${patientIdColumn} AS ${patientIdColumn})`
+                }
+            };
+        }
+    } else if (!columnPattern.test(trimmed)) {
+        return {
+            valid: false,
+            error: {
+                code: POPULATION_ERRORS.ID_NOT_EXPOSED,
+                message: `Population SQL must expose '${patientIdColumn}' column (e.g., SELECT DISTINCT a.${patientIdColumn} AS ${patientIdColumn})`
+            }
+        };
+    }
+
+    return { valid: true };
+}
+
+/**
+ * Simple hash function for strings.
+ * Used to create cache keys from SQL content.
+ */
+function hashString(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+}
+
+/**
+ * Generates a cache key for an indicator.
+ * Includes UUID, SQL content hash, and config hash to prevent stale results.
+ */
+function getCacheKey(indicator: IndicatorDto, options: CompilerOptions): string {
+    const sqlHash = hashString(indicator.sqlTemplate || '');
+    const configHash = hashString(indicator.configJson || '');
+    const allowRetired = options.allowRetired ? 'allowRetired' : '';
+    return `${indicator.uuid}|${sqlHash}|${configHash}|${allowRetired}`;
+}
+
 /**
  * Cache to avoid re-compiling the same indicator multiple times.
- * Map<indicatorUuid, PopulationCompileResult>
+ * Map<cacheKey, PopulationCompileResult>
  */
 const compilationCache = new Map<string, PopulationCompileResult>();
 
@@ -170,9 +317,10 @@ export async function compilePopulationSql(
 ): Promise<PopulationCompileResult> {
     const { allowRetired = false, maxDepth = 10 } = options;
 
-    // Check cache
-    if (compilationCache.has(indicator.uuid)) {
-        return compilationCache.get(indicator.uuid)!;
+    // Check cache using improved key (includes SQL content hash)
+    const cacheKey = getCacheKey(indicator, options);
+    if (compilationCache.has(cacheKey)) {
+        return compilationCache.get(cacheKey)!;
     }
 
     // Check depth limit
@@ -212,13 +360,13 @@ export async function compilePopulationSql(
         // Composite indicator - compile recursively
         const result = await compileCompositePopulation(indicator, config, getIndicator, newVisited, options);
         result.warnings = [...warnings, ...(result.warnings || [])];
-        compilationCache.set(indicator.uuid, result);
+        compilationCache.set(cacheKey, result);
         return result;
     } else if (indicator.kind === 'BASE') {
         // Base indicator - extract population SQL
         const result = compileBasePopulation(indicator, config);
         result.warnings = warnings;
-        compilationCache.set(indicator.uuid, result);
+        compilationCache.set(cacheKey, result);
         return result;
     } else {
         // FINAL indicator or unsupported type
@@ -227,7 +375,7 @@ export async function compilePopulationSql(
         try {
             const result = compileBasePopulation(indicator, config);
             result.warnings = [...warnings, 'FINAL indicator treated as BASE'];
-            compilationCache.set(indicator.uuid, result);
+            compilationCache.set(cacheKey, result);
             return result;
         } catch (e) {
             throw new AtomicIndicatorError(
@@ -304,6 +452,22 @@ async function compileCompositePopulation(
         resultB.sql,
         config.unit || 'Patients'
     );
+
+    // Validate the combined SQL
+    const validation = validatePopulationSql(sql, resultA.patientIdColumn);
+    if (!validation.valid) {
+        return {
+            sql,
+            patientIdColumn: resultA.patientIdColumn,
+            warnings: [...warnings, ...(resultA.warnings || []), ...(resultB.warnings || [])],
+            retired: indicator.retired,
+            error: new PopulationSqlError(
+                validation.error.code,
+                validation.error.message,
+                { uuid: indicator.uuid, name: indicator.name, code: indicator.code || indicator.uuid }
+            )
+        };
+    }
 
     return {
         sql,
@@ -423,6 +587,21 @@ function compileBasePopulation(
     // Convert COUNT SQL to population SQL if needed
     const populationSql = convertCountToPopulation(sql, patientIdColumn);
 
+    // Validate the output is proper population SQL
+    const validation = validatePopulationSql(populationSql, patientIdColumn);
+    if (!validation.valid) {
+        return {
+            sql: populationSql,
+            patientIdColumn,
+            retired: indicator.retired,
+            error: new PopulationSqlError(
+                validation.error.code,
+                validation.error.message,
+                { uuid: indicator.uuid, name: indicator.name, code: indicator.code || indicator.uuid }
+            )
+        };
+    }
+
     return {
         sql: populationSql,
         patientIdColumn,
@@ -453,74 +632,87 @@ function getPatientIdColumnFromConfig(config: CompositeIndicatorConfig | null): 
  * Convert COUNT SQL to population SQL.
  *
  * This handles the case where a base indicator has COUNT(*) SQL
- * and needs to be converted to return patient_id or client_id instead.
+ * or COUNT(DISTINCT column) SQL and needs to be converted to return
+ * patient_id or client_id instead.
  *
  * IMPORTANT: The output column is ALWAYS aliased as the patientIdColumn value
  * (e.g., 'client_id' or 'patient_id') for consistency with downstream queries.
  */
 function convertCountToPopulation(sql: string, patientIdColumn: string = 'client_id'): string {
-    const trimmed = sql.trim();
+    let trimmed = sql.trim();
+
+    // Handle escaped newlines BEFORE pattern matching
+    // This ensures multi-line SQL with GROUP BY, HAVING, etc. on separate lines is preserved
+    trimmed = trimmed.replace(/\\n/g, '\n');
 
     // Remove any trailing semicolons first (they cause issues when used as CTE)
     const withoutSemicolon = trimmed.replace(/;+\s*$/, '');
 
     // Check if it's already a population query (SELECT DISTINCT with patient_id, client_id, or encounter_id)
-    // The output should always be aliased as patientIdColumn for consistency
-    const populationCheck = new RegExp(`SELECT\\\\s+DISTINCT\\\\s+\\\\w+\\\\.?\\\\(?:${patientIdColumn}\\\\|client_id\\\\|patient_id\\\\|encounter_id\\\\)`, 'i');
+    const populationCheck = new RegExp(
+        `SELECT\\s+DISTINCT\\s+(?:\\w+\\.)?(?:${patientIdColumn}|client_id|patient_id|encounter_id)`,
+        'i'
+    );
     if (populationCheck.test(withoutSemicolon)) {
-        // Ensure the output is aliased correctly
+        // Ensure the output is normalized to patient_id for disaggregation compatibility
         const fixed = fixCommonTypos(withoutSemicolon);
-        // If it's already aliasing correctly (AS patientIdColumn), return as-is
-        const aliasCheck = new RegExp(`AS\\\\s+${patientIdColumn}$`, 'im');
+        // If it's already aliasing as patient_id, return as-is
+        const aliasCheck = new RegExp(`AS\\s+patient_id\\b`, 'im');
         if (aliasCheck.test(fixed)) {
             return fixed;
         }
-        // Check if the column already matches patientIdColumn (no alias needed)
-        // e.g., "SELECT DISTINCT a.client_id" when patientIdColumn is "client_id"
-        const columnMatch = fixed.match(/SELECT\s+DISTINCT\s+(\w+\.?\w*)\s*$/im);
-        if (columnMatch) {
-            const columnName = columnMatch[1].split('.').pop(); // Get just column name without alias
-            if (columnName === patientIdColumn) {
-                return fixed; // No alias needed when column name matches
-            }
-        }
-        // Otherwise, fix the alias to use patientIdColumn
-        const replacePattern = /SELECT\s+DISTINCT\s+(\w+\.?(?:client_id|patient_id|encounter_id))/i;
-        return fixed.replace(replacePattern, `SELECT DISTINCT $1 AS ${patientIdColumn}`);
+        // Fix the alias to normalize to patient_id (handles client_id, encounter_id, etc.)
+        const replacePattern = /SELECT\s+DISTINCT\s+(\w+\.?(?:client_id|patient_id|encounter_id))(?:\s+AS\s+\w+)?/i;
+        return fixed.replace(replacePattern, `SELECT DISTINCT $1 AS patient_id`);
     }
 
-    // Check if it's a COUNT query
-    const countPattern = /SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total/i;
-    if (!countPattern.test(withoutSemicolon)) {
-        // Not a COUNT query and not a population query
-        // Assume it's already correct but fix typos
-        return fixCommonTypos(withoutSemicolon);
-    }
+    // Check for COUNT(DISTINCT column) pattern - e.g., SELECT COUNT(DISTINCT a.client_id) AS total FROM ...
+    // Also handles patterns without AS or with subqueries: SELECT COUNT(DISTINCT a.client_id) FROM (...)
+    const countDistinctPattern = /SELECT\s+COUNT\s*\(\s*DISTINCT\s+(\w+\.(?:client_id|patient_id|encounter_id))\s*\)(?:\s+AS\s+\w+)?\s+FROM/i;
+    const countDistinctMatch = withoutSemicolon.match(countDistinctPattern);
+    if (countDistinctMatch) {
+        const columnReference = countDistinctMatch[1]; // e.g., "a.client_id"
+        // Extract just the column name without the alias
+        const columnName = columnReference.split('.').pop()!;
+        const alias = columnReference.split('.')[0];
 
-    // Convert COUNT(*) to SELECT DISTINCT <patientIdColumn> AS patientIdColumn
-    // Pattern: SELECT COUNT(*) AS total FROM <table> a ...
-    // We want: SELECT DISTINCT a.<patientIdColumn> AS patientIdColumn FROM <table> a ...
-
-    // Try to extract the table and alias from the FROM clause
-    const fromMatch = withoutSemicolon.match(/FROM\s+(\S+)\s+(\S+)/i);
-    if (fromMatch) {
-        const alias = fromMatch[2];
-
-        // Build population SQL
-        const result = withoutSemicolon
-            .replace(/SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s*/i, '')
-            .replace(/FROM\s+/i, `SELECT DISTINCT ${alias}.${patientIdColumn} AS ${patientIdColumn} FROM `);
+        // Replace with SELECT DISTINCT alias.columnName AS patient_id FROM
+        // Keep the rest of the SQL after FROM (including subqueries)
+        const result = withoutSemicolon.replace(
+            /SELECT\s+COUNT\s*\(\s*DISTINCT\s+\w+\.(?:client_id|patient_id|encounter_id)\s*\)(?:\s+AS\s+\w+)?\s+FROM/i,
+            `SELECT DISTINCT ${alias}.${columnName} AS patient_id FROM`
+        );
 
         return fixCommonTypos(result);
     }
 
-    // If we can't parse it, try a simple replacement
-    const result = withoutSemicolon.replace(
-        /SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s+FROM\s+/i,
-        `SELECT DISTINCT ${patientIdColumn} AS ${patientIdColumn} FROM `
-    );
+    // Check for COUNT(*) pattern - e.g., SELECT COUNT(*) AS total FROM ...
+    const countPattern = /SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total/i;
+    if (countPattern.test(withoutSemicolon)) {
+        // Try to extract the table and alias from the FROM clause
+        const fromMatch = withoutSemicolon.match(/FROM\s+(\S+)\s+(\S+)/i);
+        if (fromMatch) {
+            const alias = fromMatch[2];
 
-    return fixCommonTypos(result);
+            // Build population SQL - normalize to patient_id
+            const result = withoutSemicolon
+                .replace(/SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s*/i, '')
+                .replace(/FROM\s+/i, `SELECT DISTINCT ${alias}.${patientIdColumn} AS patient_id FROM `);
+
+            return fixCommonTypos(result);
+        }
+
+        // If we can't parse it, try a simple replacement - normalize to patient_id
+        const result = withoutSemicolon.replace(
+            /SELECT\s+.*?COUNT\s*\(\s*\*\s*\)\s+AS\s+total\s+FROM\s+/i,
+            `SELECT DISTINCT patient_id FROM `
+        );
+
+        return fixCommonTypos(result);
+    }
+
+    // Not a COUNT query we recognize - assume it's already correct but fix typos
+    return fixCommonTypos(withoutSemicolon);
 }
 
 /**
@@ -528,6 +720,9 @@ function convertCountToPopulation(sql: string, patientIdColumn: string = 'client
  */
 function fixCommonTypos(sql: string): string {
     let fixed = sql;
+    // Handle escaped newlines - convert literal \n to actual newlines
+    // This can happen when SQL is serialized through JSON in the backend
+    fixed = fixed.replace(/\\n/g, '\n');
     // Fix :stratDate -> :startDate
     fixed = fixed.replace(/:stratDate\b/g, ':startDate');
     // Remove trailing semicolons - population SQL used as CTE shouldn't have semicolons
@@ -568,18 +763,30 @@ FROM base_population;
  * Generate age/sex disaggregation SQL from population SQL.
  *
  * This wraps the population SQL in the disaggregation CTE structure.
+ *
+ * @deprecated The gender defaulting behavior (defaulting to both F and M when none selected)
+ * will be removed in a future version. Always specify genders explicitly.
  */
 export function generateAgeSexDisaggregationSql(args: {
     populationSql: string;
     ageCategoryCode: string;
     genders: Array<'F' | 'M'>;
-    patientIdColumn?: string;
 }): string {
-    const { populationSql, ageCategoryCode, genders, patientIdColumn = 'patient_id' } = args;
+    const { populationSql, ageCategoryCode, genders } = args;
 
+    // Default to both genders if none selected (for backward compatibility)
+    // TODO: Remove this default in a future version and require explicit gender selection
     const selectedGenders = (genders || []).length ? genders : (['F', 'M'] as Array<'F' | 'M'>);
 
+    // Log deprecation warning when defaulting
+    if (!genders || genders.length === 0) {
+        console.warn('[generateAgeSexDisaggregationSql] No genders specified, defaulting to both F and M. This default will be removed in a future version.');
+    }
+
     const clean = populationSql.trim().replace(/;+\s*$/, '');
+
+    // All population SQL is normalized to patient_id, so hardcode patient_id here
+    const patientIdColumn = 'patient_id';
 
     return `
 WITH base_pop AS (
@@ -596,7 +803,7 @@ ag AS (
   JOIN report_builder_dim_age_category ac
     ON ac.age_category_id = ag.age_category_id
   WHERE ac.code = '${escapeSql(ageCategoryCode)}'
-    AND ag.is_active = 1
+  AND ag.is_active = 1
 ),
 genders AS (
   SELECT 'F' AS gender
@@ -614,8 +821,8 @@ cnt AS (
     ON TIMESTAMPDIFF(DAY, mdp.birthdate, :endDate)
        BETWEEN ag.min_age_days AND ag.max_age_days
   WHERE mdp.birthdate IS NOT NULL
-    AND mdp.gender IS NOT NULL
-    AND mdp.gender IN (${selectedGenders.map((g) => `'${g}'`).join(',')})
+  AND mdp.gender IS NOT NULL
+  AND mdp.gender IN (${selectedGenders.map((g) => `'${g}'`).join(',')})
   GROUP BY ag.age_group_id, mdp.gender
 )
 SELECT

@@ -28,7 +28,7 @@ function normalizeIndicatorDto(ind: IndicatorDto): IndicatorDto {
     };
 }
 
-export type IndicatorKind = 'BASE' | 'COMPOSITE' | 'FINAL';
+export type IndicatorKind = 'BASE' | 'COMPOSITE' | 'FINAL' | 'CUSTOM';
 export type IndicatorValueType = 'NUMBER' | 'TABLE' | 'PATIENT_SET';
 export type RestRep = 'default' | 'full';
 

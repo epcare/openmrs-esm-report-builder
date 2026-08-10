@@ -24,6 +24,7 @@ import type { QAUiState } from './types/condition-ui.types';
 import CreateCompositeBaseIndicatorModal from './create-composite-base-indicator-modal.component';
 
 import CreateFinalIndicatorModal from './create-final-indicator-modal.component';
+import CreateCustomIndicatorModal from './create-custom-indicator-modal.component';
 import IndicatorRunPreviewModal from './indicator-run-preview-modal.component';
 import AiAssistButton from '../ai-support/ai-assist-button.component';
 
@@ -42,7 +43,7 @@ import type { IndicatorCondition } from './types/indicator-types';
 import { hydrateConditionUiState } from './utils/indicator-conditions-hydration.utils';
 import type { SelectedConcept } from './handler/concept-search-multiselect.component';
 
-type TabKey = 'base' | 'final';
+type TabKey = 'base' | 'final' | 'custom';
 
 type ThemeMeta = { color?: string };
 
@@ -143,6 +144,7 @@ export default function IndicatorsPage() {
     const [openBase, setOpenBase] = React.useState(false);
     const [openComposite, setOpenComposite] = React.useState(false);
     const [openFinal, setOpenFinal] = React.useState(false);
+    const [openCustom, setOpenCustom] = React.useState(false);
     const [openRunPreview, setOpenRunPreview] = React.useState(false);
     const [runPreviewIndicator, setRunPreviewIndicator] = React.useState<string | null>(null);
 
@@ -166,7 +168,7 @@ export default function IndicatorsPage() {
 
             try {
                 // Keep default view here (lighter + matches old working version)
-                const indicators = await listIndicators({ q, v: 'default', includeRetired: false }, signal);
+                const indicators = await listIndicators({ q, v: 'full', includeRetired: false }, signal);
 
                 const missingThemeUuids = Array.from(
                     new Set(indicators.map((x) => x.themeUuid || '').filter((u) => u && !themeCache.current[u])),
@@ -223,7 +225,8 @@ export default function IndicatorsPage() {
     // --------------------------------------------
     const filteredRows = React.useMemo(() => {
         if (tab === 'base') return rows.filter((r) => r.kind === 'BASE' || r.kind === 'COMPOSITE');
-        return rows.filter((r) => r.kind === 'FINAL');
+        if (tab === 'final') return rows.filter((r) => r.kind === 'FINAL');
+        return rows.filter((r) => r.kind === 'CUSTOM');
     }, [rows, tab]);
 
     // --------------------------------------------
@@ -253,6 +256,14 @@ export default function IndicatorsPage() {
                 setEditing(full);
                 setMode('edit');
                 setOpenComposite(true);
+                return;
+            }
+
+            // ✅ Custom edit routes to custom modal
+            if (k === 'CUSTOM') {
+                setEditing(full);
+                setMode('edit');
+                setOpenCustom(true);
                 return;
             }
 
@@ -366,20 +377,33 @@ export default function IndicatorsPage() {
                             Create Final Indicator
                         </Button>
                     )}
+                    {tab === 'custom' && (
+                        <Button size="sm" kind="primary" renderIcon={Add} onClick={() => setOpenCustom(true)}>
+                            Create Custom Indicator
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Tabs */}
             <Tabs
-                selectedIndex={tab === 'base' ? 0 : 1}
-                onChange={({ selectedIndex }) => setTab(selectedIndex === 0 ? 'base' : 'final')}
+                selectedIndex={tab === 'base' ? 0 : tab === 'final' ? 1 : 2}
+                onChange={({ selectedIndex }) => setTab(selectedIndex === 0 ? 'base' : selectedIndex === 1 ? 'final' : 'custom')}
             >
                 <TabList aria-label="Indicator tabs">
                     <Tab>Base Indicators</Tab>
                     <Tab>Final Indicators</Tab>
+                    <Tab>Custom Indicators</Tab>
                 </TabList>
 
                 <TabPanels>
+                    <TabPanel>
+                        {loading ? <InlineLoading description="Loading…" /> : null}
+                        {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
+
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                    </TabPanel>
+
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
@@ -474,6 +498,31 @@ export default function IndicatorsPage() {
                 onClose={() => {
                     setOpenRunPreview(false);
                     setRunPreviewIndicator(null);
+                }}
+            />
+
+            {/* Custom Indicator Modal */}
+            <CreateCustomIndicatorModal
+                open={openCustom}
+                mode={mode}
+                initial={editing}
+                onClose={() => {
+                    setOpenCustom(false);
+                    setEditing(null);
+                    setMode('create');
+                }}
+                onSaved={async () => {
+                    setOpenCustom(false);
+                    setEditing(null);
+                    setMode('create');
+                    const ac = new AbortController();
+                    await load(ac.signal);
+                }}
+                onCreate={async (payload) => {
+                    await createIndicator(payload);
+                }}
+                onUpdate={async (uuid, payload) => {
+                    await updateIndicator(uuid, payload);
                 }}
             />
         </Stack>

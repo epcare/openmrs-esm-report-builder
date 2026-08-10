@@ -56,8 +56,14 @@ export function buildFinalIndicatorSql({ baseIndicator, ageCategoryCode, genders
         return `-- Unable to build final indicator SQL: base indicator does not contain usable count SQL.\n-- Ensure the base indicator has a valid sqlTemplate or configJson.sqlPreview.`;
     }
 
-    // If user unchecks everything, default to both (better UX than returning no rows)
+    // Default to both genders if none selected (for backward compatibility)
+    // TODO: Remove this default in a future version and require explicit gender selection
     const selectedGenders = (genders ?? []).length ? genders : (['F', 'M'] as Array<'F' | 'M'>);
+
+    // Log deprecation warning when defaulting
+    if (!genders || genders.length === 0) {
+        console.warn('[buildFinalIndicatorSql] No genders specified, defaulting to both F and M. This default will be removed in a future version.');
+    }
 
     const gendersCte = buildGenderCte(selectedGenders);
 
@@ -157,15 +163,20 @@ export async function buildFinalIndicatorSqlAsync({
         // If base indicator is composite, use the recursive compiler
         if (baseIndicator.kind === 'COMPOSITE') {
             const result = await compilePopulationSql(baseIndicator, getIndicator, new Set(), compilerOptions);
+
+            // Check for compilation errors
+            if (result.error) {
+                return `-- Error: ${result.error.message}\n-- Base indicator: ${baseIndicator.name} (${baseIndicator.code || baseIndicator.uuid})\n-- Error Code: ${result.error.code}`;
+            }
+
             const populationSql = result.sql;
-            const pidCol = tryGetPatientIdColumnFromConfig(baseIndicator);
 
             // Generate the disaggregation SQL using the compiled population SQL
+            // Note: population SQL is normalized to patient_id, so no need to specify patientIdColumn
             return generateAgeSexDisaggregationSql({
                 populationSql,
                 ageCategoryCode,
-                genders,
-                patientIdColumn: pidCol
+                genders
             });
         }
 

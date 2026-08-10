@@ -8,13 +8,11 @@ type ReportRequest = {
   uuid: string;
   startDate: string;
   endDate: string;
-  type: string;
+  renderType?: string;
   reportCategory?: {
     category: ReportCategory;
     renderType?: RenderType;
   };
-  reportIndicators?: Array<Indicator>;
-  reportType: ReportType;
   reportingCohort?: CQIReportingCohort;
   parameters?: Record<string, any>;
 };
@@ -80,61 +78,35 @@ type ReportCategoryResponse = {
 };
 
 export async function getReport(params: ReportRequest, signal?: AbortSignal) {
-  if (params.reportType === "fixed") {
-    const query = new URLSearchParams({
-      startDate: params.startDate,
-      endDate: params.endDate,
-      uuid: params.uuid,
-    });
+  const query = new URLSearchParams({
+    startDate: params.startDate,
+    endDate: params.endDate,
+    uuid: params.uuid,
+  });
 
-    if (params.reportCategory?.category === "cqi" && params.reportingCohort) {
-      query.set("cohortList", params.reportingCohort);
-    }
-
-    if (params.reportCategory?.renderType) {
-      query.set("renderType", params.reportCategory.renderType);
-    }
-
-    // Add dynamic parameters to query string (for linelist reports with parameters)
-    if (params.parameters) {
-      Object.entries(params.parameters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          query.set(key, String(value));
-        }
-      });
-    }
-
-    return openmrsFetch(
-      `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
-      { signal },
-    );
+  // Use renderType from params if provided, otherwise from reportCategory
+  const renderType = params.renderType || params.reportCategory?.renderType;
+  if (renderType) {
+    query.set("renderType", renderType);
   }
 
-  const columns =
-    params.reportIndicators?.length
-      ? formatReportArray(params.reportIndicators)
-      : [];
+  if (params.reportCategory?.category === "cqi" && params.reportingCohort) {
+    query.set("cohortList", params.reportingCohort);
+  }
 
-  return openmrsFetch(`${restBaseUrl}/reportbuilder/dataExport`, {
-    method: "POST",
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: {
-      cohort: {
-        type: params.type,
-        uuid: params.uuid,
-        name: "",
-        description: "",
-        parameters: [
-          { startDate: params.startDate },
-          { endDate: params.endDate },
-        ],
-      },
-      columns,
-    },
-  });
+  // Add dynamic parameters to query string (for reports with parameters)
+  if (params.parameters) {
+    Object.entries(params.parameters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.set(key, String(value));
+      }
+    });
+  }
+
+  return openmrsFetch(
+    `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
+    { signal },
+  );
 }
 
 export function downloadReport(params: ReportDownloadParams) {

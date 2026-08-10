@@ -5,7 +5,7 @@ import type { DataThemeConfig, ThemeCondition } from './data-theme-config.types'
  * Keep it flexible because you already have a backend model.
  */
 
-export type IndicatorKind = 'BASE' | 'FINAL';
+export type IndicatorKind = 'BASE' | 'FINAL' | 'CUSTOM';
 
 export type IndicatorConditionValue =
     | string

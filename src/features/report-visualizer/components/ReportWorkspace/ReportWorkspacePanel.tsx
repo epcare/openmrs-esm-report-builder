@@ -13,6 +13,7 @@ import styles from '../../report-visualizer.scss';
 
 import ReportWorkspaceHeader from './ReportWorkspaceHeader';
 import ReportSummary from './ReportSummary';
+import ReportLayer from './ReportLayer';
 import { ReportTable } from '../TableView';
 import type { ReportLibraryItem, ReportCapabilities, ReportViewType } from '../../types';
 
@@ -36,7 +37,7 @@ const ReportWorkspacePanel: React.FC<ReportWorkspacePanelProps> = ({
   reportResults,
   runningReport,
   htmlContent,
-  activeView = 'TABLE',
+  activeView = 'REPORT_LAYOUT',
   onViewChange,
   capabilities = {
     table: true,
@@ -219,14 +220,7 @@ const ReportWorkspacePanel: React.FC<ReportWorkspacePanelProps> = ({
             )}
 
             {activeView === 'REPORT_LAYOUT' && htmlContent && (
-              <div
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
-                style={{
-                  width: '100%',
-                  overflow: 'auto',
-                  maxHeight: 'calc(100vh - 300px)',
-                }}
-              />
+              <ReportLayer htmlContent={htmlContent} reportName={selectedReport.name} />
             )}
 
             {activeView === 'REPORT_LAYOUT' && !htmlContent && reportResults?.data && (

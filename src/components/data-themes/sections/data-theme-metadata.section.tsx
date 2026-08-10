@@ -11,7 +11,7 @@ import {
 
 import { themeIconOptions, type ThemeIconKey, getThemeIcon } from '../icon-registry';
 
-export type AllowedIndicatorKind = 'BASE' | 'FINAL';
+export type AllowedIndicatorKind = 'BASE' | 'FINAL' | 'CUSTOM';
 
 export type DataThemeMeta = {
     icon: string;

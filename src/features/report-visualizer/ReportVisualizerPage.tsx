@@ -63,7 +63,7 @@ const ReportVisualizerPage: React.FC = () => {
   const [selectedReportUuid, setSelectedReportUuid] = useState<string | undefined>();
 
   // ===== VIEW STATE =====
-  const [activeView, setActiveView] = useState<ReportViewType>('TABLE');
+  const [activeView, setActiveView] = useState<ReportViewType>('REPORT_LAYOUT');
 
   // ===== REPORT EXECUTION STATE =====
   const [runningReport, setRunningReport] = useState(false);
@@ -225,23 +225,12 @@ const ReportVisualizerPage: React.FC = () => {
       // Get the report UUID (use reportDefinitionUuid if available, otherwise use uuid)
       const reportUuid = selectedReport.reportDefinitionUuid || selectedReport.reportBuilderReportUuid || selectedReport.uuid;
 
-      // Determine report type based on reportType field
-      const reportType = selectedReport.reportType === 'LINE_LIST' || selectedReport.reportType === 'linelist' || selectedReport.reportType === 'linelistDataSet'
-        ? 'fixed'
-        : 'custom';
-
-      console.log('Report type detection:', {
-        reportType: selectedReport.reportType,
-        determinedAs: reportType,
-        selectedReport
-      });
-
       // Build request parameters
       const requestParams: any = {
         uuid: reportUuid,
         startDate: parameterValues.startDate || formatDate(new Date()),
         endDate: parameterValues.endDate || formatDate(new Date()),
-        reportType,
+        renderType: 'html',
         parameters: parameterValues,
       };
 
@@ -255,117 +244,29 @@ const ReportVisualizerPage: React.FC = () => {
         const reportData = response.data;
 
         console.log('Report response data:', reportData);
-        console.log('Report type:', reportType);
-        console.log('Has linelistDataSet:', !!reportData.linelistDataSet);
-        console.log('Has _html:', !!reportData._html);
-        console.log('Has results:', !!reportData.results);
 
-        // Handle different response formats
-        if (reportType === 'fixed') {
-          // Handle fixed format (linelist reports, etc.)
-
-          // Check for linelistDataSet first (preferred for tabular data)
-          if (reportData.linelistDataSet && Array.isArray(reportData.linelistDataSet) && reportData.linelistDataSet.length > 0) {
-            const data = reportData.linelistDataSet;
-            const columns = Object.keys(data[0] || {});
-
-            console.log('Parsing linelistDataSet:', {
-              dataLength: data.length,
-              columns,
-              firstRow: data[0],
-            });
-
-            setReportResults({
-              rowCount: data.length,
-              generatedTime: new Date().toISOString(),
-              parameters: parameterValues,
-              columns,
-              data,
-            });
-
-            // Also set HTML if available for report layout view
-            if (reportData._html && reportData._html.length > 0) {
-              setHTML(reportData._html[0].html || '');
-            }
-            if (reportData.json) {
-              setDhisJson(reportData.json);
-            }
-
-            console.log('Report results state updated with linelistDataSet data');
-          }
-          // Fall back to HTML format
-          else if (reportData._html && reportData._html.length > 0) {
-            // Linelist HTML format
-            setHTML(reportData._html[0].html || '');
-            setDhisJson(reportData.json || {});
-
-            // Try to parse results from other possible locations
-            let tableData = null;
-            let columns = [];
-
-            // Check for results array
-            if (reportData.results && Array.isArray(reportData.results)) {
-              tableData = reportData.results;
-              columns = tableData.length > 0 ? Object.keys(tableData[0]) : [];
-            }
-            // Check for nested report name keys
-            else {
-              const responseReportName = Object.keys(reportData).find(key =>
-                !['html', '_html', 'json', 'rowCount', 'results', 'linelistDataSet'].includes(key)
-              );
-              if (responseReportName && Array.isArray(reportData[responseReportName]) && reportData[responseReportName].length > 0) {
-                tableData = reportData[responseReportName];
-                columns = Object.keys(tableData[0]);
-              }
-            }
-
-            setReportResults({
-              rowCount: tableData ? tableData.length : (reportData.rowCount || 0),
-              generatedTime: new Date().toISOString(),
-              parameters: parameterValues,
-              data: tableData || [],
-              columns,
-            });
-          }
-          else if (reportData.html) {
-            // Aggregate report HTML format
-            setHTML(reportData.html || '');
-            setDhisJson(reportData.json || {});
-            setReportResults({
-              rowCount: 0,
-              generatedTime: new Date().toISOString(),
-              parameters: parameterValues,
-            });
-          }
-          else {
-            // Parse tabular data from unknown format
-            const responseReportName = Object.keys(reportData).find(key =>
-              !['html', '_html', 'json', 'rowCount', 'results', 'linelistDataSet'].includes(key)
-            );
-            if (responseReportName && Array.isArray(reportData[responseReportName]) && reportData[responseReportName].length > 0) {
-              const columns = Object.keys(reportData[responseReportName][0]);
-              const data = reportData[responseReportName];
-              setReportResults({
-                rowCount: data.length,
-                generatedTime: new Date().toISOString(),
-                parameters: parameterValues,
-                columns,
-                data,
-              });
-            }
-          }
-        } else {
-          // Handle custom format (dataExport)
-          if (reportData.results) {
-            setReportResults({
-              rowCount: reportData.results.length,
-              generatedTime: new Date().toISOString(),
-              parameters: parameterValues,
-              data: reportData.results,
-              columns: Object.keys(reportData.results[0] || {}),
-            });
-          }
+        // Use HTML returned by backend (all report types return HTML)
+        // Backend handles design-based rendering for each report type
+        if (reportData._html && reportData._html.length > 0) {
+          setHTML(reportData._html[0].html || '');
+        } else if (reportData.html) {
+          setHTML(reportData.html || '');
         }
+
+        // Set DHIS2 JSON if available
+        if (reportData.json) {
+          setDhisJson(reportData.json);
+        }
+
+        // TODO: Future - parse tabular data based on report design interpreter
+        // For now, reports are rendered via HTML only
+        setReportResults({
+          rowCount: 0,
+          generatedTime: new Date().toISOString(),
+          parameters: parameterValues,
+        });
+
+        console.log('Report HTML content set');
 
         showToast({
           title: 'Report executed successfully',
