@@ -93,7 +93,7 @@ export function buildSectionDisaggregationSql(args: {
             // Apply section disaggregation using the query interpreter
             return customIndicatorInterpreter.applyDisaggregation(
                 extractionResult.sql,
-                { ageCategoryCode, genders: genders || ['F', 'M'] },
+                { ageCategoryCode, genders: genders ?? [] },
                 customConfig || undefined
             );
         }
@@ -108,17 +108,15 @@ export function buildSectionDisaggregationSql(args: {
         return `-- Error: Cannot use sync version for COMPOSITE indicator ${indicator.code || indicator.uuid}.\n-- Use buildSectionDisaggregationSqlAsync for composite indicators.\n-- This synchronous version cannot recursively compile composite indicators.`;
     }
 
-    // Default to both genders if none selected (for backward compatibility)
-    // TODO: Remove this default in a future version and require explicit gender selection
-    const selectedGenders = (genders ?? []).length ? genders : (['F', 'M'] as Array<'F' | 'M'>);
-
-    // Log deprecation warning when defaulting
-    if (!genders || genders.length === 0) {
-        console.warn('[buildSectionDisaggregationSql] No genders specified, defaulting to both F and M. This default will be removed in a future version.');
-    }
+    // genders is required - must be explicitly provided by caller
+    const selectedGenders = genders ?? [];
 
     const escapedCode = escapeSql(ageCategoryCode);
-    const genderList = selectedGenders.map((g) => `'${g}'`).join(',');
+
+    // Build gender list - if empty, don't add gender filter
+    const genderList = selectedGenders.length > 0
+        ? selectedGenders.map((g) => `'${g}'`).join(',')
+        : null;
 
     // Get patient ID column from theme config
     const pidCol = tryGetPatientIdColumnFromConfig(indicator);
@@ -148,8 +146,9 @@ ag AS (
     AND ag.is_active = 1
 ),
 genders AS (
-  SELECT 'F' AS gender
-  UNION ALL SELECT 'M' AS gender
+  ${genderList
+    ? `SELECT DISTINCT gender\n    FROM (VALUES ${genderList.split(',').map(g => `('${g}')`).join(', ')}) AS genders(gender)`
+    : `SELECT DISTINCT gender\n    FROM mamba_fact_patients_latest_patient_demographics\n    WHERE gender IS NOT NULL`}
 ),
 cnt AS (
   SELECT
@@ -164,7 +163,7 @@ cnt AS (
        BETWEEN ag.min_age_days AND ag.max_age_days
   WHERE mdp.birthdate IS NOT NULL
     AND mdp.gender IS NOT NULL
-    AND mdp.gender IN (${genderList})
+    ${genderList ? `AND mdp.gender IN (${genderList})` : ''}
   GROUP BY ag.age_group_id, mdp.gender
 )
 SELECT
@@ -308,7 +307,7 @@ export async function buildSectionDisaggregationSqlAsync({
                 // Apply section disaggregation using the query interpreter
                 const sql = customIndicatorInterpreter.applyDisaggregation(
                     extractionResult.sql,
-                    { ageCategoryCode, genders: genders || ['F', 'M'] },
+                    { ageCategoryCode, genders: genders ?? [] },
                     customConfig || undefined
                 );
                 console.log('✅ [CUSTOM] Successfully generated disaggregation SQL, length:', sql.length);
@@ -379,6 +378,40 @@ export async function buildSectionDisaggregationSqlAsync({
 }
 
 /**
+ * Match a balanced parenthesis group in SQL
+ * Handles nested subqueries by counting opening/closing parens
+ *
+ * @param sql - SQL string to match
+ * @param startIndex - Index to start matching from (after opening paren)
+ * @returns Object with matched text and end index, or null if no match
+ */
+function matchBalancedParens(sql: string, startIndex: number): { text: string; endIndex: number } | null {
+    let depth = 1;
+    let i = startIndex;
+    const len = sql.length;
+
+    while (i < len && depth > 0) {
+        const char = sql[i];
+        if (char === '(') {
+            depth++;
+        } else if (char === ')') {
+            depth--;
+        }
+        i++;
+    }
+
+    if (depth !== 0) {
+        // Unbalanced parentheses
+        return null;
+    }
+
+    return {
+        text: sql.substring(startIndex, i - 1),
+        endIndex: i
+    };
+}
+
+/**
  * Extract the inner population SQL from a complex indicator.
  * Complex indicators have the structure:
  * SELECT COUNT(DISTINCT id) FROM (population_query_with_joins) alias
@@ -390,53 +423,93 @@ function extractPopulationSqlFromComplexIndicator(sql: string): string | null {
 
     // Pattern 1: COUNT DISTINCT with FROM subquery that has JOINs and WHERE
     // SELECT COUNT(DISTINCT a.client_id) FROM (SELECT ...) a LEFT JOIN ... WHERE ...
-    const countDistinctFromPattern = /SELECT\s+COUNT\s*\(\s*DISTINCT\s+\w+\.?\w*\s*\)\s*FROM\s*\(\s*(SELECT[\s\S]*?)\s*\)\s*(\w+)\s*([\s\S]*)/;
+    // Use balanced parenthesis matching to handle nested subqueries
+    const countDistinctFromPattern = /SELECT\s+COUNT\s*\(\s*DISTINCT\s+\w+\.?\w*\s*\)\s*FROM\s*\(\s*SELECT/i;
     const countDistinctMatch = sql.match(countDistinctFromPattern);
 
-    if (countDistinctMatch && countDistinctMatch[1]) {
-        const populationSql = countDistinctMatch[1].trim();
-        const alias = countDistinctMatch[2];
-        const restOfQuery = countDistinctMatch[3] || '';
+    if (countDistinctMatch) {
+        // Find the position after "FROM (SELECT"
+        const afterFromIndex = countDistinctMatch.index + countDistinctMatch[0].length;
 
-        // Check if the inner query has GROUP BY client_id or similar
-        if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
-            // Build the full population query including JOINs and WHERE
-            // Replace the alias references in JOINs and WHERE with the actual table
-            let fullPopulationSql = `SELECT DISTINCT ${alias}.client_id AS patient_id\nFROM (\n  ${indent(populationSql, 2)}\n) ${alias}\n${restOfQuery.trim()}`;
+        // Use balanced parenthesis matching to get the complete inner query
+        const balancedMatch = matchBalancedParens(sql, afterFromIndex);
 
-            // Fix column references in rest of query
-            fullPopulationSql = fullPopulationSql.replace(new RegExp(`${alias}\\.client_id`, 'g'), 'patient_id');
+        if (balancedMatch) {
+            const populationSql = `SELECT${balancedMatch.text}`.trim();
+            const afterInnerQuery = balancedMatch.endIndex;
 
-            return fullPopulationSql;
+            // Extract the outer alias (should be right after the closing paren)
+            const aliasPattern = /\s*(\w+)\s*([\s\S]*)/;
+            const aliasMatch = sql.substring(afterInnerQuery).match(aliasPattern);
+
+            if (aliasMatch) {
+                const alias = aliasMatch[1];
+                const restOfQuery = aliasMatch[2] || '';
+
+                // Check if the inner query has GROUP BY client_id or similar
+                if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
+                    // Build the full population query including JOINs and WHERE
+                    // Replace the alias references in JOINs and WHERE with the actual table
+                    let fullPopulationSql = `SELECT DISTINCT ${alias}.client_id AS patient_id\nFROM (\n  ${indent(populationSql, 2)}\n) ${alias}\n${restOfQuery.trim()}`;
+
+                    // Fix column references in rest of query
+                    fullPopulationSql = fullPopulationSql.replace(new RegExp(`${alias}\\.client_id`, 'g'), 'patient_id');
+
+                    return fullPopulationSql;
+                }
+            }
         }
     }
 
     // Pattern 2: Simple FROM subquery (for backward compatibility)
     // FROM (SELECT ... GROUP BY client_id) alias
-    const fromSubqueryPattern = /FROM\s*\(\s*(SELECT[\s\S]*?)\s*\)\s*(\w+)\s*(?:WHERE|GROUP BY|ORDER BY|HAVING|$)/i;
+    const fromSubqueryPattern = /FROM\s*\(\s*SELECT/i;
     const fromMatch = sql.match(fromSubqueryPattern);
 
-    if (fromMatch && fromMatch[1]) {
-        const populationSql = fromMatch[1].trim();
+    if (fromMatch) {
+        // Find the position after "FROM (SELECT"
+        const afterFromIndex = fromMatch.index + fromMatch[0].length;
 
-        // Check if it has GROUP BY client_id or similar
-        if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
-            // This looks like a valid population query
-            return populationSql;
+        // Use balanced parenthesis matching to get the complete inner query
+        const balancedMatch = matchBalancedParens(sql, afterFromIndex);
+
+        if (balancedMatch) {
+            const populationSql = `SELECT${balancedMatch.text}`.trim();
+            const afterInnerQuery = balancedMatch.endIndex;
+
+            // Extract the outer alias (should be right after the closing paren)
+            const aliasPattern = /\s*(\w+)\s*(?:WHERE|GROUP BY|ORDER BY|HAVING|$)/i;
+            const aliasMatch = sql.substring(afterInnerQuery).match(aliasPattern);
+
+            if (aliasMatch) {
+                // Check if it has GROUP BY client_id or similar
+                if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
+                    // This looks like a valid population query
+                    return populationSql;
+                }
+            }
         }
     }
 
     // Pattern 3: Find first WITH clause that looks like population data
     // WITH base_pop AS (SELECT disaggregation, COUNT(*) FROM (population_query) ...)
-    const withPattern = /WITH\s+\w+\s+AS\s*\(\s*SELECT[\s\S]*?FROM\s*\(\s*(SELECT[\s\S]*?)\s*\)\s*\w+\s*WHERE/i;
+    const withPattern = /WITH\s+\w+\s+AS\s*\(\s*SELECT[\s\S]*?FROM\s*\(\s*SELECT/i;
     const withMatch = sql.match(withPattern);
 
-    if (withMatch && withMatch[1]) {
-        const populationSql = withMatch[1].trim();
+    if (withMatch) {
+        // Find the position after the second "FROM (SELECT"
+        const nestedFromIndex = withMatch.index + withMatch[0].length;
 
-        // Check if it has GROUP BY client_id or similar
-        if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
-            return populationSql;
+        // Use balanced parenthesis matching to get the complete inner query
+        const balancedMatch = matchBalancedParens(sql, nestedFromIndex);
+
+        if (balancedMatch) {
+            const populationSql = `SELECT${balancedMatch.text}`.trim();
+
+            // Check if it has GROUP BY client_id or similar
+            if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
+                return populationSql;
+            }
         }
     }
 

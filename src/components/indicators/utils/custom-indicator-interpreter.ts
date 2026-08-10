@@ -158,13 +158,14 @@ export class CustomIndicatorInterpreter {
         });
 
         if (!sql || !sql.trim()) {
-            result.warnings?.push('Empty SQL template');
-            console.error('❌ [Interpreter] Empty SQL provided');
+            result.warnings?.push('CUSTOM_POPULATION_MISSING: Indicator has supportsRedisaggregation=true but no population SQL source');
+            result.warnings?.push('Expected one of: populationSql, sqlTemplate, or sqlPreview in configJson');
+            console.error('❌ [Interpreter] CUSTOM_POPULATION_MISSING: Empty SQL provided');
             return result;
         }
 
         // Decode HTML entities (common in database-stored SQL)
-        const processedSql = sql
+        let processedSql = sql
             .replace(/&amp;lt;/g, '<')
             .replace(/&amp;gt;/g, '>')
             .replace(/&amp;amp;/g, '&')
@@ -174,74 +175,140 @@ export class CustomIndicatorInterpreter {
             .replace(/\\n/g, '\n')
             .trim();
 
-        // Pattern 0: TX-RTT style queries - disaggregated with age_group, sex, COUNT(DISTINCT)
-        // Structure: SELECT ... AS age_group, ... AS sex, COUNT(DISTINCT a.client_id) AS value
-        //            FROM (SELECT client_id, ... FROM ... GROUP BY client_id) a
-        //            [multiple JOINs] WHERE ... GROUP BY age_group, sex
-        const txRttPattern =
-            /SELECT\s+(.+?)\s+AS\s+age_group\s*,\s*(.+?)\s+AS\s+sex\s*,\s*COUNT\s*\(\s*DISTINCT\s+(\w+)\.(\w+)\s*\)\s+AS\s+value\s+FROM\s*\(\s*(SELECT\s+client_id[\s\S]*?)\s*\)\s*(\w+)([\s\S]*?)GROUP\s+BY\s+age_group\s*,\s*sex\s*;?\s*$/i;
-        const txRttMatch = processedSql.match(txRttPattern);
+        // Fix quoted parameters - convert ':parameter' to :parameter
+        // Some legacy SQL uses quotes around named parameters
+        processedSql = processedSql.replace(/':(\w+)'/g, ':$1');
 
-        if (txRttMatch && txRttMatch[5]) {
-            console.log('✅ [Interpreter] Detected TX-RTT style disaggregated query');
-            // Extract matched groups - some are unused but kept for documentation/debugging
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const _ageColumn = txRttMatch[1]; // e.g., 'mda.datim_agegroup'
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const _sexColumn = txRttMatch[2]; // e.g., 'mdp.gender'
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const _tableAlias = txRttMatch[3]; // e.g., 'a'
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const _idColumn = txRttMatch[4]; // e.g., 'client_id'
-            const innerQuery = txRttMatch[5]; // The population subquery
-            const outerAlias = txRttMatch[6]; // e.g., 'a'
-            const restOfQuery = txRttMatch[7]; // JOINs and WHERE
+        // Pattern 0: TX-RTT style with age_group/sex in SELECT, followed by COUNT(DISTINCT)
+        // SELECT ... AS age_group, ... AS sex, COUNT(DISTINCT a.client_id) AS value FROM (...) alias ...
+        // This handles indicators like PWIDS that have additional SELECT columns before the COUNT
+        // Require GROUP BY client_id to avoid stopping at nested function calls like TIMESTAMPDIFF(...)
+        //
+        // We use balanced parenthesis matching to handle nested subqueries correctly
+        const txRttDisaggregatedPattern =
+            /SELECT\s+[\s\S]*?,\s*COUNT\s*\(\s*DISTINCT\s+(\w+)\.(\w+)\s*\)\s*(?:AS\s+\w+)?\s+FROM\s*\(\s*SELECT\s+client_id/i;
+        const txRttDisaggregatedMatch = processedSql.match(txRttDisaggregatedPattern);
 
-            // Extract patient ID column from the inner query
-            result.patientIdColumn = 'client_id';
+        if (txRttDisaggregatedMatch) {
+            console.log('✅ [Pattern 0] Detected TX-RTT disaggregated query with age_group/sex');
+            const columnName = txRttDisaggregatedMatch[2];
 
-            // Build population SQL by using the inner query and all JOINs/WHERE from outer
-            // The key is to preserve all the filtering logic from the outer query
-            // Remove the GROUP BY age_group, sex at the end and keep all JOINs/WHERE
-            const populationQuery = `SELECT DISTINCT ${outerAlias}.client_id AS patient_id
+            // Find the position after "FROM ("
+            const afterFromIndex = txRttDisaggregatedMatch.index + txRttDisaggregatedMatch[0].length;
+
+            // Use balanced parenthesis matching to get the complete inner query
+            const balancedMatch = this.matchBalancedParens(processedSql, afterFromIndex);
+
+            if (balancedMatch) {
+                const innerQuery = `SELECT client_id${balancedMatch.text}`.trim();
+                const afterInnerQuery = balancedMatch.endIndex;
+
+                // Extract the outer alias (should be right after the closing paren)
+                const aliasPattern = /\s*(\w+)([\s\S]*)/i;
+                const aliasMatch = processedSql.substring(afterInnerQuery).match(aliasPattern);
+
+                if (aliasMatch) {
+                    const outerAlias = aliasMatch[1];
+                    const restOfQuery = aliasMatch[2] || '';
+
+                    result.patientIdColumn = (columnName === 'client_id' || columnName === 'patient_id' || columnName === 'person_id')
+                        ? columnName as PatientIdColumn
+                        : 'client_id';
+
+                    // Build population SQL by converting COUNT DISTINCT to SELECT DISTINCT
+                    const cleanedRest = restOfQuery.replace(/GROUP\s+BY\s+[\s\S]*?;?\s*$/i, '').trim();
+
+                    const populationQuery = `SELECT DISTINCT ${outerAlias}.${columnName} AS patient_id
 FROM (
   ${this.indent(innerQuery, 2)}
 ) ${outerAlias}
-${restOfQuery.replace(/GROUP\s+BY\s+age_group\s*,\s*sex\s*;?\s*$/i, '').trim()}`.trim();
+${cleanedRest}`.trim();
 
-            result.sql = populationQuery;
-            result.success = true;
-            result.warnings?.push('Extracted population SQL from TX-RTT style query');
-            console.log('📊 [Interpreter] TX-RTT population SQL length:', populationQuery.length);
-            return result;
+                    result.sql = populationQuery;
+                    result.success = true;
+                    result.warnings?.push('Extracted population SQL from TX-RTT disaggregated query');
+                    console.log('📊 [Pattern 0] Generated population SQL, length:', populationQuery.length);
+                    return result;
+                }
+            }
         }
 
+
         // Pattern 1: COUNT DISTINCT with FROM subquery that has JOINs
-        // SELECT COUNT(DISTINCT a.client_id) FROM (SELECT ...) a LEFT JOIN ... WHERE ...
-        const countDistinctFromPattern =
-            /SELECT\s+COUNT\s*\(\s*DISTINCT\s+(\w+)\.?(\w*)\s*\)\s*FROM\s*\(\s*(SELECT[\s\S]*?)\s*\)\s*(\w+)\s*([\s\S]*)/;
-        const countDistinctMatch = processedSql.match(countDistinctFromPattern);
+        // Handles both:
+        // - SELECT COUNT(DISTINCT a.client_id) FROM (SELECT ...) a
+        // - SELECT 'PWIDS', COUNT(DISTINCT a.client_id) FROM (SELECT ...) a
+        // This is the most common pattern for CUSTOM indicators like TX_RTT, TX_ML
+        //
+        // We use balanced parenthesis matching to handle nested subqueries correctly
+        const countDistinctPattern =
+            /SELECT\s+(?:'[^']+'(?:\s*,\s*)?)?COUNT\s*\(\s*DISTINCT\s+(\w+)\.(\w+)\s*\)\s*(?:AS\s+\w+)?\s*FROM\s*\(\s*/i;
+        const countDistinctMatch = processedSql.match(countDistinctPattern);
 
-        if (countDistinctMatch && countDistinctMatch[3]) {
-            const countColumn = countDistinctMatch[1];
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const tableAlias = countDistinctMatch[2] || countDistinctMatch[4];
-            const innerQuery = countDistinctMatch[3].trim();
-            const outerAlias = countDistinctMatch[4];
-            const restOfQuery = countDistinctMatch[5] || '';
+        if (countDistinctMatch) {
+            const tableAlias = countDistinctMatch[1];
+            const columnName = countDistinctMatch[2];
 
-            // Check if inner query has GROUP BY client_id or similar
-            if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(innerQuery)) {
-                // Extract patient ID column
-                const patientIdMatch = innerQuery.match(/GROUP\s+BY\s+(client_id|patient_id|person_id)/i);
-                if (patientIdMatch) {
-                    result.patientIdColumn = patientIdMatch[1] as PatientIdColumn;
+            // Find the position after "FROM ("
+            const afterFromIndex = countDistinctMatch.index + countDistinctMatch[0].length;
+
+            // Use balanced parenthesis matching to get the complete inner query
+            const balancedMatch = this.matchBalancedParens(processedSql, afterFromIndex);
+
+            if (balancedMatch) {
+                const innerQuery = balancedMatch.text.trim();
+                const afterInnerQuery = balancedMatch.endIndex;
+
+                // Extract the outer alias (should be right after the closing paren)
+                const aliasPattern = /\s*(\w+)([\s\S]*)/i;
+                const aliasMatch = processedSql.substring(afterInnerQuery).match(aliasPattern);
+
+                if (aliasMatch) {
+                    const outerAlias = aliasMatch[1];
+                    const restOfQuery = aliasMatch[2] || '';
+
+                    console.log('🔍 [Pattern 1] COUNT DISTINCT matched:', {
+                        tableAlias,
+                        columnName,
+                        outerAlias,
+                        hasInnerQuery: !!innerQuery,
+                        innerQueryLength: innerQuery.length,
+                        restLength: restOfQuery.length
+                    });
+
+                    // Determine the patient ID column from the COUNT expression
+                    // This normalizes client_id/patient_id/person_id to a standard patient_id
+                    result.patientIdColumn = (columnName === 'client_id' || columnName === 'patient_id' || columnName === 'person_id')
+                        ? columnName as PatientIdColumn
+                        : 'client_id';
+
+                    // Build population SQL by converting COUNT DISTINCT to SELECT DISTINCT
+                    // We preserve ALL the business logic:
+                    // 1. The inner query (derived table) with all its logic
+                    // 2. All JOINs from the outer query
+                    // 3. All WHERE conditions from the outer query
+                    //
+                    // The only thing we change is the outer projection:
+                    // FROM: SELECT COUNT(DISTINCT a.client_id)
+                    // TO:   SELECT DISTINCT a.client_id AS patient_id
+                    //
+                    // This ensures we get patient-level rows, not a scalar count
+
+                    // Remove trailing GROUP BY if present (legacy artifacts)
+                    const cleanedRest = restOfQuery.replace(/GROUP\s+BY\s+[\s\S]*?;?\s*$/i, '').trim();
+
+                    const populationQuery = `SELECT DISTINCT ${outerAlias}.${columnName} AS patient_id
+FROM (
+  ${this.indent(innerQuery, 2)}
+) ${outerAlias}
+${cleanedRest}`.trim();
+
+                    result.sql = populationQuery;
+                    result.success = true;
+                    result.warnings?.push('Extracted population SQL from COUNT DISTINCT query');
+                    console.log('✅ [Pattern 1] Generated population SQL, length:', populationQuery.length);
+                    return result;
                 }
-
-                // Build population SQL preserving JOINs and WHERE
-                result.sql = `SELECT DISTINCT ${outerAlias}.${countColumn} AS ${result.patientIdColumn || 'patient_id'}\nFROM (\n  ${this.indent(innerQuery, 2)}\n) ${outerAlias}\n${restOfQuery.trim()}`;
-                result.success = true;
-                return result;
             }
         }
 
@@ -287,59 +354,103 @@ ${restOfQuery.replace(/GROUP\s+BY\s+age_group\s*,\s*sex\s*;?\s*$/i, '').trim()}`
         }
 
         // Pattern 3: Already-disaggregated query with age_group/sex and COUNT
-        // SELECT ... AS age_group, ... AS sex, COUNT(...) FROM (subquery) a ... GROUP BY age_group, sex
+        // SELECT ... AS age_group, ... AS sex, COUNT(...) AS value FROM (subquery) a ... GROUP BY age_group, sex
+        // Use balanced parenthesis matching to handle nested subqueries
         const alreadyDisaggPattern =
-            /SELECT\s+[\s\S]*?AS\s+age_group[\s\S]*?AS\s+(?:sex|gender)[\s\S]*?COUNT\s*\([\s\S]*?\)\s+FROM\s*\(\s*([\s\S]*?)\s*\)\s*(\w+)([\s\S]*?)GROUP\s+BY\s+(?:age_group|months|lost)[\s\S]*?,\s*(?:sex|gender)/i;
+            /SELECT\s+[\s\S]*?AS\s+age_group[\s\S]*?AS\s+(?:sex|gender)[\s\S]*?COUNT\s*\([\s\S]*?\)\s*(?:AS\s+\w+)?\s+FROM\s*\(\s*/i;
         const alreadyDisaggMatch = processedSql.match(alreadyDisaggPattern);
 
-        if (alreadyDisaggMatch && alreadyDisaggMatch[1]) {
+        if (alreadyDisaggMatch) {
             console.log('✅ [Interpreter] Detected already-disaggregated query, extracting population SQL');
-            const innerQuery = alreadyDisaggMatch[1].trim();
-            const outerAlias = alreadyDisaggMatch[2];
-            const restOfQuery = alreadyDisaggMatch[3] || '';
 
-            // Try to find patient_id column in the inner query
-            const patientIdMatch = innerQuery.match(/(?:FROM|JOIN)\s+(\w+)\.(?:\w+)?\s+(?:\w+)\s+ON|(?:\w+\.)?(client_id|patient_id|person_id)/i);
-            const patientIdColumn = patientIdMatch ? (patientIdMatch[1] || patientIdMatch[2]) as PatientIdColumn : 'client_id';
+            // Find the position after "FROM ("
+            const afterFromIndex = alreadyDisaggMatch.index + alreadyDisaggMatch[0].length;
 
-            result.patientIdColumn = patientIdColumn;
-            // Reconstruct the population query including the JOINs and WHERE conditions
-            result.sql = `SELECT DISTINCT ${outerAlias}.${patientIdColumn} AS patient_id\nFROM (\n  ${this.indent(innerQuery, 2)}\n) ${outerAlias}${restOfQuery.trim()}`.replace(/GROUP\s+BY\s+[\s\S]*?;/i, ';');
-            result.success = true;
-            result.warnings?.push('Extracted population SQL from already-disaggregated query');
-            return result;
+            // Use balanced parenthesis matching to get the complete inner query
+            const balancedMatch = this.matchBalancedParens(processedSql, afterFromIndex);
+
+            if (balancedMatch) {
+                const innerQuery = balancedMatch.text.trim();
+                const afterInnerQuery = balancedMatch.endIndex;
+
+                // Extract the outer alias (should be right after the closing paren)
+                const aliasPattern = /\s*(\w+)([\s\S]*?)GROUP\s+BY\s+(?:age_group|months|lost)[\s\S]*?,\s*(?:sex|gender)/i;
+                const aliasMatch = processedSql.substring(afterInnerQuery).match(aliasPattern);
+
+                if (aliasMatch) {
+                    const outerAlias = aliasMatch[1];
+                    const restOfQuery = aliasMatch[2] || '';
+
+                    // Try to find patient_id column in the inner query
+                    const patientIdMatch = innerQuery.match(/(?:FROM|JOIN)\s+(\w+)\.(?:\w+)?\s+(?:\w+)\s+ON|(?:\w+\.)?(client_id|patient_id|person_id)/i);
+                    const patientIdColumn = patientIdMatch ? (patientIdMatch[1] || patientIdMatch[2]) as PatientIdColumn : 'client_id';
+
+                    result.patientIdColumn = patientIdColumn;
+                    // Reconstruct the population query including the JOINs and WHERE conditions
+                    result.sql = `SELECT DISTINCT ${outerAlias}.${patientIdColumn} AS patient_id\nFROM (\n  ${this.indent(innerQuery, 2)}\n) ${outerAlias}${restOfQuery.trim()}`.replace(/GROUP\s+BY\s+[\s\S]*?;/i, ';');
+                    result.success = true;
+                    result.warnings?.push('Extracted population SQL from already-disaggregated query');
+                    return result;
+                }
+            }
         }
 
         // Pattern 4: Complex WITH clause with built-in disaggregation
         // WITH base_pop AS (SELECT age_group, sex, COUNT(*) FROM (population_query) ...)
+        // Use balanced parenthesis matching to handle nested subqueries
         const complexWithPattern =
-            /WITH\s+\w+\s+AS\s*\(\s*SELECT\s+[\s\S]*?FROM\s*\(\s*(SELECT[\s\S]*?)\s*\)\s*(\w+)\s*WHERE/i;
+            /WITH\s+\w+\s+AS\s*\(\s*SELECT\s+[\s\S]*?FROM\s*\(\s*/i;
         const withMatch = processedSql.match(complexWithPattern);
 
-        if (withMatch && withMatch[1]) {
-            const populationSql = withMatch[1].trim();
+        if (withMatch) {
+            // Find the position after "FROM ("
+            const afterFromIndex = withMatch.index + withMatch[0].length;
 
-            if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
-                const patientIdMatch = populationSql.match(/GROUP\s+BY\s+(client_id|patient_id|person_id)/i);
-                if (patientIdMatch) {
-                    result.patientIdColumn = patientIdMatch[1] as PatientIdColumn;
+            // Use balanced parenthesis matching to get the complete inner query
+            const balancedMatch = this.matchBalancedParens(processedSql, afterFromIndex);
+
+            if (balancedMatch) {
+                const populationSql = balancedMatch.text.trim();
+
+                if (/GROUP\s+BY\s+(client_id|patient_id|person_id)/i.test(populationSql)) {
+                    const patientIdMatch = populationSql.match(/GROUP\s+BY\s+(client_id|patient_id|person_id)/i);
+                    if (patientIdMatch) {
+                        result.patientIdColumn = patientIdMatch[1] as PatientIdColumn;
+                    }
+
+                    result.sql = populationSql;
+                    result.success = true;
+                    result.warnings?.push('Extracted population SQL from complex WITH clause');
+                    return result;
                 }
-
-                result.sql = populationSql;
-                result.success = true;
-                result.warnings?.push('Extracted population SQL from complex WITH clause');
-                return result;
             }
         }
 
-        // Pattern 4: Simple COUNT query
+        // Pattern 5: Simple COUNT query without recognizable structure
         if (/SELECT\s+COUNT\s*\(/i.test(processedSql)) {
-            result.warnings?.push('Query is a simple COUNT without clear population structure');
-            result.sql = processedSql; // Return as-is for processing by other methods
+            result.warnings?.push('CUSTOM_POPULATION_AGGREGATED: SQL returns COUNT(...) instead of patient-level rows');
+            result.warnings?.push('The indicator SQL is a metric query, not a population query.');
+            result.warnings?.push('Expected: SELECT DISTINCT patient_id FROM ...');
+            result.warnings?.push('Got: SELECT COUNT(...) FROM ...');
+            result.warnings?.push('To fix: Add explicit populationSql to the indicator configuration, or modify the SQL to return patient-level rows.');
             return result;
         }
 
-        result.warnings?.push('Could not extract population SQL - unclear query structure');
+        // No pattern matched - return structured error
+        result.warnings?.push('CUSTOM_SQL_EXTRACTION_FAILED: Unable to safely derive population SQL from CUSTOM indicator SQL');
+        result.warnings?.push('The SQL structure is not recognized as a valid population query.');
+        result.warnings?.push('Expected patterns:');
+        result.warnings?.push('  - SELECT COUNT(DISTINCT table.column) FROM (...) alias ...');
+        result.warnings?.push('  - SELECT DISTINCT table.column AS patient_id FROM ...');
+        result.warnings?.push('  - Already-disaggregated query with age_group/sex');
+        result.warnings?.push('');
+        result.warnings?.push('To fix this issue:');
+        result.warnings?.push('  1. Add explicit populationSql to the indicator configJson:');
+        result.warnings?.push('     {"populationSql": "SELECT DISTINCT a.client_id AS patient_id FROM ..."}');
+        result.warnings?.push('  2. Ensure the SQL follows one of the recognized patterns above');
+        result.warnings?.push('  3. Contact administrator if the SQL structure is correct but not recognized');
+
+        console.error('❌ [Interpreter] No matching pattern for SQL extraction');
         return result;
     }
 
@@ -357,7 +468,39 @@ ${restOfQuery.replace(/GROUP\s+BY\s+age_group\s*,\s*sex\s*;?\s*$/i, '').trim()}`
         config?: CustomIndicatorConfig
     ): string {
         if (!sql || !sql.trim()) {
-            return '-- Error: Empty population SQL provided for disaggregation';
+            return `-- Error: CUSTOM_POPULATION_EMPTY
+-- Empty population SQL provided for disaggregation.
+-- Ensure the indicator has a valid population query.`;
+        }
+
+        // Validation: Check if SQL is already a scalar metric (not a population query)
+        if (/SELECT\s+COUNT\s*\(/i.test(sql) && !/SELECT\s+DISTINCT/i.test(sql)) {
+            return `-- Error: CUSTOM_POPULATION_AGGREGATED
+-- The provided SQL is a metric query (COUNT), not a population query.
+-- Section disaggregation requires patient-level rows.
+-- Expected: SELECT DISTINCT patient_id FROM ...
+-- Got: ${sql.substring(0, 100)}...`;
+        }
+
+        // Validation: Check if SQL is already disaggregated (contains age_group in projection)
+        // This must come before the patient_id check to properly reject queries like:
+        // SELECT age_group, gender, COUNT(*) FROM ... GROUP BY age_group, gender
+        if (/SELECT\s+.*?AS\s+age_group.*?FROM/i.test(sql)) {
+            return `-- Error: CUSTOM_ALREADY_DISAGGREGATED
+-- Population SQL contains age_group disaggregation.
+-- Section disaggregation requires raw patient-level population without age/gender.
+-- Remove age_group, sex, or gender columns from the population query projection.`;
+        }
+
+        // Validation: Check if SQL exposes patient_id column
+        const hasPatientId = /patient_id\s*(?:AS|FROM|$)/i.test(sql) ||
+                             /(?:client_id|person_id)\s+AS\s+patient_id/i.test(sql);
+
+        if (!hasPatientId) {
+            return `-- Error: CUSTOM_PATIENT_ID_MISSING
+-- Population SQL does not expose the required patient_id column.
+-- Expected: SELECT DISTINCT ... AS patient_id FROM ...
+-- Got: ${sql.substring(0, 100)}...`;
         }
 
         // Remove trailing semicolons - they cause "Multiple statements" errors when used in CTEs
@@ -501,6 +644,40 @@ ORDER BY ag.sort_order, g.gender;`.trim();
         // Return the most common patient ID column
         const mostCommon = counts.sort((a, b) => b.count - a.count)[0];
         return mostCommon.count > 0 ? mostCommon.column : 'client_id';
+    }
+
+    /**
+     * Match a balanced parenthesis group in SQL
+     * Handles nested subqueries by counting opening/closing parens
+     *
+     * @param sql - SQL string to match
+     * @param startIndex - Index to start matching from (after opening paren)
+     * @returns Object with matched text and end index, or null if no match
+     */
+    private matchBalancedParens(sql: string, startIndex: number): { text: string; endIndex: number } | null {
+        let depth = 1;
+        let i = startIndex;
+        const len = sql.length;
+
+        while (i < len && depth > 0) {
+            const char = sql[i];
+            if (char === '(') {
+                depth++;
+            } else if (char === ')') {
+                depth--;
+            }
+            i++;
+        }
+
+        if (depth !== 0) {
+            // Unbalanced parentheses
+            return null;
+        }
+
+        return {
+            text: sql.substring(startIndex, i - 1),
+            endIndex: i
+        };
     }
 
     /**

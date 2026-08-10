@@ -417,18 +417,18 @@ const ReportDashboardPage: React.FC = () => {
                           <TableCell>
                             <Tag
                               type={
-                                (report as any).compileStatus === 'COMPILED'
+                                (report as any)?.compileStatus === 'COMPILED'
                                   ? 'green'
-                                  : (report as any).compileStatus === 'PENDING'
+                                  : (report as any)?.compileStatus === 'PENDING'
                                     ? 'cyan'
                                     : 'gray'
                               }
                             >
-                              {(report as any).compileStatus || 'Unknown'}
+                              {(report as any)?.compileStatus || 'Unknown'}
                             </Tag>
                           </TableCell>
                           <TableCell>
-                            {(report as any).lastCompiledAt
+                            {(report as any)?.lastCompiledAt
                               ? new Date((report as any).lastCompiledAt).toLocaleDateString()
                               : '—'}
                           </TableCell>
