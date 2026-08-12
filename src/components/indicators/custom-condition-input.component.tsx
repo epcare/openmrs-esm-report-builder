@@ -8,6 +8,7 @@ type CustomCondition = {
     column: string;
     operator: ConditionOperator;
     value: string | string[] | boolean;
+    wildcardMode?: 'none' | 'contains' | 'startsWith' | 'endsWith';
 };
 
 type Props = {
@@ -24,7 +25,7 @@ const OPERATOR_OPTIONS: Array<{ value: ConditionOperator; label: string; require
     { value: '<=', label: 'Less Than or Equal', requiresValue: true },
     { value: 'IN', label: 'IN (comma-separated)', requiresValue: true },
     { value: 'NOT IN', label: 'NOT IN (comma-separated)', requiresValue: true },
-    { value: 'LIKE', label: 'LIKE (pattern)', requiresValue: true },
+    { value: 'LIKE', label: 'LIKE (pattern matching)', requiresValue: true },
     { value: 'IS NULL', label: 'IS NULL', requiresValue: false },
     { value: 'IS NOT NULL', label: 'IS NOT NULL', requiresValue: false },
     { value: 'BETWEEN', label: 'BETWEEN (two values)', requiresValue: true },
@@ -39,10 +40,12 @@ export default function CustomConditionInput({ conditions, onChange }: Props) {
         column: string;
         operator: ConditionOperator;
         value: string;
+        wildcardMode: 'none' | 'contains' | 'startsWith' | 'endsWith';
     }>({
         column: '',
         operator: '=',
         value: '',
+        wildcardMode: 'contains', // Default to contains for LIKE
     });
 
     const addCondition = () => {
@@ -57,6 +60,7 @@ export default function CustomConditionInput({ conditions, onChange }: Props) {
             column: newCondition.column.trim(),
             operator: newCondition.operator,
             value: getValueForOperator(newCondition.operator, newCondition.value),
+            wildcardMode: newCondition.operator === 'LIKE' ? newCondition.wildcardMode : undefined,
         };
 
         onChange([...conditions, condition]);
@@ -66,6 +70,7 @@ export default function CustomConditionInput({ conditions, onChange }: Props) {
             column: '',
             operator: '=',
             value: '',
+            wildcardMode: 'contains',
         });
     };
 
@@ -174,6 +179,64 @@ export default function CustomConditionInput({ conditions, onChange }: Props) {
                                     setNewCondition({ ...newCondition, value: (e.target as HTMLInputElement).value })
                                 }
                             />
+
+                            {/* Wildcard options for LIKE operator */}
+                            {newCondition.operator === 'LIKE' && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <label
+                                        style={{
+                                            display: 'block',
+                                            marginBottom: '0.25rem',
+                                            fontSize: '0.75rem',
+                                            color: 'var(--cds-text-secondary, #525252)',
+                                        }}
+                                    >
+                                        Wildcard pattern
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="radio"
+                                                name="wildcard-mode"
+                                                value="contains"
+                                                checked={newCondition.wildcardMode === 'contains'}
+                                                onChange={() => setNewCondition({ ...newCondition, wildcardMode: 'contains' })}
+                                            />
+                                            <span style={{ fontSize: '0.875rem' }}>Contains (%value%)</span>
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="radio"
+                                                name="wildcard-mode"
+                                                value="startsWith"
+                                                checked={newCondition.wildcardMode === 'startsWith'}
+                                                onChange={() => setNewCondition({ ...newCondition, wildcardMode: 'startsWith' })}
+                                            />
+                                            <span style={{ fontSize: '0.875rem' }}>Starts with (value%)</span>
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="radio"
+                                                name="wildcard-mode"
+                                                value="endsWith"
+                                                checked={newCondition.wildcardMode === 'endsWith'}
+                                                onChange={() => setNewCondition({ ...newCondition, wildcardMode: 'endsWith' })}
+                                            />
+                                            <span style={{ fontSize: '0.875rem' }}>Ends with (%value)</span>
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="radio"
+                                                name="wildcard-mode"
+                                                value="none"
+                                                checked={newCondition.wildcardMode === 'none'}
+                                                onChange={() => setNewCondition({ ...newCondition, wildcardMode: 'none' })}
+                                            />
+                                            <span style={{ fontSize: '0.875rem' }}>None (exact match)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -205,6 +268,13 @@ export default function CustomConditionInput({ conditions, onChange }: Props) {
                                     {condition.column}
                                 </Tag>
                                 <span>{condition.operator}</span>
+                                {condition.wildcardMode && condition.operator === 'LIKE' && (
+                                    <Tag type="cool-gray" style={{ margin: 0, fontSize: '0.75rem' }}>
+                                        {condition.wildcardMode === 'contains' ? '%value%' :
+                                         condition.wildcardMode === 'startsWith' ? 'value%' :
+                                         condition.wildcardMode === 'endsWith' ? '%value' : 'exact'}
+                                    </Tag>
+                                )}
                                 {typeof condition.value === 'boolean' ? (
                                     <span style={{ color: 'var(--cds-text-secondary, #525252)' }}>
                                         (toggle enabled)

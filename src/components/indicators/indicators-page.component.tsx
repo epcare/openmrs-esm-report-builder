@@ -44,6 +44,7 @@ import { hydrateConditionUiState } from './utils/indicator-conditions-hydration.
 import type { SelectedConcept } from './handler/concept-search-multiselect.component';
 
 type TabKey = 'base' | 'final' | 'custom';
+type ModalMode = 'create' | 'edit' | 'duplicate';
 
 type ThemeMeta = { color?: string };
 
@@ -148,7 +149,7 @@ export default function IndicatorsPage() {
     const [openRunPreview, setOpenRunPreview] = React.useState(false);
     const [runPreviewIndicator, setRunPreviewIndicator] = React.useState<string | null>(null);
 
-    const [mode, setMode] = React.useState<'create' | 'edit'>('create');
+    const [mode, setMode] = React.useState<ModalMode>('create');
     const [editing, setEditing] = React.useState<IndicatorDto | null>(null);
 
     // ✅ Preloaded UI state for base edit, built BEFORE opening modal
@@ -329,6 +330,113 @@ export default function IndicatorsPage() {
         setOpenRunPreview(true);
     };
 
+    const onDuplicate = async (uuid: string, kind?: string) => {
+        const ac = new AbortController();
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            const full = await getIndicator(uuid, ac.signal, 'full');
+            const k = String(full.kind ?? kind ?? 'BASE').toUpperCase();
+
+            // Create a copy with modified name/code
+            const copy = { ...full };
+            delete copy.uuid; // Remove UUID so it creates a new indicator
+
+            // Modify name to indicate it's a copy
+            const baseName = full.name ?? '';
+            const baseCode = full.code ?? '';
+
+            // Try to increment letter suffix (e.g., HT01a -> HT01b) or add " (Copy)"
+            let newName = baseName;
+            let newCode = baseCode;
+
+            // Check for pattern like HT01a, HT01b, etc.
+            const letterMatch = baseName.match(/([a-zA-Z])(\s*)$/);
+            const codeLetterMatch = baseCode.match(/([a-zA-Z])(\s*)$/);
+
+            if (letterMatch) {
+                const currentLetter = letterMatch[1];
+                const nextLetter = String.fromCharCode(currentLetter.charCodeAt(0) + 1);
+                newName = baseName.slice(0, -1) + nextLetter;
+            } else {
+                newName = `${baseName} (Copy)`;
+            }
+
+            if (codeLetterMatch) {
+                const currentLetter = codeLetterMatch[1];
+                const nextLetter = String.fromCharCode(currentLetter.charCodeAt(0) + 1);
+                newCode = baseCode.slice(0, -1) + nextLetter;
+            } else {
+                newCode = `${baseCode}_COPY`;
+            }
+
+            copy.name = newName;
+            copy.code = newCode;
+
+            // Route to appropriate modal based on kind
+            if (k === 'COMPOSITE') {
+                setEditing(copy);
+                setMode('duplicate');
+                setOpenComposite(true);
+                return;
+            }
+
+            if (k === 'CUSTOM') {
+                setEditing(copy);
+                setMode('duplicate');
+                setOpenCustom(true);
+                return;
+            }
+
+            if (k === 'FINAL') {
+                setEditing(copy);
+                setMode('duplicate');
+                setOpenFinal(true);
+                return;
+            }
+
+            // BASE: restore hydration pipeline for duplication
+            const authoring = normalizeAuthoring(full);
+
+            let resolvedThemeUuid = full.themeUuid ?? '';
+            let resolvedThemeConfig: DataThemeConfig | null = null;
+            let pickedConditions: IndicatorCondition[] = [];
+
+            if (authoring?.themeUuid && authoring?.themeConfig) {
+                resolvedThemeUuid = authoring.themeUuid;
+                resolvedThemeConfig = authoring.themeConfig;
+                pickedConditions = authoring.conditions ?? [];
+            } else {
+                if (resolvedThemeUuid) {
+                    const theme = await getDataTheme(resolvedThemeUuid, ac.signal);
+                    resolvedThemeConfig = normalizeThemeConfig(theme?.configJson);
+                }
+                pickedConditions = [];
+            }
+
+            const { conceptUi, qaUi } = await hydrateConditionUiState(
+                resolvedThemeConfig?.conditions ?? [],
+                pickedConditions,
+                {},
+                {},
+                ac.signal,
+                { force: true, dedupe: true },
+            );
+
+            setEditing(copy);
+            setEditingConceptUi(conceptUi);
+            setEditingQaUi(qaUi);
+            setMode('duplicate');
+            setOpenBase(true);
+        } catch (e: any) {
+            setError(e?.message ?? 'Failed to load indicator for duplication');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --------------------------------------------
     // RENDER
     // --------------------------------------------
@@ -401,21 +509,21 @@ export default function IndicatorsPage() {
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
                     </TabPanel>
 
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
                     </TabPanel>
 
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} />
+                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
                     </TabPanel>
                 </TabPanels>
             </Tabs>

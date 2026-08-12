@@ -26,7 +26,7 @@ import CustomIndicatorSqlPreviewSection from './sections/custom-indicator-sql-pr
 
 type Props = {
   open: boolean;
-  mode?: 'create' | 'edit';
+  mode?: 'create' | 'edit' | 'duplicate';
   initial?: IndicatorDto | null;
 
   onClose: () => void;
@@ -103,11 +103,11 @@ export default function CreateCustomIndicatorModal({
   // Theme independence
   const [themeIndependent, setThemeIndependent] = useState(true);
 
-  // Initialize from existing indicator (edit mode)
+  // Initialize from existing indicator (edit mode or duplicate mode)
   useEffect(() => {
     if (!open) return;
 
-    if (mode === 'edit' && initial) {
+    if ((mode === 'edit' || mode === 'duplicate') && initial) {
       const config = safeParseJson<CustomIndicatorConfig>(initial.configJson);
 
       setBasics({
@@ -337,8 +337,8 @@ export default function CreateCustomIndicatorModal({
     <Modal
       open={open}
       onRequestClose={onClose}
-      modalHeading={mode === 'edit' ? 'Edit Custom Indicator' : 'Create Custom Indicator'}
-      primaryButtonText={mode === 'edit' ? 'Update Indicator' : 'Save Indicator'}
+      modalHeading={mode === 'edit' ? 'Edit Custom Indicator' : mode === 'duplicate' ? 'Duplicate Custom Indicator' : 'Create Custom Indicator'}
+      primaryButtonText={mode === 'edit' ? 'Update Indicator' : mode === 'duplicate' ? 'Create Duplicate' : 'Save Indicator'}
       secondaryButtonText="Cancel"
       onRequestSubmit={submit}
       primaryButtonDisabled={!canSubmit || loading}

@@ -22,7 +22,7 @@ type PanelKey = 'basics' | 'theme' | 'conditions' | 'sql';
 
 type Props = {
     open: boolean;
-    mode: 'create' | 'edit';
+    mode: 'create' | 'edit' | 'duplicate';
     initial?: IndicatorDto | null;
 
     initialConceptUi?: Record<string, SelectedConcept[]>;
@@ -248,6 +248,7 @@ export default function CreateBaseIndicatorModal({
                                                      onSaved,
                                                  }: Props) {
     const isEdit = mode === 'edit';
+    const isDuplicate = mode === 'duplicate';
 
     const [active, setActive] = React.useState<PanelKey>('basics');
 
@@ -298,7 +299,7 @@ export default function CreateBaseIndicatorModal({
     React.useEffect(() => {
         if (!open) return;
 
-        if (isEdit && initial) {
+        if ((isEdit || isDuplicate) && initial) {
             setName(initial.name ?? '');
             setCode(initial.code ?? '');
             setDescription(initial.description ?? '');
@@ -342,7 +343,7 @@ export default function CreateBaseIndicatorModal({
             setSqlPreview('');
             setSqlDirty(true);
         }
-    }, [open, isEdit, initial, initialConceptUi, initialQaUi]);
+    }, [open, isEdit, isDuplicate, initial, initialConceptUi, initialQaUi]);
 
     const onThemeUuidChange = React.useCallback((uuid: string) => {
         setThemeUuid(uuid);
@@ -417,13 +418,13 @@ export default function CreateBaseIndicatorModal({
         // Don't auto-regenerate if user has manually edited the SQL
         if (sqlManuallyEdited) return;
 
-        if (isEdit && !sqlDirty) return;
+        if ((isEdit || isDuplicate) && !sqlDirty) return;
 
         const base = buildSqlPreview(themeConfig, excludeDateFilter, countDistinctPatientId);
         const withThemeConditions = applyConditionClauses(base, themeConfig.conditions ?? [], pickedConditions);
         const generatedSql = applyCustomConditions(withThemeConditions, customConditions);
         setSqlPreview(generatedSql);
-    }, [themeConfig, pickedConditions, customConditions, excludeDateFilter, countDistinctPatientId, isEdit, sqlDirty, sqlManuallyEdited]);
+    }, [themeConfig, pickedConditions, customConditions, excludeDateFilter, countDistinctPatientId, isEdit, isDuplicate, sqlDirty, sqlManuallyEdited]);
 
     const canSave =
         Boolean(name.trim()) &&
@@ -467,8 +468,8 @@ export default function CreateBaseIndicatorModal({
     return (
         <Modal
             open={open}
-            modalHeading={isEdit ? 'Edit Base Indicator' : 'Create Base Indicator'}
-            primaryButtonText={isEdit ? 'Save' : 'Create'}
+            modalHeading={isEdit ? 'Edit Base Indicator' : isDuplicate ? 'Duplicate Base Indicator' : 'Create Base Indicator'}
+            primaryButtonText={isEdit ? 'Save' : isDuplicate ? 'Create Duplicate' : 'Create'}
             secondaryButtonText="Cancel"
             onRequestClose={onClose}
             onRequestSubmit={save}

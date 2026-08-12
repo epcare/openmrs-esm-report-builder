@@ -573,6 +573,7 @@ export type CustomCondition = {
     column: string;
     operator: string;
     value: string | string[] | boolean | { start: string; end: string };
+    wildcardMode?: 'none' | 'contains' | 'startsWith' | 'endsWith';
 };
 
 /**
@@ -696,7 +697,18 @@ export function applyCustomConditions(baseSql: string, customConditions: CustomC
             // BETWEEN with scalar is invalid
             continue;
         } else if (op === 'LIKE') {
-            addClause(`${col} LIKE ${renderedScalar}`);
+            // Apply wildcard mode
+            let likeValue = sval;
+            if (cc.wildcardMode === 'contains') {
+                likeValue = `%${sval}%`;
+            } else if (cc.wildcardMode === 'startsWith') {
+                likeValue = `${sval}%`;
+            } else if (cc.wildcardMode === 'endsWith') {
+                likeValue = `%${sval}`;
+            }
+            // 'none' uses the value as-is
+            const renderedLike = sqlQuote(likeValue);
+            addClause(`${col} LIKE ${renderedLike}`);
         } else {
             addClause(`${col} ${op} ${renderedScalar}`);
         }

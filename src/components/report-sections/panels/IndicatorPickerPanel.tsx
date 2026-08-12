@@ -1,6 +1,6 @@
 import React from 'react';
-import { Search, Checkbox, Tag, Button } from '@carbon/react';
-import { ChevronRight, Add, ArrowUp, ArrowDown, TrashCan } from '@carbon/icons-react';
+import { Search, Checkbox, Tag, Button, InlineLoading, InlineNotification } from '@carbon/react';
+import { ChevronRight, Add, ArrowUp, ArrowDown, TrashCan, Information } from '@carbon/icons-react';
 import type { SectionIndicatorRef } from '../section-types';
 
 function readChecked(arg1: any, arg2: any): boolean {
@@ -23,6 +23,10 @@ export function IndicatorPickerPanel(props: {
 
     /** NEW: ensures unique DOM ids across create/edit modals */
     idPrefix: string;
+
+    /** Database search fallback state */
+    dbSearching?: boolean;
+    dbSearchError?: string | null;
 }) {
     return (
         <>
@@ -40,6 +44,60 @@ export function IndicatorPickerPanel(props: {
                 {/* Add Indicators */}
                 <div style={{ border: '1px solid var(--cds-border-subtle, #e0e0e0)', borderRadius: 6, padding: '0.75rem' }}>
                     <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Add Indicators</div>
+
+                    {/* Database search loading indicator */}
+                    {props.dbSearching && (
+                        <div style={{ marginBottom: '0.5rem' }}>
+                            <InlineLoading description="Searching database for matching indicators…" status="active" />
+                        </div>
+                    )}
+
+                    {/* Database search error */}
+                    {props.dbSearchError && !props.dbSearching && (
+                        <InlineNotification
+                            kind="error"
+                            lowContrast
+                            title="Database search failed"
+                            subtitle={props.dbSearchError}
+                            hideCloseButton
+                            style={{ marginBottom: '0.5rem' }}
+                        />
+                    )}
+
+                    {/* No results message */}
+                    {!props.dbSearching && props.available.length === 0 && props.q && (
+                        <div style={{
+                            padding: '0.75rem',
+                            background: 'var(--cds-background-inverse, #161616)',
+                            borderRadius: '4px',
+                            marginBottom: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.875rem'
+                        }}>
+                            <Information size={16} />
+                            <span>No indicators found matching "{props.q}"</span>
+                        </div>
+                    )}
+
+                    {/* Database search results indicator */}
+                    {!props.dbSearching && props.q && props.available.length > 0 && (
+                        <div style={{
+                            padding: '0.5rem',
+                            background: 'var(--cds-informational-01, #0f62fe)',
+                            color: 'white',
+                            borderRadius: '4px',
+                            marginBottom: '0.5rem',
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}>
+                            <Information size={14} />
+                            <span>{props.available.length} indicator(s) found from database search</span>
+                        </div>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {props.available.map((i) => {

@@ -357,6 +357,8 @@ export default function CreateReportSectionModal(props: ReportSectionEditorProps
                     toggleIndicator={state.toggleIndicator}
                     moveSelected={state.moveSelected}
                     idPrefix={state.isEdit ? 'edit' : 'create'}
+                    dbSearching={state.dbSearching}
+                    dbSearchError={state.dbSearchError}
                 />
 
                 <Dhis2MappingPanel

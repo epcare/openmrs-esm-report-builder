@@ -114,8 +114,9 @@ export function buildSectionDisaggregationSql(args: {
     const escapedCode = escapeSql(ageCategoryCode);
 
     // Build gender list - if empty, don't add gender filter
+    // Note: Don't include quotes here - they're added in the template
     const genderList = selectedGenders.length > 0
-        ? selectedGenders.map((g) => `'${g}'`).join(',')
+        ? selectedGenders.join(',')
         : null;
 
     // Get patient ID column from theme config

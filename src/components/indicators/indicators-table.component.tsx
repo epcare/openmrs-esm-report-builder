@@ -32,6 +32,7 @@ type Props = {
     onEdit?: (id: string, kind: IndicatorRow['kind']) => void;
     onRun?: (id: string) => void;
     onDelete?: (id: string) => void;
+    onDuplicate?: (id: string, kind: IndicatorRow['kind']) => void;
 };
 
 function statusTag(status: string) {
@@ -69,7 +70,7 @@ function themePill(themeName?: string, themeColor?: string) {
     );
 }
 
-export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete }: Props) {
+export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete, onDuplicate }: Props) {
     const headers = [
         { key: 'code', header: 'Code' },
         { key: 'name', header: 'Name' },
@@ -150,6 +151,7 @@ export default function IndicatorsTable({ rows, onOpen, onEdit, onRun, onDelete 
                                         <TableCell onClick={(e) => e.stopPropagation()} style={{ width: 56 }}>
                                             <OverflowMenu size="sm" flipped>
                                                 <OverflowMenuItem itemText="Edit" onClick={() => onEdit?.(row.id, kind)} />
+                                                <OverflowMenuItem itemText="Duplicate" onClick={() => onDuplicate?.(row.id, kind)} />
                                                 <OverflowMenuItem itemText="Run" onClick={() => onRun?.(row.id)} />
                                                 <OverflowMenuItem itemText="Delete" isDelete onClick={() => onDelete?.(row.id)} />
                                             </OverflowMenu>

@@ -18,7 +18,7 @@ import {
 
 type Props = {
     open: boolean;
-    mode?: 'create' | 'edit';
+    mode?: 'create' | 'edit' | 'duplicate';
     initial?: IndicatorDto | null;
     onClose: () => void;
     onCreate: (payload: Partial<IndicatorDto>) => Promise<void>;
@@ -83,8 +83,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
     React.useEffect(() => {
         if (!open) return;
 
-        // EDIT: hydrate from selected composite indicator
-        if (mode === 'edit' && initial?.uuid) {
+        // EDIT/DUPLICATE: hydrate from selected composite indicator
+        if ((mode === 'edit' || mode === 'duplicate') && initial?.uuid) {
             const cfg = safeParseJson<any>(initial.configJson) ?? {};
 
             setName(initial.name ?? '');
@@ -237,8 +237,8 @@ const CreateCompositeBaseIndicatorModal: React.FC<Props> = ({
         <Modal
             open={open}
             onRequestClose={onClose}
-            modalHeading={mode === 'edit' ? 'Edit Composite Indicator' : 'Create Composite Indicator'}
-            primaryButtonText={mode === 'edit' ? 'Update Indicator' : 'Save Indicator'}
+            modalHeading={mode === 'edit' ? 'Edit Composite Indicator' : mode === 'duplicate' ? 'Duplicate Composite Indicator' : 'Create Composite Indicator'}
+            primaryButtonText={mode === 'edit' ? 'Update Indicator' : mode === 'duplicate' ? 'Create Duplicate' : 'Save Indicator'}
             secondaryButtonText="Cancel"
             onRequestSubmit={submit}
             primaryButtonDisabled={!canSubmit}
