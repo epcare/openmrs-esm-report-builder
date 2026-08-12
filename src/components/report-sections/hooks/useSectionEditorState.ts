@@ -3,7 +3,7 @@ import type { AgeCategoryOption } from '../../../resources/agegroup/agegroups.ap
 import type { ReportSectionDto } from '../../../resources/report-section/report-sections.api';
 import type { Dhis2MappingV1, ReportSectionEditorMode, SectionIndicatorRef, SectionIndicatorType } from '../section-types';
 import { makeDisaggKey, safeParseJson } from '../section-utils';
-import { listIndicators } from '../../../resources/indicator/indicators.api';
+import { listIndicators, getIndicator } from '../../../resources/indicator/indicators.api';
 
 export function useSectionEditorState(args: {
     open: boolean;
@@ -15,11 +15,11 @@ export function useSectionEditorState(args: {
     const { open, mode, initialSection, indicators, ageCategories } = args;
     const isEdit = mode === 'edit';
     React.useEffect(() => {
-        // Component mount/unmount
-        return () => {
-            // Component unmount
-        };
-    }, []);
+        // Reset config-fetched indicators when modal closes or mode changes
+        if (!open) {
+            setSelectedFullFromConfig([]);
+        }
+    }, [open]);
 
     
     const [name, setName] = React.useState('');
@@ -40,6 +40,10 @@ export function useSectionEditorState(args: {
     const [dbSearching, setDbSearching] = React.useState(false);
     const [dbSearchError, setDbSearchError] = React.useState<string | null>(null);
     const [selectedDbResults, setSelectedDbResults] = React.useState<SectionIndicatorRef[]>([]);
+
+    // Full details of selected indicators from section config (for edit mode)
+    // This ensures indicators are visible even if not in the paginated list
+    const [selectedFullFromConfig, setSelectedFullFromConfig] = React.useState<SectionIndicatorRef[]>([]);
 
     // DHIS2 mapping state
     const [dhis2Enabled, setDhis2Enabled] = React.useState(false);
@@ -128,6 +132,45 @@ export function useSectionEditorState(args: {
             }));
         setSelected(sel);
 
+        // Fetch full indicator details for selected indicators that aren't in the paginated list
+        // This ensures they appear in the right panel even if not available in the initial indicators prop
+        const fetchSelectedIndicatorDetails = async () => {
+            const indicatorIds = sel.map((s) => s.id);
+            const missingIds = indicatorIds.filter((id) => !indicators.some((i) => i.id === id));
+
+            if (missingIds.length === 0) {
+                setSelectedFullFromConfig([]);
+                return;
+            }
+
+            try {
+                // Fetch missing indicators in parallel
+                const details = await Promise.all(
+                    missingIds.map((id) =>
+                        getIndicator(id, undefined, 'default').catch((e) => {
+                            console.warn(`Failed to fetch indicator ${id}:`, e);
+                            return null;
+                        })
+                    )
+                );
+
+                const validDetails = details.filter(Boolean);
+                const sectionRefs: SectionIndicatorRef[] = validDetails.map((ind) => ({
+                    id: ind.uuid,
+                    name: ind.name,
+                    code: ind.code ?? '',
+                    type: ind.kind as SectionIndicatorType,
+                }));
+
+                setSelectedFullFromConfig(sectionRefs);
+            } catch (e) {
+                console.error('Failed to fetch selected indicator details:', e);
+                setSelectedFullFromConfig([]);
+            }
+        };
+
+        fetchSelectedIndicatorDetails();
+
         // DHIS2 mapping
         const ex = cfg?.exchangeMappings?.dhis2;
         const dh = ex && typeof ex === 'object' ? (ex as Dhis2MappingV1) : null;
@@ -159,7 +202,7 @@ export function useSectionEditorState(args: {
             for (const s of sel) map[s.id] = { dataElementId: '', cocByDisagg: {} };
             setDhis2IndicatorMap(map);
         }
-    }, [open, isEdit, initialSection]);
+    }, [open, isEdit, initialSection, indicators]);
 
     // Resolve pending age category uuid once categories loaded
     React.useEffect(() => {
@@ -252,8 +295,21 @@ export function useSectionEditorState(args: {
         const setIds = new Set(selected.map((x) => x.id));
         const fromIndicators = indicators.filter((i) => setIds.has(i.id));
         const fromDbResults = selectedDbResults.filter((i) => setIds.has(i.id));
-        return [...fromIndicators, ...fromDbResults];
-    }, [selected, indicators, selectedDbResults]);
+        const fromConfig = selectedFullFromConfig.filter((i) => setIds.has(i.id));
+
+        // Deduplicate by id, prioritizing indicators > dbResults > config
+        const seen = new Set<string>();
+        const result: SectionIndicatorRef[] = [];
+
+        for (const item of [...fromIndicators, ...fromDbResults, ...fromConfig]) {
+            if (!seen.has(item.id)) {
+                seen.add(item.id);
+                result.push(item);
+            }
+        }
+
+        return result;
+    }, [selected, indicators, selectedDbResults, selectedFullFromConfig]);
 
     const isSelected = (id: string) => selected.some((x) => x.id === id);
 

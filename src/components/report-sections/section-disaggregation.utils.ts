@@ -20,6 +20,10 @@ import {
     tryGetPatientIdColumnFromConfig
 } from '../indicators/utils/composite-indicator-sql.utils';
 import {
+    resolveIndicatorSql,
+    isSqlResolutionError
+} from '../indicators/utils/indicator-sql-resolution.utils';
+import {
     customIndicatorInterpreter,
     type CustomIndicatorConfig
 } from '../indicators/utils/custom-indicator-interpreter';
@@ -114,9 +118,14 @@ export function buildSectionDisaggregationSql(args: {
     const escapedCode = escapeSql(ageCategoryCode);
 
     // Build gender list - if empty, don't add gender filter
-    // Note: Don't include quotes here - they're added in the template
+    // Note: Don't include quotes here - quotes are added separately in VALUES and IN clauses
     const genderList = selectedGenders.length > 0
         ? selectedGenders.join(',')
+        : null;
+
+    // Build quoted gender list for IN clause
+    const genderListQuoted = selectedGenders.length > 0
+        ? selectedGenders.map((g) => `'${g}'`).join(',')
         : null;
 
     // Get patient ID column from theme config
@@ -148,7 +157,7 @@ ag AS (
 ),
 genders AS (
   ${genderList
-    ? `SELECT DISTINCT gender\n    FROM (VALUES ${genderList.split(',').map(g => `('${g}')`).join(', ')}) AS genders(gender)`
+    ? genderList.split(',').map((g, i) => `${i === 0 ? `SELECT '${g}' AS gender` : `UNION ALL\n  SELECT '${g}' AS gender`}`).join('\n  ')
     : `SELECT DISTINCT gender\n    FROM mamba_fact_patients_latest_patient_demographics\n    WHERE gender IS NOT NULL`}
 ),
 cnt AS (
@@ -164,7 +173,7 @@ cnt AS (
        BETWEEN ag.min_age_days AND ag.max_age_days
   WHERE mdp.birthdate IS NOT NULL
     AND mdp.gender IS NOT NULL
-    ${genderList ? `AND mdp.gender IN (${genderList})` : ''}
+    ${genderListQuoted ? `AND mdp.gender IN (${genderListQuoted})` : ''}
   GROUP BY ag.age_group_id, mdp.gender
 )
 SELECT
@@ -204,37 +213,21 @@ export async function buildSectionDisaggregationSqlAsync({
     try {
         // Handle CUSTOM indicators using the query interpreter
         if (indicator.kind === 'CUSTOM') {
-            // Extract SQL from various possible locations
-            // Priority: configJson.sqlPreview > indicator.sqlTemplate > configJson.sqlTemplate
-            let sqlTemplate = '';
-            let sqlSource = 'none';
+            // Use centralized SQL resolution for consistent behavior
+            const resolvedSql = resolveIndicatorSql(indicator);
 
-            if (indicator.configJson) {
-                try {
-                    const parsed = JSON.parse(indicator.configJson);
-                    // Check for sqlPreview first (theme-based configs)
-                    if (parsed?.sqlPreview) {
-                        sqlTemplate = parsed.sqlPreview;
-                        sqlSource = 'configJson.sqlPreview';
-                    }
-                    // Fall back to sqlTemplate in config (simple configs)
-                    else if (parsed?.sqlTemplate) {
-                        sqlTemplate = parsed.sqlTemplate;
-                        sqlSource = 'configJson.sqlTemplate';
-                    }
-                } catch (e) {
-                    console.error('❌ [CUSTOM] Failed to parse configJson:', e);
-                }
+            if (isSqlResolutionError(resolvedSql)) {
+                console.error('❌ [CUSTOM] SQL resolution failed:', resolvedSql.error);
+                return {
+                    sql: `-- Error: ${resolvedSql.error}\n-- Indicator: ${indicator.name} (${indicator.code || indicator.uuid})`,
+                    warnings: [resolvedSql.error]
+                };
             }
 
-            // If no SQL in configJson, use indicator.sqlTemplate
-            if (!sqlTemplate && indicator.sqlTemplate) {
-                sqlTemplate = indicator.sqlTemplate;
-                sqlSource = 'indicator.sqlTemplate';
-            }
+            const sqlTemplate = resolvedSql.sql;
 
             console.log('📦 [CUSTOM] Extracted SQL:', {
-                source: sqlSource,
+                source: resolvedSql.source,
                 length: sqlTemplate?.length || 0,
                 preview: sqlTemplate?.substring(0, 200) || 'EMPTY'
             });

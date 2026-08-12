@@ -1,17 +1,7 @@
 import type { IndicatorDto } from '../../../resources/indicator/indicators.api';
+import { resolveIndicatorSql, isSqlResolutionError, resolvePatientIdColumn, type SqlSource } from './indicator-sql-resolution.utils';
 
-export type CountSqlSource =
-    | 'indicator.sqlTemplate'
-    | 'configJson.sqlPreview'
-    | 'configJson.sqlTemplate'
-    | 'configJson.base.sqlPreview'
-    | 'configJson.base.sqlTemplate'
-    | 'configJson.authoring.base.sqlPreview'
-    | 'configJson.authoring.base.sqlTemplate'
-    | 'configJson.baseIndicator.sqlPreview'
-    | 'configJson.baseIndicator.sqlTemplate'
-    | 'none'
-    | 'none(parse-error)';
+export type CountSqlSource = SqlSource;
 
 export function idFieldForUnit(unit: 'Patients' | 'Encounters', overrideColumn?: string) {
     if (overrideColumn) return overrideColumn;
@@ -21,23 +11,12 @@ export function idFieldForUnit(unit: 'Patients' | 'Encounters', overrideColumn?:
 /**
  * Extract patientIdColumn from stored authoring (if present),
  * otherwise fallback to "client_id".
+ *
+ * @deprecated Use resolvePatientIdColumn from indicator-sql-resolution.utils.ts instead.
+ * This function is maintained for backward compatibility but delegates to the centralized implementation.
  */
 export function tryGetPatientIdColumnFromConfig(ind: IndicatorDto): string {
-    try {
-        const parsed: any = ind?.configJson ? JSON.parse(ind.configJson) : null;
-
-        const cfg =
-            parsed?.themeConfig ||
-            parsed?.base?.themeConfig ||
-            parsed?.authoring?.base?.themeConfig ||
-            parsed?.baseIndicator?.themeConfig ||
-            null;
-
-        const pid = cfg?.patientIdColumn;
-        return pid ? String(pid) : 'client_id';
-    } catch {
-        return 'client_id';
-    }
+    return resolvePatientIdColumn(ind);
 }
 
 /**
@@ -69,46 +48,18 @@ function isComplexIndicator(sql: string): boolean {
  * ✅ Key fix:
  * Many times the backend returns sqlTemplate empty, but configJson contains sqlPreview.
  * We support all known config shapes.
+ *
+ * @deprecated Use resolveIndicatorSql from indicator-sql-resolution.utils.ts instead.
+ * This function is maintained for backward compatibility but delegates to the centralized implementation.
  */
 export function tryGetCountSqlFromIndicator(ind: IndicatorDto): { sql: string; source: CountSqlSource } {
-    const direct = (ind?.sqlTemplate ?? '').trim();
-    if (direct) return { sql: normalizeEscapedNewlines(direct), source: 'indicator.sqlTemplate' };
+    const result = resolveIndicatorSql(ind);
 
-    try {
-        const parsed: any = ind?.configJson ? JSON.parse(ind.configJson) : null;
-
-        // flat
-        const flatPreview = (parsed?.sqlPreview ?? '').trim();
-        if (flatPreview) return { sql: normalizeEscapedNewlines(flatPreview), source: 'configJson.sqlPreview' };
-
-        const flatTemplate = (parsed?.sqlTemplate ?? '').trim();
-        if (flatTemplate) return { sql: normalizeEscapedNewlines(flatTemplate), source: 'configJson.sqlTemplate' };
-
-        // base
-        const basePreview = (parsed?.base?.sqlPreview ?? '').trim();
-        if (basePreview) return { sql: normalizeEscapedNewlines(basePreview), source: 'configJson.base.sqlPreview' };
-
-        const baseTemplate = (parsed?.base?.sqlTemplate ?? '').trim();
-        if (baseTemplate) return { sql: normalizeEscapedNewlines(baseTemplate), source: 'configJson.base.sqlTemplate' };
-
-        // authoring.base
-        const authPreview = (parsed?.authoring?.base?.sqlPreview ?? '').trim();
-        if (authPreview) return { sql: normalizeEscapedNewlines(authPreview), source: 'configJson.authoring.base.sqlPreview' };
-
-        const authTemplate = (parsed?.authoring?.base?.sqlTemplate ?? '').trim();
-        if (authTemplate) return { sql: normalizeEscapedNewlines(authTemplate), source: 'configJson.authoring.base.sqlTemplate' };
-
-        // sometimes wrapped differently
-        const biPreview = (parsed?.baseIndicator?.sqlPreview ?? '').trim();
-        if (biPreview) return { sql: normalizeEscapedNewlines(biPreview), source: 'configJson.baseIndicator.sqlPreview' };
-
-        const biTemplate = (parsed?.baseIndicator?.sqlTemplate ?? '').trim();
-        if (biTemplate) return { sql: normalizeEscapedNewlines(biTemplate), source: 'configJson.baseIndicator.sqlTemplate' };
-
-        return { sql: '', source: 'none' };
-    } catch {
-        return { sql: '', source: 'none(parse-error)' };
+    if (isSqlResolutionError(result)) {
+        return { sql: '', source: result.success === false ? 'none(parse-error)' : 'none' };
     }
+
+    return { sql: result.sql, source: result.source };
 }
 
 /**

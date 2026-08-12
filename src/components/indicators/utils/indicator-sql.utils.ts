@@ -94,8 +94,8 @@ export function buildSqlPreview(themeCfg: DataThemeConfig, excludeDateFilter: bo
     // - All subsequent conditions need AND prefix
     if (!excludeDateFilter) {
         // Date filtering enabled - date filters come first
-        lines.push(`  a.${dateCol} >= ':startDate'`);
-        lines.push(`  AND a.${dateCol} <  ':endDate'`);
+        lines.push(`  a.${dateCol} >= :startDate`);
+        lines.push(`  AND a.${dateCol} < :endDate`);
     }
 
     // Demographic filters (always present, conditionally add AND prefix)

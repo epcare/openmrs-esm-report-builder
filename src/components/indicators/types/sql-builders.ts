@@ -31,8 +31,8 @@ SELECT
 FROM mamba_fact_encounter_diagnosis a
 JOIN mamba_fact_patients_latest_patient_demographics mdp
   ON mdp.client_id = a.client_id
-WHERE a.date_created >= ':startDate'
-  AND a.date_created <  ':endDate'
+WHERE a.date_created >= :startDate
+  AND a.date_created < :endDate
   ${diagnosisClause(cfg.conceptIds)}
   AND a.certainty = '${cfg.certainty}'
   AND a.dx_rank IN (${ranks})
