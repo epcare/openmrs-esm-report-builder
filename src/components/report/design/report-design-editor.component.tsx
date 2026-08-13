@@ -1071,8 +1071,7 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 style={{
                                     border: '1px solid var(--cds-border-subtle, #e0e0e0)',
                                     borderRadius: 8,
-                                    overflow: 'auto',
-                                    maxHeight: '400px',
+                                    overflow: 'hidden',
                                     background: '#fff',
                                 }}
                             >

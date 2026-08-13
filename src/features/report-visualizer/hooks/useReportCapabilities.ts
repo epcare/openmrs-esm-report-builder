@@ -48,6 +48,7 @@ export function useReportCapabilities(report: ReportLibraryItem | null): UseRepo
 
     // Determine capabilities based on report type
     const reportType = report.reportType?.toLowerCase();
+    const categoryName = report.category?.name?.toLowerCase() || report.category?.display?.toLowerCase() || '';
 
     if (reportType === 'linelist' || reportType === 'line_list') {
       // Linelist reports can pivot, chart, and have report layout (HTML)
@@ -55,12 +56,20 @@ export function useReportCapabilities(report: ReportLibraryItem | null): UseRepo
       caps.chart = true;
       caps.reportLayout = true; // Enable HTML view for linelists
     } else if (reportType === 'aggregate') {
-      // Aggregate reports have fixed layout and can chart
+      // Aggregate reports have fixed layout, can chart, and can send to DHIS2
       caps.reportLayout = true;
       caps.chart = true;
+      caps.sendToDhis2 = true; // Enable DHIS2 export for aggregate reports
     } else if (reportType === 'indicator') {
       // Indicator reports can chart
       caps.chart = true;
+    }
+
+    // Enable DHIS2 for specific aggregate report categories (NATIONAL REPORTS, MER INDICATOR REPORTS)
+    // These categories have renderType: "html" in the old system
+    if (categoryName.includes('national') || categoryName.includes('mer') || categoryName.includes('donor') || categoryName.includes('indicator report')) {
+      caps.sendToDhis2 = true;
+      caps.reportLayout = true; // These also have HTML layout
     }
 
     // Check metaJson for additional capabilities

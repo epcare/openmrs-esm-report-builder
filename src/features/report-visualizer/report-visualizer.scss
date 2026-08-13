@@ -105,9 +105,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Prevent full panel scroll, let child sections scroll */
+  overflow-y: auto; /* Enable scrolling for report content */
   padding: 1rem;
   background-color: #fafafa;
+  min-height: 0; /* Required for flex child to scroll properly */
 }
 
 /* Filter Section - compact spacing */
@@ -180,14 +181,14 @@
 /* Report Layer - Theme-aware HTML content rendering */
 .reportLayer {
   width: 100%;
-  height: 100%;
-  overflow: auto;
+  /* Remove height constraint to let parent scroll */
+  overflow: visible;
 }
 
 .reportLayerContent {
   /* Ensure content takes full width */
   width: 100%;
-  min-height: 100%;
+  /* Remove min-height to prevent unnecessary expansion */
   padding: 1rem;
 
   /* Typography - matches Carbon theme */

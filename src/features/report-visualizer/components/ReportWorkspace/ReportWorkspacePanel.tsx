@@ -105,6 +105,7 @@ const ReportWorkspacePanel: React.FC<ReportWorkspacePanelProps> = ({
             onExport={handleExport}
             onSendToDhis2={capabilities.sendToDhis2 ? handleSendToDhis2 : undefined}
             loading={runningReport}
+            hasResults={!runningReport && (reportResults || htmlContent)}
           />
         ) : (
           <h3 className={styles.panelTitle}>Report Workspace</h3>

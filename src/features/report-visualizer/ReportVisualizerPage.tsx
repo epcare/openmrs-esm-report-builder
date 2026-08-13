@@ -32,7 +32,7 @@ import {
 
 // Import utilities
 import { formatDate } from '../../components/data-visualizer/data-visualizer.resource';
-import { showToast, showNotification } from '@openmrs/esm-framework';
+import { showToast, showNotification, showModal } from '@openmrs/esm-framework';
 
 import type { ReportLibraryItem, ReportViewType } from './types';
 
@@ -344,35 +344,41 @@ const ReportVisualizerPage: React.FC = () => {
 
   // ===== DHIS2 =====
   /**
-   * Handle send to DHIS2
+   * Confirm send to DHIS2 - shows confirmation modal and handles the send
    */
-  const handleSendToDhis2 = useCallback(async () => {
+  const confirmSendToDhis2 = useCallback(async () => {
     if (!selectedReport) return;
 
-    try {
-      const reportUuid = selectedReport.reportDefinitionUuid || selectedReport.uuid;
+    const dispose = showModal('confirm-modal', {
+      close: () => dispose(),
+      submit: async () => {
+        try {
+          const reportUuid = selectedReport.reportDefinitionUuid || selectedReport.uuid;
+          const response = await sendReportToDHIS2(reportUuid, dhisJson);
 
-      const response = await sendReportToDHIS2(reportUuid, dhisJson);
-
-      if (response.status === 200) {
-        showToast({
-          title: 'Report sent to DHIS2',
-          kind: 'success',
-          critical: true,
-          description: `Report ${selectedReport.name} sent successfully`,
-        });
-      } else {
-        throw new Error(`DHIS2 send failed with status ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Failed to send to DHIS2:', error);
-      showNotification({
-        title: 'Error sending to DHIS2',
-        kind: 'error',
-        critical: true,
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
+          if (response.status === 200) {
+            showToast({
+              title: 'Report sent to DHIS2',
+              kind: 'success',
+              critical: true,
+              description: `Report ${selectedReport.name} sent successfully`,
+            });
+          } else {
+            throw new Error(`DHIS2 send failed with status ${response.status}`);
+          }
+        } catch (error) {
+          console.error('Failed to send to DHIS2:', error);
+          showNotification({
+            title: 'Error sending to DHIS2',
+            kind: 'error',
+            critical: true,
+            description: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+        dispose();
+      },
+      report: selectedReport.name,
+    });
   }, [selectedReport, dhisJson]);
 
   const loading = loadingReports || loadingCategories || !prefsLoaded;
@@ -431,7 +437,7 @@ const ReportVisualizerPage: React.FC = () => {
           onViewChange={handleViewChange}
           capabilities={capabilities}
           onExport={handleExport}
-          onSendToDhis2={handleSendToDhis2}
+          onSendToDhis2={capabilities.sendToDhis2 ? confirmSendToDhis2 : undefined}
           parameterValues={parameterValues}
         />
       </div>
