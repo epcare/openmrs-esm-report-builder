@@ -77,6 +77,57 @@ function clampIndentForRowType(indent: number | undefined, type?: string | null)
     return Math.max(min, Math.min(MAX_INDENT, safe));
 }
 
+/**
+ * Rebuild hierarchical relationships (parentId, position, children) based on indent levels.
+ * This function analyzes rows and their indent values to establish parent-child connections.
+ */
+function rebuildHierarchicalStructure(rows: DesignRow[]): DesignRow[] {
+    const result = [...rows];
+    const parentStack: Array<{ rowId: string; indent: number }> = [];
+
+    for (let i = 0; i < result.length; i++) {
+        const row = result[i];
+        const currentIndent = row.indent ?? 0;
+
+        // Pop from stack until we find the parent (lower indent level)
+        while (parentStack.length > 0 && parentStack[parentStack.length - 1].indent >= currentIndent) {
+            parentStack.pop();
+        }
+
+        // Set parentId if we have a parent
+        if (parentStack.length > 0) {
+            row.parentId = parentStack[parentStack.length - 1].rowId;
+            row.position = parentStack.filter(p => p.rowId === row.parentId).length;
+        } else {
+            row.parentId = undefined;
+            row.position = 0;
+        }
+
+        // If this could be a parent (not a spacer/label with minimal content), add to stack
+        if (row.type === 'group-label' || row.type === 'section-label' || (row.type === 'indicator' && currentIndent < 10)) {
+            parentStack.push({ rowId: row.id, indent: currentIndent });
+        }
+    }
+
+    // Build children arrays for parent rows
+    const childrenMap = new Map<string, string[]>();
+    for (const row of result) {
+        if (row.parentId) {
+            if (!childrenMap.has(row.parentId)) {
+                childrenMap.set(row.parentId, []);
+            }
+            childrenMap.get(row.parentId)!.push(row.id);
+        }
+    }
+
+    // Assign children arrays to parent rows
+    for (const row of result) {
+        row.children = childrenMap.get(row.id) || [];
+    }
+
+    return result;
+}
+
 function applyRowTypeDefaults(row: DesignRow, nextType: string): DesignRow {
     if (nextType === 'section-label') {
         return {
@@ -133,10 +184,8 @@ function buildDesignFromSectionSources(
         arrayName: previous?.arrayName ?? 'results',
         defaultValue: previous?.defaultValue ?? 0,
         dimensions: previous?.dimensions ?? {},
-        groups: sectionSources.map((section) => ({
-            id: section.sectionUuid,
-            title: section.title,
-            rows: [
+        groups: sectionSources.map((section) => {
+            const rows = [
                 {
                     id: `${section.sectionUuid}__section_label`,
                     type: 'section-label' as any,
@@ -160,8 +209,184 @@ function buildDesignFromSectionSources(
                     span: 'label-only' as any,
                     emphasis: 'normal' as any,
                 })),
-            ],
-        })),
+            ];
+            return {
+                id: section.sectionUuid,
+                title: section.title,
+                rows: rebuildHierarchicalStructure(rows),
+            };
+        }),
+    };
+}
+
+/**
+ * Smart merge function that preserves user customizations when updating from section sources.
+ * This is the preferred method over buildDesignFromSectionSources() for incremental design work.
+ */
+function buildDesignFromSectionSourcesWithMerge(
+    sectionSources: DesignSectionSource[] = [],
+    previous?: ReportDesignDraft | null,
+): ReportDesignDraft {
+    if (!previous || !previous.groups.length) {
+        // If no previous design exists, fall back to the regular build
+        return buildDesignFromSectionSources(sectionSources, previous);
+    }
+
+    // Create a map of existing groups and rows for quick lookup
+    const existingGroupsMap = new Map<string, DesignGroup>();
+    const existingRowsMap = new Map<string, { group: DesignGroup; row: DesignRow }>();
+
+    previous.groups.forEach((group) => {
+        existingGroupsMap.set(group.id, group);
+        group.rows.forEach((row) => {
+            existingRowsMap.set(row.id, { group, row });
+        });
+    });
+
+    // Create a set of new section UUIDs
+    const newSectionUuids = new Set(sectionSources.map((s) => s.sectionUuid));
+
+    // Build new groups, merging with existing where possible
+    const mergedGroups: DesignGroup[] = [];
+
+    for (const sectionSource of sectionSources) {
+        const existingGroup = existingGroupsMap.get(sectionSource.sectionUuid);
+
+        if (existingGroup) {
+            // Group exists - merge rows
+            const mergedRows: DesignRow[] = [];
+
+            // Create a map of existing rows in this group
+            const existingRowsInGroup = new Map<string, DesignRow>();
+            existingGroup.rows.forEach((row) => {
+                existingRowsInGroup.set(row.id, row);
+            });
+
+            // Create a set of new indicator IDs
+            const newIndicatorIds = new Set(sectionSource.indicators.map((i) => i.id));
+
+            // Always preserve the section label row if it exists
+            const sectionLabelRowId = `${sectionSource.sectionUuid}__section_label`;
+            const existingSectionLabel = existingRowsInGroup.get(sectionLabelRowId);
+            if (existingSectionLabel) {
+                mergedRows.push({ ...existingSectionLabel }); // Preserve all customizations
+            } else {
+                // Create new section label row
+                mergedRows.push({
+                    id: sectionLabelRowId,
+                    type: 'section-label' as any,
+                    label: sectionSource.title,
+                    indent: 0,
+                    span: 'all' as any,
+                    emphasis: 'section' as any,
+                    showTotal: false,
+                    showDisaggregation: false,
+                });
+            }
+
+            // Merge indicator rows
+            for (const indicator of sectionSource.indicators) {
+                const existingRow = existingRowsInGroup.get(indicator.id);
+
+                if (existingRow) {
+                    // Row exists - preserve all customizations
+                    mergedRows.push({ ...existingRow });
+                } else {
+                    // New indicator - create default row
+                    mergedRows.push({
+                        id: indicator.id,
+                        type: 'indicator' as const,
+                        code: indicator.code,
+                        label: `${indicator.code}. ${indicator.name}`,
+                        indent: 1,
+                        keyPattern: '{code}_{age}_{sex}',
+                        dims: {},
+                        showTotal: true,
+                        showDisaggregation: true,
+                        span: 'label-only' as any,
+                        emphasis: 'normal' as any,
+                    });
+                }
+            }
+
+            // Preserve any additional custom rows that aren't section labels or standard indicators
+            // (e.g., group labels, custom rows the user added)
+            for (const [rowId, row] of existingRowsInGroup) {
+                if (
+                    rowId !== sectionLabelRowId &&
+                    !newIndicatorIds.has(rowId) &&
+                    row.type !== 'section-label' &&
+                    row.type !== 'indicator'
+                ) {
+                    // This is a custom row - preserve it
+                    mergedRows.push({ ...row });
+                }
+            }
+
+            // Rebuild hierarchical relationships for merged rows
+            const rowsWithStructure = rebuildHierarchicalStructure(mergedRows);
+
+            // Update group title but preserve other properties
+            mergedGroups.push({
+                ...existingGroup,
+                title: sectionSource.title,
+                rows: rowsWithStructure,
+            });
+        } else {
+            // New group - build from section source
+            const newGroupRows = [
+                {
+                    id: `${sectionSource.sectionUuid}__section_label`,
+                    type: 'section-label' as any,
+                    label: sectionSource.title,
+                    indent: 0,
+                    span: 'all' as any,
+                    emphasis: 'section' as any,
+                    showTotal: false,
+                    showDisaggregation: false,
+                },
+                ...sectionSource.indicators.map((i) => ({
+                    id: i.id,
+                    type: 'indicator' as const,
+                    code: i.code,
+                    label: `${i.code}. ${i.name}`,
+                    indent: 1,
+                    keyPattern: '{code}_{age}_{sex}',
+                    dims: {},
+                    showTotal: true,
+                    showDisaggregation: true,
+                    span: 'label-only' as any,
+                    emphasis: 'normal' as any,
+                })),
+            ];
+
+            mergedGroups.push({
+                id: sectionSource.sectionUuid,
+                title: sectionSource.title,
+                rows: rebuildHierarchicalStructure(newGroupRows),
+            });
+        }
+    }
+
+    // Preserve any additional custom groups that aren't in the new section sources
+    // (e.g., groups the user manually created)
+    for (const [groupId, group] of existingGroupsMap) {
+        if (!newSectionUuids.has(groupId)) {
+            // This is a custom group - preserve it with rebuilt structure
+            mergedGroups.push({
+                ...group,
+                rows: rebuildHierarchicalStructure(group.rows.map((row) => ({ ...row })))
+            });
+        }
+    }
+
+    return {
+        version: previous.version,
+        template: previous.template,
+        arrayName: previous.arrayName,
+        defaultValue: previous.defaultValue,
+        dimensions: previous.dimensions || {},
+        groups: mergedGroups,
     };
 }
 
@@ -241,21 +466,24 @@ const ReportDesignEditor: React.FC<Props> = ({
     const updateRow = React.useCallback(
         (groupId: string, rowId: string, patch: Partial<DesignRow>) => {
             updateGroups(
-                groups.map((g) =>
-                    g.id === groupId
-                        ? {
-                            ...g,
-                            rows: g.rows.map((r) => {
-                                if (r.id !== rowId) return r;
-                                const next = { ...r, ...patch };
-                                return {
-                                    ...next,
-                                    indent: clampIndentForRowType(next.indent, next.type),
-                                };
-                            }),
-                        }
-                        : g,
-                ),
+                groups.map((g) => {
+                    if (g.id !== groupId) return g;
+
+                    const rows = g.rows.map((r) => {
+                        if (r.id !== rowId) return r;
+                        const next = { ...r, ...patch };
+                        return {
+                            ...next,
+                            indent: clampIndentForRowType(next.indent, next.type),
+                        };
+                    });
+
+                    // Rebuild hierarchical structure after update
+                    return {
+                        ...g,
+                        rows: rebuildHierarchicalStructure(rows),
+                    };
+                }),
             );
         },
         [groups, updateGroups],
@@ -312,9 +540,12 @@ const ReportDesignEditor: React.FC<Props> = ({
             rows[idx] = rows[j];
             rows[j] = tmp;
 
+            // Rebuild hierarchical structure after move
+            const rowsWithStructure = rebuildHierarchicalStructure(rows);
+
             updateGroups(
                 groups.map((g) =>
-                    g.id === groupId ? { ...g, rows } : g,
+                    g.id === groupId ? { ...g, rows: rowsWithStructure } : g,
                 ),
             );
         },
@@ -329,9 +560,22 @@ const ReportDesignEditor: React.FC<Props> = ({
 
             const minIndent = getMinIndentForRowType(row.type);
             const nextIndent = Math.max(minIndent, Math.min(MAX_INDENT, (row.indent ?? minIndent) + dir));
-            updateRow(groupId, rowId, { indent: nextIndent });
+
+            // Update the row indent
+            const rows = group.rows.map((r) =>
+                r.id === rowId ? { ...r, indent: nextIndent } : r
+            );
+
+            // Rebuild hierarchical structure after indent change
+            const rowsWithStructure = rebuildHierarchicalStructure(rows);
+
+            updateGroups(
+                groups.map((g) =>
+                    g.id === groupId ? { ...g, rows: rowsWithStructure } : g,
+                ),
+            );
         },
-        [groups, updateRow],
+        [groups, updateGroups],
     );
 
     const generateFromDefinition = React.useCallback(() => {
@@ -340,6 +584,26 @@ const ReportDesignEditor: React.FC<Props> = ({
         setSelectedGroupId(next.groups[0]?.id ?? null);
         setSelectedRowId(next.groups[0]?.rows[0]?.id ?? null);
     }, [draft, sectionSources, setDraft]);
+
+    const refreshFromDefinition = React.useCallback(() => {
+        const next = buildDesignFromSectionSourcesWithMerge(sectionSources, draft);
+        setDraft(next);
+        // Keep current selection if possible, otherwise select first
+        const stillSelected = next.groups.find((g) => g.id === selectedGroupId);
+        if (stillSelected) {
+            const rowStillExists = stillSelected.rows.find((r) => r.id === selectedRowId);
+            if (rowStillExists) {
+                // Both group and row still exist, keep selection
+                return;
+            }
+            // Group exists but row doesn't, select first row in group
+            setSelectedRowId(stillSelected.rows[0]?.id ?? null);
+        } else {
+            // Group doesn't exist, select first group and row
+            setSelectedGroupId(next.groups[0]?.id ?? null);
+            setSelectedRowId(next.groups[0]?.rows[0]?.id ?? null);
+        }
+    }, [draft, sectionSources, setDraft, selectedGroupId, selectedRowId]);
 
     const handleDragStart = React.useCallback((rowId: string, fromGroupId: string) => {
         setDragState({ rowId, fromGroupId });
@@ -364,9 +628,12 @@ const ReportDesignEditor: React.FC<Props> = ({
             rows.splice(fromIdx, 1);
             rows.splice(toIdx, 0, moving);
 
+            // Rebuild hierarchical structure after drop
+            const rowsWithStructure = rebuildHierarchicalStructure(rows);
+
             updateGroups(
                 groups.map((g) =>
-                    g.id === targetGroupId ? { ...g, rows } : g,
+                    g.id === targetGroupId ? { ...g, rows: rowsWithStructure } : g,
                 ),
             );
 
@@ -419,6 +686,15 @@ const ReportDesignEditor: React.FC<Props> = ({
                     disabled={!sectionSources.length}
                 >
                     Generate From Definition
+                </Button>
+                <Button
+                    size="sm"
+                    kind="secondary"
+                    onClick={refreshFromDefinition}
+                    disabled={!sectionSources.length}
+                    renderIcon={Renew}
+                >
+                    Refresh from Definition
                 </Button>
             </div>
 
@@ -795,7 +1071,8 @@ const ReportDesignEditor: React.FC<Props> = ({
                                 style={{
                                     border: '1px solid var(--cds-border-subtle, #e0e0e0)',
                                     borderRadius: 8,
-                                    overflow: 'hidden',
+                                    overflow: 'auto',
+                                    maxHeight: '400px',
                                     background: '#fff',
                                 }}
                             >

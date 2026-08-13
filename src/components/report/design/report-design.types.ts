@@ -25,6 +25,11 @@ export type DesignRow = {
     // presentation hints
     span?: 'all' | 'label-only';
     emphasis?: 'section' | 'group' | 'normal' | 'summary';
+
+    // Positional tracking for hierarchical structure
+    parentId?: string;              // ID of the parent row (for items indented under group-labels)
+    position?: number;             // Position within the group (0-indexed)
+    children?: string[];            // IDs of child rows (explicit tracking for group-labels)
 };
 
 export type DesignGroup = {
