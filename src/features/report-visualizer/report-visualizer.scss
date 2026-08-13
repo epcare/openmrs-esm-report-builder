@@ -254,9 +254,9 @@
   }
 
   thead {
-    background-color: var(--cds-interactive-01, #2b7d79) !important;
-    border-bottom: 2px solid var(--cds-interactive-01, #2b7d79) !important;
-    border: 2px solid var(--cds-interactive-01, #2b7d79) !important;
+    background-color: var(--brand-03) !important;
+    border-bottom: 2px solid var(--brand-03) !important;
+    border: 2px solid var(--brand-03) !important;
   }
 
   th {
@@ -266,7 +266,7 @@
     font-size: 0.75rem !important;
     color: var(--cds-text-04, #ffffff) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    background-color: var(--cds-interactive-01, #2b7d79) !important;
+    background-color: var(--brand-03) !important;
     font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif !important;
   }
 
@@ -509,14 +509,14 @@
   }
 
   thead {
-    background-color: var(--cds-interactive-01, #2b7d79) !important;
-    border: 2px solid var(--cds-interactive-01, #2b7d79) !important;
+    background-color: var(--brand-03) !important;
+    border: 2px solid var(--brand-03) !important;
   }
 
   th {
     color: var(--cds-text-04, #ffffff) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    background-color: var(--cds-interactive-01, #2b7d79) !important;
+    background-color: var(--brand-03) !important;
   }
 
   td {
