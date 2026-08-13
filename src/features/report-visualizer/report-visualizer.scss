@@ -254,34 +254,31 @@
   }
 
   thead {
-    background-color: #f4f4f4 !important;
-    border-bottom: 1px solid #8d8d8d !important;
+    background-color: var(--cds-interactive-01, #2b7d79) !important;
+    border-bottom: 2px solid var(--cds-interactive-01, #2b7d79) !important;
+    border: 2px solid var(--cds-interactive-01, #2b7d79) !important;
   }
 
   th {
-    padding: 0.875rem 1rem !important;
-    text-align: left;
+    padding: 6px 8px !important;
+    text-align: center !important;
     font-weight: 600 !important;
-    font-size: 0.875rem !important;
-    color: #161616 !important;
-    border-right: 1px solid #e0e0e0 !important;
-    background-color: #f4f4f4 !important;
+    font-size: 0.75rem !important;
+    color: var(--cds-text-04, #ffffff) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background-color: var(--cds-interactive-01, #2b7d79) !important;
     font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif !important;
-
-    &:last-child {
-      border-right: none !important;
-    }
   }
 
   td {
-    padding: 0.875rem 1rem !important;
+    padding: 6px 8px !important;
     border-bottom: 1px solid #e0e0e0 !important;
     border-right: 1px solid #e0e0e0 !important;
     border-left: none !important;
     color: #525252 !important;
     background-color: #ffffff !important;
     font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif !important;
-    font-size: 0.875rem !important;
+    font-size: 0.75rem !important;
 
     &:last-child {
       border-right: none !important;
@@ -314,19 +311,45 @@
   }
 
   /* Handle backend classes like sectionRow, groupRow, labelRow */
-  tr.sectionRow td {
-    background-color: #e0e0e0 !important;
+  tr:global(.sectionRow) td {
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.32px !important;
+    border-top: 2px solid var(--cds-border-strong, #8a8a8a) !important;
+    border-bottom: 1px solid var(--cds-border-strong, #8a8a8a) !important;
+    padding: 6px 8px !important;
+  }
+
+  tr:global(.groupRow) td {
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    border-top: 1px solid var(--cds-border-subtle, #e0e0e0) !important;
+    border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0) !important;
+    padding: 6px 8px !important;
+  }
+
+  tr:global(.labelRow) td {
     font-weight: 600 !important;
   }
 
-  tr.groupRow td {
-    background-color: #f0f0f0 !important;
-    font-weight: 600 !important;
+  /* Value cells - right-align numeric values */
+  td:global(.val) {
+    text-align: right !important;
+    font-family: 'IBM Plex Mono', monospace !important;
   }
 
-  tr.labelRow td {
-    background-color: #f8f8f8 !important;
-    font-weight: 600 !important;
+  /* Label cells - for indicator names */
+  td:global(.label) {
+    text-align: left !important;
+    font-weight: 500 !important;
+  }
+
+  /* Don't apply zebra striping to section/group/label rows */
+  tr:global(.sectionRow):nth-child(even) td,
+  tr:global(.groupRow):nth-child(even) td,
+  tr:global(.labelRow):nth-child(even) td {
+    background-color: unset !important;
   }
 
   /* Lists */
@@ -486,14 +509,14 @@
   }
 
   thead {
-    background-color: #393939 !important;
-    border-bottom-color: #6f6f6f !important;
+    background-color: var(--cds-interactive-01, #2b7d79) !important;
+    border: 2px solid var(--cds-interactive-01, #2b7d79) !important;
   }
 
   th {
-    color: #f4f4f4 !important;
-    border-right-color: #393939 !important;
-    background-color: #393939 !important;
+    color: var(--cds-text-04, #ffffff) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background-color: var(--cds-interactive-01, #2b7d79) !important;
   }
 
   td {
@@ -553,18 +576,17 @@
     border-bottom-color: #393939 !important;
   }
 
-  tr.sectionRow td {
-    background-color: #393939 !important;
-    color: #f4f4f4 !important;
+  tr:global(.sectionRow) td {
+    border-top: 2px solid var(--cds-border-strong, #6f6f6f) !important;
+    border-bottom: 1px solid var(--cds-border-strong, #6f6f6f) !important;
   }
 
-  tr.groupRow td {
-    background-color: #353535 !important;
-    color: #f4f4f4 !important;
+  tr:global(.groupRow) td {
+    border-top: 1px solid var(--cds-border-subtle, #393939) !important;
+    border-bottom: 1px solid var(--cds-border-subtle, #393939) !important;
   }
 
-  tr.labelRow td {
-    background-color: #2d2d2d !important;
-    color: #f4f4f4 !important;
+  tr:global(.labelRow) td {
+    /* No special styling needed for dark theme */
   }
 }

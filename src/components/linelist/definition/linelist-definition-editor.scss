@@ -349,24 +349,81 @@
 
     th,
     td {
-      border: 1px solid #ddd;
+      border: 1px solid var(--cds-border-subtle, #e0e0e0);
       padding: 8px;
       text-align: left;
     }
 
     th {
-      font-weight: bold;
+      font-weight: 600;
       position: sticky;
       top: 0;
-      background-color: #fff;
+      background-color: var(--cds-layer-01, #fff);
+      color: var(--cds-text-05, #161616);
+    }
+
+    // Section row - top level section header (e.g., "HTS Register")
+    .sectionRow {
+      background-color: var(--cds-interactive-01, #0f62fe);
+      color: var(--cds-text-04, #ffffff);
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.32px;
+      border-top: 1px solid var(--cds-interactive-01, #0f62fe);
+      border-bottom: 1px solid var(--cds-interactive-01, #0f62fe);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+
+      td {
+        border-color: var(--cds-interactive-01, #0f62fe);
+        padding: 12px 8px;
+      }
+
+      &:hover {
+        background-color: var(--cds-interactive-01-hover, #0353e9);
+      }
+    }
+
+    // Group row - indicator group header (e.g., "HT01 Total No. of individuals at Health Facility")
+    .groupRow {
+      background-color: var(--cds-layer-02, #f4f4f4);
+      font-weight: 600;
+      font-size: 13px;
+      border-top: 1px solid var(--cds-border-strong, #8a8a8a);
+      border-bottom: 1px solid var(--cds-border-strong, #8a8a8a);
+      color: var(--cds-text-05, #161616);
+      position: sticky;
+      top: 38px;
+      z-index: 4;
+
+      td {
+        border-color: var(--cds-border-strong, #8a8a8a);
+        padding: 10px 8px;
+      }
+
+      &:hover {
+        background-color: var(--cds-layer-03, #e0e0e0);
+      }
+
+      .indent {
+        display: inline-block;
+      }
     }
 
     tbody tr:nth-child(even) {
-      background-color: #f9f9f9;
+      background-color: var(--cds-field-01, #f4f4f4);
     }
 
     tbody tr:hover {
-      background-color: #f0f0f0;
+      background-color: var(--cds-field-02, #e0e0e0);
+    }
+
+    // Don't apply zebra striping to section/group rows
+    tbody tr.sectionRow:nth-child(even),
+    tbody tr.groupRow:nth-child(even) {
+      background-color: unset;
     }
   }
 }
