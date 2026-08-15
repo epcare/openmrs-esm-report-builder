@@ -50,6 +50,7 @@ import IndicatorSearchSelect from '../../../indicators/indicator-search-select.c
 import JsonPreview from './json-preview.component';
 import ColumnCategorySelector from './column-category-selector.component';
 import ParameterEditor from '../../definition/panels/parameter-panel.component';
+import FilterMapEditor from './filtermap-editor.component';
 import styles from './query-config-panel.scss';
 
 type Props = {
@@ -961,6 +962,16 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
                 </div>
               </>
             )}
+
+            {/* FilterMap Configuration */}
+            <div className={styles.filterMapSection}>
+              <FilterMapEditor
+                filterMap={draft.population.filterMap}
+                onChange={(filterMap) => onDraftChange({ population: { ...draft.population, filterMap } })}
+                disabled={disabled}
+                sqlQuery={draft.population.sqlTemplate}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -987,6 +998,7 @@ export default function QueryConfigPanel({ draft, onDraftChange, availableFields
               columns={draft.columns}
               onChange={(columns) => onDraftChange({ columns })}
               disabled={disabled}
+              filterMap={draft.population.filterMap}
             />
           </div>
         )}

@@ -338,6 +338,23 @@ export type VisualFilterState = {
 /**
  * Cohort definition for patient selection
  */
+/**
+ * FilterMap configuration for base cohort
+ * Maps parameter names to column references for use in column SQL queries
+ * Enables column queries to filter to the exact row that matched the base cohort criteria
+ */
+export type FilterMap = {
+  /**
+   * Map of parameter names to column references
+   * Example: { "patientId": "vl.patient_id", "orderId": "vl.native_order_id", "episodeId": "vl.episode_id" }
+   * Column SQL can then use :patientId, :orderId, :episodeId as parameters
+   */
+  [parameterName: string]: string;
+};
+
+/**
+ * Cohort definition for patient selection
+ */
 export type LinelistCohortDefinition = {
   type: 'SQL';
   name: string;
@@ -348,6 +365,12 @@ export type LinelistCohortDefinition = {
      * Example: SELECT DISTINCT patient_id FROM mamba_fact_patients_latest WHERE ...
      */
     sql: string;
+    /**
+     * Optional filterMap for column parameter binding
+     * When column queries reference the same table as the base cohort,
+     * filterMap enables filtering to the exact row that matched cohort criteria
+     */
+    filterMap?: FilterMap;
   };
 };
 
@@ -368,6 +391,7 @@ export type LinelistDataSetDefinition = {
     name: string;
     config: {
       sql: string;
+      filterMap?: FilterMap;
     };
   };
 
@@ -708,6 +732,9 @@ export type PopulationDefinition = {
 
   // Build history for reproducibility
   buildHistory?: PopulationBuildStep[];
+
+  // FilterMap for column parameter binding
+  filterMap?: FilterMap;
 };
 
 /**
@@ -1628,6 +1655,7 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
         : 'Patient Cohort',
       config: {
         sql: finalCohortSql,
+        ...(draft.population.filterMap && { filterMap: draft.population.filterMap }),
       },
     },
     dataSetDefinitions: [
@@ -1639,6 +1667,7 @@ INNER JOIN (${indicatorSql}) indicators ON indicators.client_id = base.patient_i
           name: 'Row Filter',
           config: {
             sql: finalCohortSql,
+            ...(draft.population.filterMap && { filterMap: draft.population.filterMap }),
           },
         },
         columns,
@@ -1972,6 +2001,7 @@ export function createEmptyDraft(): LinelistReportDraft {
         useVisualBuilder: false,
       },
       buildHistory: [],
+      filterMap: undefined,
     },
 
     columns: [],

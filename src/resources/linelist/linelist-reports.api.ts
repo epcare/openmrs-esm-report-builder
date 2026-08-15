@@ -403,6 +403,29 @@ export type LinelistBuilderMeta = {
     logicalOperator?: 'AND' | 'OR';
     negate?: boolean;
   }>;
+  /** Visual filter state for reconstructing the filter UI */
+  visualFilter?: {
+    rootGroup: {
+      id: string;
+      logicalOperator: 'AND' | 'OR';
+      conditions: Array<{
+        id: string;
+        field: string;
+        fieldLabel: string;
+        fieldType: string;
+        operator: string;
+        value?: string | string[];
+        value2?: string;
+        negate?: boolean;
+      }>;
+      nestedGroups?: any[];
+    };
+    useVisualBuilder: boolean;
+  };
+  /** Filter map for parameter-to-column mapping */
+  filterMap?: {
+    [parameterName: string]: string;
+  };
 };
 
 /**
@@ -436,6 +459,8 @@ export function configToSavePayload(
       buildMethod: builderMeta?.buildMethod || config.buildMethod,
       indicatorRules: builderMeta?.indicatorRules || config.indicatorRules,
       categoryUuid: config.categoryUuid,
+      visualFilter: builderMeta?.visualFilter,
+      filterMap: builderMeta?.filterMap,
     },
   };
 

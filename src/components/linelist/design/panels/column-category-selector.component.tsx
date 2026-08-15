@@ -23,6 +23,7 @@ import {
 import { TrashCan, User, Tag as TagIcon, Function, Hashtag, ChartColumn, Edit, Copy, ArrowUp, ArrowDown, Settings } from '@carbon/react/icons';
 import type {
   LinelistColumnDraft,
+  FilterMap,
 } from '../../../../types/linelist-types';
 import styles from './column-category-selector.scss';
 import EditColumnModal from '../../definition/panels/column-properties-panel.component';
@@ -73,9 +74,10 @@ type Props = {
   onChange: (columns: LinelistColumnDraft[]) => void;
   disabled?: boolean;
   error?: string;
+  filterMap?: FilterMap;
 };
 
-export default function ColumnCategorySelector({ columns, onChange, disabled = false, error }: Props) {
+export default function ColumnCategorySelector({ columns, onChange, disabled = false, error, filterMap }: Props) {
   // Edit modal state
   const [editingColumn, setEditingColumn] = useState<LinelistColumnDraft | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -394,6 +396,7 @@ export default function ColumnCategorySelector({ columns, onChange, disabled = f
           column={editingColumn}
           onSave={saveColumn}
           onClose={cancelEdit}
+          filterMap={filterMap}
         />
 
         {/* Observation Column Modal (native edit mode) */}

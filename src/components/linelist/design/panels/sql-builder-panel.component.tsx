@@ -27,8 +27,9 @@ import {
 } from '@carbon/react';
 import { Information, Checkmark, Warning } from '@carbon/react/icons';
 import VisualFilterBuilder from './visual-filter-panel.component';
-import type { VisualFilterState, FilterFieldType } from '../../../../types/linelist-types';
+import type { VisualFilterState, FilterFieldType, FilterMap } from '../../../../types/linelist-types';
 import styles from './cohort-sql-editor.scss';
+import FilterMapEditor from './filtermap-editor.component';
 
 type Props = {
   sql: string;
@@ -38,6 +39,8 @@ type Props = {
   visualFilter?: VisualFilterState;
   onVisualFilterChange?: (visualFilter: VisualFilterState) => void;
   availableFields?: Array<{ name: string; label: string; type: FilterFieldType }>;
+  filterMap?: FilterMap;
+  onFilterMapChange?: (filterMap: FilterMap | undefined) => void;
 };
 
 /**
@@ -227,6 +230,8 @@ export default function CohortSQLEditor({
   visualFilter,
   onVisualFilterChange,
   availableFields = [],
+  filterMap,
+  onFilterMapChange,
 }: Props) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
@@ -300,6 +305,16 @@ export default function CohortSQLEditor({
             onSqlChange={onChange}
             availableFields={availableFields}
             disabled={disabled}
+          />
+        )}
+
+        {/* FilterMap Editor */}
+        {onFilterMapChange && (
+          <FilterMapEditor
+            filterMap={filterMap}
+            onChange={onFilterMapChange}
+            disabled={disabled}
+            sqlQuery={sql}
           />
         )}
 

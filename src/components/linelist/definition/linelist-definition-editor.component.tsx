@@ -357,11 +357,25 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     config: (param.config || { type: param.type }) as LinelistParameterConfig,
   })) || [];
 
-  // === EXTRACT BUILDER METADATA (build method, indicators) ===
+  // === EXTRACT BUILDER METADATA (build method, indicators, visualFilter, filterMap) ===
   // Builder state lives under `_builder` (compiled format) or at the top level
   // (intermediate format). Read from _builder first, then fall back.
   let buildMethod: PopulationDefinition['buildMethod'] = builderState?.buildMethod || (config as any).buildMethod || 'SQL_BUILDER';
   let indicatorRules: PopulationDefinition['indicatorRules'] = undefined;
+  let loadedVisualFilter: any = undefined;
+  let loadedFilterMap: any = undefined;
+
+  // Try to load visualFilter from config._builder or top-level config
+  const configVisualFilter = builderState?.visualFilter || (config as any).visualFilter;
+  if (configVisualFilter) {
+    loadedVisualFilter = configVisualFilter;
+  }
+
+  // Try to load filterMap from config._builder or config.baseCohortDefinition.config
+  const configFilterMap = builderState?.filterMap || config.baseCohortDefinition?.config?.filterMap;
+  if (configFilterMap) {
+    loadedFilterMap = configFilterMap;
+  }
 
   const configIndicatorRules = builderState?.indicatorRules || (config as any).indicatorRules;
   if (Array.isArray(configIndicatorRules) && configIndicatorRules.length > 0) {
@@ -375,7 +389,7 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
     }));
   }
 
-  // Fall back to metaJson for buildMethod, indicator rules, and parameters if not in config
+  // Fall back to metaJson for buildMethod, indicator rules, parameters if not in config
   // Load parameters from metaJson if available (for dynamic parameter options like LIST options)
   if (report.metaJson) {
     try {
@@ -430,12 +444,14 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
   // === BUILD POPULATION DEFINITION ===
   const cohortSql = config.baseCohortDefinition?.config?.sql || '';
   const baseDsUuid = dataSources.find(ds => ds.role === 'PRIMARY')?.uuid || primaryDataSourceUuid;
+
   const population: PopulationDefinition = {
     baseDataSourceUuid: baseDsUuid,
     buildMethod,
     sqlTemplate: cohortSql,
     parameterReferences: extractParameterReferences(cohortSql),
-    visualFilter: {
+    // Restore visual filter from metaJson if available, otherwise use empty default
+    visualFilter: loadedVisualFilter || {
       rootGroup: {
         id: 'root',
         logicalOperator: 'AND',
@@ -444,6 +460,8 @@ function reportToDraft(report: LinelistReportDto): LinelistReportDraft {
       },
       useVisualBuilder: false,
     },
+    // Restore filter map from metaJson or config, otherwise undefined
+    filterMap: loadedFilterMap || undefined,
     // Reconstruct indicator rules so they show as selected on edit
     indicatorRules,
     buildHistory: [
@@ -661,12 +679,16 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
       );
       // Pass indicators map so draftToConfig can generate SQL from indicator rules
       const config = draftToConfig(draft, indicatorsMap);
-      // Preserve builder state (indicators, build method, population sources) in metaJson so the
+      // Preserve builder state (indicators, build method, population sources, visual filter, filter map) in metaJson so the
       // editor can reconstruct the draft when re-opening for edit.
       const builderMeta: LinelistBuilderMeta = {
         buildMethod: draft.population.buildMethod,
         indicatorRules: draft.population.indicatorRules,
         populationSources: draft.populationSources,
+        // Preserve visual filter state for reconstructing the filter UI
+        visualFilter: draft.population.visualFilter,
+        // Preserve filter map for parameter-to-column mapping
+        filterMap: draft.population.filterMap,
       };
       const payload = configToSavePayload(config, draft, builderMeta);
 
@@ -760,16 +782,6 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     setCompileSuccess(null);
 
     try {
-      // Get category name from the selected category UUID
-      const category = categories.find((c) => c.uuid === draft.categoryUuid)?.name;
-
-      console.log('Compiling with:', {
-        reportUuid: initialReport.uuid,
-        categoryUuid: draft.categoryUuid,
-        categoryName: category,
-        categoriesCount: categories.length,
-      });
-
       const compiledResult = await compileLinelistReport(initialReport.uuid, draft.categoryUuid);
 
       // Cache the reportDefinitionUuid for subsequent previews
@@ -787,7 +799,7 @@ const LinelistBuilderWorkspace: React.FC<Props> = () => {
     } finally {
       setCompiling(false);
     }
-  }, [draft, initialReport?.uuid, handleSave, updateDraft, categories]);
+  }, [draft, initialReport?.uuid, handleSave, updateDraft]);
 
   /**
    * Handle datasources change

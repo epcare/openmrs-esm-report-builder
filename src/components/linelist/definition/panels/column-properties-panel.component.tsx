@@ -24,8 +24,9 @@ import {
   SelectItem,
   Toggle,
   Stack,
+  Tag,
 } from '@carbon/react';
-import type { LinelistColumnDraft } from '../../../../types/linelist-types';
+import type { LinelistColumnDraft, FilterMap } from '../../../../types/linelist-types';
 
 // Scoped styles for equal-width buttons and SQL editor
 const editModalStyles = `
@@ -56,6 +57,8 @@ type Props = {
   onSave: (column: LinelistColumnDraft) => void;
   /** Callback when user cancels */
   onClose: () => void;
+  /** Available filterMap parameters from base cohort */
+  filterMap?: FilterMap;
 };
 
 const RESOLUTION_STRATEGIES = [
@@ -84,7 +87,7 @@ const FORMAT_OPTIONS = [
 
 const ORDER_FIELDS = ['encounter_date', 'encounter_datetime', 'date_created', 'date_modified'];
 
-const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose }) => {
+const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose, filterMap }) => {
   const [editedColumn, setEditedColumn] = useState<LinelistColumnDraft | null>(null);
 
   // Reset form when column changes or modal opens
@@ -291,8 +294,27 @@ const EditColumnModal: React.FC<Props> = ({ open, column, onSave, onClose }) => 
                 labelText=""
               />
               <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.7 }}>
-                <small>Available parameters: <code>:patientId</code>, <code>:startDate</code>, <code>:endDate</code></small>
+                <small>Available parameters: </small>
+                <Tag size="sm" type="blue"><code>:patientId</code></Tag>
+                <Tag size="sm" type="blue"><code>:startDate</code></Tag>
+                <Tag size="sm" type="blue"><code>:endDate</code></Tag>
+                {filterMap && Object.keys(filterMap).length > 0 && (
+                  <>
+                    <small style={{ marginLeft: '0.5rem' }}>| FilterMap parameters:</small>
+                    {Object.entries(filterMap).map(([paramName, colRef]) => (
+                      <Tag key={paramName} size="sm" type="green">
+                        <code>:{paramName}</code>
+                        <span style={{ opacity: 0.7, fontSize: '0.75em' }}> → {colRef}</span>
+                      </Tag>
+                    ))}
+                  </>
+                )}
               </div>
+              {filterMap && Object.keys(filterMap).length > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.6 }}>
+                  <small>💡 FilterMap parameters allow you to reference specific columns from the base cohort row (e.g., <code>:{Object.keys(filterMap)[0]}</code> for the exact row that matched)</small>
+                </div>
+              )}
             </div>
           )}
 

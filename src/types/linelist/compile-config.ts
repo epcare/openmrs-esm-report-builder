@@ -59,7 +59,7 @@ export type BackendColumn = {
 export type BackendCohortDefinition = {
   type: 'SQL';
   name: string;
-  config: { sql: string };
+  config: { sql: string; filterMap?: Record<string, string> };
 };
 
 export type BackendDataSetDefinition = {
@@ -376,7 +376,7 @@ function compileSimpleReference(
 }
 
 /**
- * Compile cohort definition — fix SQL parameter syntax
+ * Compile cohort definition — fix SQL parameter syntax and preserve filterMap
  */
 function compileCohortDefinition(
   cohort: LinelistReportDefinitionConfig['baseCohortDefinition']
@@ -386,6 +386,7 @@ function compileCohortDefinition(
     name: cohort.name,
     config: {
       sql: compileSqlParams(cohort.config.sql),
+      ...(cohort.config.filterMap && { filterMap: cohort.config.filterMap }),
     },
   };
 }
