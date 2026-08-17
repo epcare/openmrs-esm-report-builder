@@ -1,0 +1,133 @@
+/**
+ * ETL Monitor Dashboard Styles
+ * Main dashboard for displaying all ETL monitors
+ */
+
+.etl-monitor-dashboard {
+  padding: 1.5rem;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+
+    h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #161616;
+    }
+
+    p {
+      margin: 0.5rem 0 0 0;
+      font-size: 0.875rem;
+      color: #525252;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  &__filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__filter {
+    min-width: 150px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  &__empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+
+    h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #525252;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #6f6f6f;
+    }
+  }
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+  }
+
+  &__section {
+    margin-bottom: 2rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    h3 {
+      margin: 0 0 1rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #262626;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    &__count {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: #6f6f6f;
+      background-color: #f4f4f4;
+      padding: 0.125rem 0.5rem;
+      border-radius: 12px;
+    }
+  }
+
+  [data-theme='dark'] & {
+    &__header h2 {
+      color: #f4f4f4;
+    }
+
+    &__header p {
+      color: #8d8d8d;
+    }
+
+    &__section h3 {
+      color: #f4f4f4;
+    }
+
+    &__section__count {
+      background-color: #262626;
+      color: #8d8d8d;
+    }
+
+    &__empty {
+      background-color: #1a1a1a;
+
+      h3, p {
+        color: #8d8d8d;
+      }
+    }
+  }
+}

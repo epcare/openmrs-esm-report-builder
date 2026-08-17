@@ -19,6 +19,9 @@ import AgeGroupsPage from '../components/admin/age-groups-page.component';
 import ReportLibraryPage from '../components/admin/report-library-page.component';
 import ETLSourcesPage from '../components/admin/etl-sources-page.component';
 import ETLTasksPage from '../components/admin/etl-tasks-page.component';
+import ETLMonitorsPage from '../components/etl-monitor/etl-monitors-page.component';
+import ETLMonitorDashboard from '../components/etl-monitor/etl-monitor-dashboard.component';
+import { EtlMonitorBuilderPage } from '../components/etl-monitor/builder';
 
 import LinelistReportsPage from '../components/linelist/linelist-dashboard.page.component';
 import LinelistBuilderWorkspace from '../components/linelist/definition/linelist-definition-editor.component';
@@ -54,6 +57,9 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/admin/report-library" element={<ReportLibraryPage />} />
                 <Route path="/admin/etl-sources" element={<ETLSourcesPage />} />
                 <Route path="/admin/etl-tasks" element={<ETLTasksPage />} />
+                <Route path="/admin/etl-monitors" element={<ETLMonitorsPage />} />
+                <Route path="/admin/etl-monitors/builder" element={<EtlMonitorBuilderPage />} />
+                <Route path="/etl-dashboard" element={<ETLMonitorDashboard />} />
 
                 {/* Data themes now accessed under Admin */}
                 <Route path="/admin/themes" element={<DataThemesPage />} />

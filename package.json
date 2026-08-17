@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "start": "openmrs develop",
-    "serve": "webpack serve --mode=development",
+    "serve": "webpack serve --mode=development --port 4001",
     "build": "webpack --mode production",
     "analyze": "webpack --mode=production --env.analyze=true",
     "lint": "eslint --ext js,jsx,ts,tsx .",

@@ -15,6 +15,7 @@ import {
     Play,
     Settings,
     List,
+    Dashboard,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -79,6 +80,14 @@ const ReportBuilderShell: React.FC = () => {
                             Linelist Reports
                         </SideNavLink>
 
+                        <SideNavLink
+                            renderIcon={Dashboard}
+                            isActive={isActive('/etl-dashboard')}
+                            onClick={() => navigate('/etl-dashboard')}
+                        >
+                            ETL Dashboard
+                        </SideNavLink>
+
                         <SideNavMenu
                             renderIcon={Settings}
                             title="Admin"
@@ -111,12 +120,16 @@ const ReportBuilderShell: React.FC = () => {
                             <SideNavMenuItem isActive={isActive('/admin/themes')} onClick={() => navigate('/admin/themes')}>
                                 Data Themes
                             </SideNavMenuItem>
-                          <SideNavMenuItem isActive={isActive('/admin/etl-sources')} onClick={() => navigate('/admin/etl-sources')}>
-                            ETL Sources
-                          </SideNavMenuItem>
-                          <SideNavMenuItem isActive={isActive('/admin/etl-tasks')} onClick={() => navigate('/admin/etl-tasks')}>
-                            ETL Tasks
-                          </SideNavMenuItem>
+                            <SideNavMenuItem isActive={isActive('/admin/etl-sources')} onClick={() => navigate('/admin/etl-sources')}>
+                                ETL Sources
+                            </SideNavMenuItem>
+                            <SideNavMenuItem isActive={isActive('/admin/etl-tasks')} onClick={() => navigate('/admin/etl-tasks')}>
+                                ETL Tasks
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem isActive={isActive('/admin/etl-monitors')} onClick={() => navigate('/admin/etl-monitors')}>
+                                ETL Monitors
+                            </SideNavMenuItem>
                         </SideNavMenu>
                     </SideNavItems>
                 </SideNav>

@@ -11,4 +11,11 @@ config.overrides.resolve = {
   },
 };
 
+// Configure dev server to run on port 4001
+config.devServer = {
+  ...config.devServer,
+  port: 4001,
+  allowedHosts: 'all',
+};
+
 module.exports = config;

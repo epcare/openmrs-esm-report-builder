@@ -1,0 +1,103 @@
+/**
+ * General Information Step Styles
+ */
+
+.general-step {
+  padding: 1.5rem;
+
+  &__header {
+    margin-bottom: 2rem;
+
+    h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+    }
+  }
+
+  &__description {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+
+  &__toggle {
+    padding: 0.5rem 0;
+
+    .cds--toggle__label {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .cds--toggle__text {
+      font-size: 0.8125rem;
+    }
+  }
+
+  &__toggle-helper {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: #6b7280;
+  }
+
+  &__info-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.5rem;
+    margin-top: 1.5rem;
+    color: #1e40af;
+    font-size: 0.875rem;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+}
+
+// Dark theme support
+[data-theme='dark'] .general-step {
+  &__header {
+    h2 {
+      color: #f3f4f6;
+    }
+  }
+
+  &__description {
+    color: #9ca3af;
+  }
+
+  &__info-banner {
+    background-color: rgba(30, 64, 175, 0.2);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 672px) {
+  .general-step {
+    padding: 1rem;
+
+    &__header {
+      h2 {
+        font-size: 1.125rem;
+      }
+    }
+
+    .cds--stack.cds--stack--horizontal {
+      flex-direction: column;
+      gap: 1.5rem !important;
+
+      > div {
+        width: 100% !important;
+        flex: 1 !important;
+      }
+    }
+  }
+}

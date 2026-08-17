@@ -1,0 +1,157 @@
+@import '~@openmrs/esm-styleguide/src/variables.scss';
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-10;
+  min-height: 300px;
+}
+
+.emptyStateContent {
+  text-align: center;
+  max-width: 400px;
+}
+
+.emptyStateTitle {
+  @include carbon--type-style('productive-heading-03');
+  color: $text-01;
+  margin: 0 0 $spacing-03 0;
+}
+
+.emptyStateBody {
+  @include carbon--type-style('productive-body-01');
+  color: $text-02;
+  margin: 0 0 $spacing-05 0;
+}
+
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: $spacing-05;
+  background-color: $ui-01;
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: $spacing-07;
+  padding: $spacing-06 $spacing-08;
+  background: $ui-01;
+  border-radius: 8px;
+}
+
+.headerContent {
+  flex: 1;
+}
+
+.title {
+  @include carbon--type-style('productive-heading-05');
+  color: $text-01;
+  margin: 0 0 $spacing-03 0;
+  font-weight: 600;
+}
+
+.subtitle {
+  @include carbon--type-style('productive-body-01');
+  color: $text-02;
+  margin: 0;
+  max-width: 600px;
+}
+
+.searchBar {
+  margin-bottom: $spacing-06;
+  padding: 0 $spacing-08;
+}
+
+.searchInputWrapper {
+  display: flex;
+  align-items: center;
+  background: $field-01;
+  border: 1px solid $ui-04;
+  border-radius: 4px;
+  padding: 0 $spacing-05;
+  max-width: 500px;
+  transition: border-color 0.2s;
+
+  &:focus-within {
+    border-color: $focus;
+    box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.2);
+  }
+}
+
+.searchIcon {
+  color: $text-03;
+  margin-right: $spacing-03;
+}
+
+.searchInput {
+  border: none;
+  background: transparent;
+  padding: $spacing-04 0;
+  font-size: 0.875rem;
+  width: 100%;
+  outline: none;
+  color: $text-01;
+
+  &::placeholder {
+    color: $text-03;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  color: $text-03;
+}
+
+/* Table Styles */
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-01;
+}
+
+.monitorName {
+  @include carbon--type-style('productive-body-01');
+  color: $text-01;
+  font-weight: 500;
+}
+
+.monitorDescription {
+  @include carbon--type-style('label-01');
+  color: $text-03;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.statusText {
+  @include carbon--type-style('productive-body-01');
+  color: $text-01;
+}
+
+.actionsCell {
+  display: flex;
+  align-items: center;
+  gap: $spacing-02;
+}

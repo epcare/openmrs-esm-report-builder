@@ -1,0 +1,103 @@
+/**
+ * ETL Monitor Card Shell Styles
+ * Wrapper component for individual monitor cards
+ */
+
+.etl-monitor-card-shell {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #161616;
+    }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  &__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+
+    &--active {
+      background-color: #198038;
+    }
+
+    &--inactive {
+      background-color: #6f6f6f;
+    }
+
+    &--error {
+      background-color: #da1e28;
+    }
+
+    &--warning {
+      background-color: #f1c21b;
+    }
+  }
+
+  &__content {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0f0f0;
+    font-size: 0.75rem;
+    color: #6f6f6f;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  [data-theme='dark'] & {
+    background-color: #1a1a1a;
+    border-color: #393939;
+
+    &__header {
+      border-color: #262626;
+
+      h4 {
+        color: #f4f4f4;
+      }
+    }
+
+    &__footer {
+      border-color: #262626;
+      color: #8d8d8d;
+    }
+  }
+}
