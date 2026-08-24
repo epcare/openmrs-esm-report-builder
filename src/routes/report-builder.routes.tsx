@@ -27,6 +27,8 @@ import LinelistReportsPage from '../components/linelist/linelist-dashboard.page.
 import LinelistBuilderWorkspace from '../components/linelist/definition/linelist-definition-editor.component';
 import LinelistRunReport from '../components/linelist/linelist-run-report.page.component';
 
+import { ImportExportPage } from '../components/import-export';
+
 const ReportBuilderRoutes: React.FC = () => {
     return (
         <Routes>
@@ -69,6 +71,9 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/linelist/new" element={<LinelistBuilderWorkspace />} />
                 <Route path="/linelist/edit/:reportId" element={<LinelistBuilderWorkspace />} />
                 <Route path="/linelist/run/:reportId" element={<LinelistRunReport />} />
+
+                {/* Import / Export */}
+                <Route path="/import-export" element={<ImportExportPage />} />
 
                 {/* Optional backward compatibility */}
                 <Route path="/themes" element={<Navigate to="/admin/themes" replace />} />

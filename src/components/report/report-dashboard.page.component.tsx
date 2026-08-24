@@ -32,6 +32,7 @@ import { Play, Add, Renew } from '@carbon/react/icons';
 import Header from '../shared/header/header.component';
 import { listReports, compileReport, type ReportDto } from '../../resources/report/reports.api';
 import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
+import ExportReportModal from '../import-export/export-report-modal.component';
 
 type ReportWithMetadata = ReportDto & {
   parsedConfig?: {
@@ -69,6 +70,10 @@ const ReportDashboardPage: React.FC = () => {
 
   // Reference data
   const [categories, setCategories] = React.useState<ReportCategoryDto[]>([]);
+
+  // Export modal state
+  const [showExportModal, setShowExportModal] = React.useState(false);
+  const [reportToExport, setReportToExport] = React.useState<ReportWithMetadata | null>(null);
 
   React.useEffect(() => {
     const ac = new AbortController();
@@ -266,6 +271,17 @@ const ReportDashboardPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, []);
 
+  const handleExportPackage = React.useCallback((report: ReportWithMetadata) => {
+    setReportToExport(report);
+    setShowExportModal(true);
+  }, []);
+
+  const handleExportSuccess = React.useCallback((result: any) => {
+    console.log('Export package successful:', result);
+    setShowExportModal(false);
+    setReportToExport(null);
+  }, []);
+
   return (
       <div>
         <Header
@@ -446,6 +462,11 @@ const ReportDashboardPage: React.FC = () => {
                                 itemText="Export"
                                 onClick={() => report && handleExport(report)}
                               />
+                              <OverflowMenuItem
+                                itemText="Export Package"
+                                onClick={() => report && handleExportPackage(report)}
+                                requireTitle
+                              />
                             </OverflowMenu>
                           </TableCell>
                         </TableRow>
@@ -528,6 +549,17 @@ const ReportDashboardPage: React.FC = () => {
             </ModalFooter>
           </Modal>
         )}
+
+        {/* Export Package Modal */}
+        <ExportReportModal
+          isOpen={showExportModal}
+          initialReport={reportToExport}
+          onClose={() => {
+            setShowExportModal(false);
+            setReportToExport(null);
+          }}
+          onSuccess={handleExportSuccess}
+        />
       </div>
   );
 };

@@ -10,6 +10,7 @@ import IndicatorsPage from '../indicators/indicators-page.component';
 import SectionsPage from '../report-sections/report-sections-page.component';
 import RunReportsPage from '../run-reports/run-reports-page.component';
 import DataThemesPage from '../data-themes/data-themes-page.component';
+import ImportExportPage from '../import-export/import-export-page.component';
 
 const ReportRoutes: React.FC = () => (
   <Routes>
@@ -22,6 +23,7 @@ const ReportRoutes: React.FC = () => (
       <Route path="/sections" element={<SectionsPage />} />
       <Route path="/themes" element={<DataThemesPage />} />
       <Route path="/run" element={<RunReportsPage />} />
+      <Route path="/import-export" element={<ImportExportPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>
   </Routes>

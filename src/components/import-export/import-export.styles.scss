@@ -1,0 +1,420 @@
+// Page Container
+.pageContainer {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// Page Header
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.headerContent {
+  h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--cds-text-01);
+  }
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  gap: 1rem;
+}
+
+// Info Tiles
+.infoTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.infoTile {
+  padding: 1.5rem;
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--cds-text-01);
+  }
+}
+
+.tileDescription {
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+// Packages Section
+.packagesSection {
+  background: var(--cds-ui-background);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.packagesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--cds-text-01);
+  }
+}
+
+.packagesFilters {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.tableContainer {
+  min-height: 200px;
+}
+
+// Empty State
+.emptyState {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--cds-text-02);
+
+  p {
+    margin: 0.5rem 0;
+  }
+}
+
+.emptyHint {
+  font-size: 0.875rem;
+  color: var(--cds-text-03);
+}
+
+// Form Styles (for modals)
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--cds-text-01);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--cds-text-03);
+}
+
+// Progress Styles
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.progressInfo {
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: var(--cds-text-02);
+    margin: 0;
+  }
+}
+
+.progressBar {
+  margin: 0.5rem 0;
+}
+
+.progressSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.progressStep {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stepIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.stepLabel {
+  font-size: 0.875rem;
+}
+
+.stepLabel.pending {
+  color: var(--cds-text-03);
+}
+
+.stepLabel.inProgress {
+  color: var(--cds-text-01);
+  font-weight: 500;
+}
+
+.stepLabel.complete {
+  color: #0f62fe;
+}
+
+.stepLabel.error {
+  color: #da1e28;
+}
+
+.success {
+  color: #24a148;
+}
+
+.inProgress {
+  color: #0f62fe;
+}
+
+.error {
+  color: #da1e28;
+}
+
+// Success Container
+.successContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.successHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.successIcon {
+  color: #24a148;
+}
+
+.resultInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.summary {
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  margin: 0;
+}
+
+.statsRow {
+  display: flex;
+  gap: 2rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--cds-text-01);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--cds-text-02);
+}
+
+// Dependencies
+.dependencies {
+  padding: 1rem;
+  background: var(--cds-ui-background);
+  border-radius: 0.25rem;
+
+  h5 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+}
+
+.dependencyTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+// Import Details
+.importDetails {
+  padding: 1rem;
+  background: var(--cds-ui-background);
+  border-radius: 0.25rem;
+
+  h5 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.errorItem {
+  color: var(--cds-text-02);
+}
+
+.errorMessage {
+  color: #da1e28;
+  font-size: 0.75rem;
+}
+
+// Filter Select
+.filterSelect {
+  padding: 0.75rem 2rem 0.75rem 1rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--cds-interactive-01);
+  border-radius: 0;
+  background: var(--cds-ui-background);
+  color: var(--cds-text-01);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23333' d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  min-width: 140px;
+
+  &:hover {
+    background-color: var(--cds-ui-02);
+  }
+
+  &:focus {
+    outline: 2px solid var(--cds-interactive-01);
+    outline-offset: -2px;
+  }
+}
+
+// Import Modal Improvements
+.infoBox {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--cds-field-01);
+  border-radius: 0.25rem;
+  border-left: 3px solid var(--cds-interactive-01);
+}
+
+.infoIcon {
+  color: var(--cds-interactive-01);
+  flex-shrink: 0;
+}
+
+.loadedItemsBox {
+  padding: 1rem;
+  background: var(--cds-ui-background);
+  border-radius: 0.25rem;
+}
+
+.itemsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.itemTag {
+  font-size: 0.875rem;
+  color: var(--cds-text-02);
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+
+  &::before {
+    content: '•';
+    margin-right: 0.5rem;
+    color: var(--cds-text-03);
+  }
+}
+
+.advancedSection {
+  margin-top: 0.5rem;
+}
+
+.customPathSection {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hintText {
+  font-size: 0.75rem;
+  color: var(--cds-text-03);
+  margin: 0;
+}

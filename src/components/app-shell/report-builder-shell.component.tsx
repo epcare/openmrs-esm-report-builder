@@ -16,6 +16,7 @@ import {
     Settings,
     List,
     Dashboard,
+    ArrowRight,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -86,6 +87,14 @@ const ReportBuilderShell: React.FC = () => {
                             onClick={() => navigate('/etl-dashboard')}
                         >
                             ETL Dashboard
+                        </SideNavLink>
+
+                        <SideNavLink
+                            renderIcon={ArrowRight}
+                            isActive={isActive('/import-export')}
+                            onClick={() => navigate('/import-export')}
+                        >
+                            Import / Export
                         </SideNavLink>
 
                         <SideNavMenu
