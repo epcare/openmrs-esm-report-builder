@@ -42,6 +42,14 @@ const ReportBuilderShell: React.FC = () => {
                             Home
                         </SideNavLink>
 
+                        <SideNavLink
+                            renderIcon={Play}
+                            isActive={isActive('/run')}
+                            onClick={() => navigate('/run')}
+                        >
+                            Run Reports
+                        </SideNavLink>
+
                         <SideNavMenu
                             renderIcon={Folder}
                             title="Report Design"
@@ -80,14 +88,6 @@ const ReportBuilderShell: React.FC = () => {
                                 Sections
                             </SideNavMenuItem>
                         </SideNavMenu>
-
-                        <SideNavLink
-                            renderIcon={Play}
-                            isActive={isActive('/run')}
-                            onClick={() => navigate('/run')}
-                        >
-                            Run Reports
-                        </SideNavLink>
 
                         <SideNavLink
                             renderIcon={Dashboard}
