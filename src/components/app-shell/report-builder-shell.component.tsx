@@ -17,6 +17,7 @@ import {
     List,
     Dashboard,
     ArrowRight,
+    Folder,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -41,29 +42,44 @@ const ReportBuilderShell: React.FC = () => {
                             Home
                         </SideNavLink>
 
-                        <SideNavLink
-                            renderIcon={Report}
-                            isActive={isActive('/reports') || isActive('/new') || isActive('/edit')}
-                            onClick={() => navigate('/reports')}
+                        <SideNavMenu
+                            renderIcon={Folder}
+                            title="Report Design"
+                            isActive={isActive('/reports') || isActive('/linelist') || isActive('/indicators') || isActive('/sections')}
+                            defaultExpanded={true}
                         >
-                            Aggregate Reports
-                        </SideNavLink>
+                            <SideNavMenuItem
+                                renderIcon={Report}
+                                isActive={isActive('/reports') || isActive('/new') || isActive('/edit')}
+                                onClick={() => navigate('/reports')}
+                            >
+                                Aggregate Reports
+                            </SideNavMenuItem>
 
-                        <SideNavLink
-                            renderIcon={ChartColumn}
-                            isActive={isActive('/indicators')}
-                            onClick={() => navigate('/indicators')}
-                        >
-                            Indicators
-                        </SideNavLink>
+                            <SideNavMenuItem
+                                renderIcon={List}
+                                isActive={isActive('/linelist')}
+                                onClick={() => navigate('/linelist')}
+                            >
+                                Linelist Reports
+                            </SideNavMenuItem>
 
-                        <SideNavLink
-                            renderIcon={Layers}
-                            isActive={isActive('/sections')}
-                            onClick={() => navigate('/sections')}
-                        >
-                            Sections
-                        </SideNavLink>
+                            <SideNavMenuItem
+                                renderIcon={ChartColumn}
+                                isActive={isActive('/indicators')}
+                                onClick={() => navigate('/indicators')}
+                            >
+                                Indicators
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem
+                                renderIcon={Layers}
+                                isActive={isActive('/sections')}
+                                onClick={() => navigate('/sections')}
+                            >
+                                Sections
+                            </SideNavMenuItem>
+                        </SideNavMenu>
 
                         <SideNavLink
                             renderIcon={Play}
@@ -74,14 +90,6 @@ const ReportBuilderShell: React.FC = () => {
                         </SideNavLink>
 
                         <SideNavLink
-                            renderIcon={List}
-                            isActive={isActive('/linelist')}
-                            onClick={() => navigate('/linelist')}
-                        >
-                            Linelist Reports
-                        </SideNavLink>
-
-                        <SideNavLink
                             renderIcon={Dashboard}
                             isActive={isActive('/etl-dashboard')}
                             onClick={() => navigate('/etl-dashboard')}
@@ -89,25 +97,39 @@ const ReportBuilderShell: React.FC = () => {
                             ETL Dashboard
                         </SideNavLink>
 
-                        <SideNavLink
-                            renderIcon={ArrowRight}
-                            isActive={isActive('/import-export')}
-                            onClick={() => navigate('/import-export')}
-                        >
-                            Import / Export
-                        </SideNavLink>
-
                         <SideNavMenu
                             renderIcon={Settings}
                             title="Admin"
-                            isActive={isActive('/admin')}
+                            isActive={isActive('/admin') || isActive('/import-export')}
                             defaultExpanded={false}
                         >
+                            <SideNavMenuItem
+                                renderIcon={ArrowRight}
+                                isActive={isActive('/import-export')}
+                                onClick={() => navigate('/import-export')}
+                            >
+                                Import / Export
+                            </SideNavMenuItem>
+
                             <SideNavMenuItem
                                 isActive={isActive('/admin/report-categories')}
                                 onClick={() => navigate('/admin/report-categories')}
                             >
                                 Report Categories
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/report-library')}
+                                onClick={() => navigate('/admin/report-library')}
+                            >
+                                Report Library
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/themes')}
+                                onClick={() => navigate('/admin/themes')}
+                            >
+                                Data Themes
                             </SideNavMenuItem>
 
                             <SideNavMenuItem
@@ -123,20 +145,25 @@ const ReportBuilderShell: React.FC = () => {
                             >
                                 Age Groups
                             </SideNavMenuItem>
-                            <SideNavMenuItem isActive={isActive('/admin/report-library')} onClick={() => navigate('/admin/report-library')}>
-                                Report Library
-                            </SideNavMenuItem>
-                            <SideNavMenuItem isActive={isActive('/admin/themes')} onClick={() => navigate('/admin/themes')}>
-                                Data Themes
-                            </SideNavMenuItem>
-                            <SideNavMenuItem isActive={isActive('/admin/etl-sources')} onClick={() => navigate('/admin/etl-sources')}>
+
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/etl-sources')}
+                                onClick={() => navigate('/admin/etl-sources')}
+                            >
                                 ETL Sources
                             </SideNavMenuItem>
-                            <SideNavMenuItem isActive={isActive('/admin/etl-tasks')} onClick={() => navigate('/admin/etl-tasks')}>
+
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/etl-tasks')}
+                                onClick={() => navigate('/admin/etl-tasks')}
+                            >
                                 ETL Tasks
                             </SideNavMenuItem>
 
-                            <SideNavMenuItem isActive={isActive('/admin/etl-monitors')} onClick={() => navigate('/admin/etl-monitors')}>
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/etl-monitors')}
+                                onClick={() => navigate('/admin/etl-monitors')}
+                            >
                                 ETL Monitors
                             </SideNavMenuItem>
                         </SideNavMenu>

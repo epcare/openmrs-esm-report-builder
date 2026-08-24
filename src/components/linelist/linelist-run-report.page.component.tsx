@@ -10,10 +10,10 @@ import {
   Button,
   ButtonSet,
   InlineNotification,
-  Tag,
   Tile,
   Select,
   SelectItem,
+  Stack,
   DataTable,
   Table,
   TableContainer,
@@ -58,6 +58,7 @@ import IdentifierTypeParameterInput from '../data-visualizer/parameter-inputs/id
 import PersonAttributeParameterInput from '../data-visualizer/parameter-inputs/person-attribute-parameter-input.component';
 import TextParameterInput from '../data-visualizer/parameter-inputs/text-parameter-input.component';
 
+import Header from '../shared/header/header.component';
 import styles from './linelist-run-report.page.scss';
 
 type Props = {};
@@ -435,7 +436,6 @@ const LinelistRunReport: React.FC<Props> = () => {
     }
   };
 
-  const config = report ? parseLinelistConfig(report) : null;
   const parameters = getParameters();
   const hasResults = results && results.length > 0;
 
@@ -448,45 +448,34 @@ const LinelistRunReport: React.FC<Props> = () => {
 
   if (loading) {
     return (
-      <div className={styles.page}>
-        <div className={styles.loading}>
-          <Loading description="Loading report..." withOverlay={false} active />
-        </div>
+      <div style={{ padding: '2rem' }}>
+        <Loading description="Loading report..." withOverlay={false} active />
       </div>
     );
   }
 
   if (error && !report) {
     return (
-      <div className={styles.page}>
+      <Stack gap={5}>
         <InlineNotification kind="error" title="Error" subtitle={error} />
         <Button kind="secondary" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
           Back to Linelist Reports
         </Button>
-      </div>
+      </Stack>
     );
   }
 
   return (
-    <div className={styles.page}>
-      {/* Header */}
-      <div className={styles.header}>
-        <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
-          Back to Linelist Reports
-        </Button>
-        <div className={styles.reportInfo}>
-          <h1 className={styles.title}>{report?.name}</h1>
-          {report?.description && <p className={styles.description}>{report.description}</p>}
-          <div className={styles.meta}>
-            {config?.rowGrain && (
-              <Tag type="blue" size="sm">
-                {config.rowGrain.replace('_', ' ')}
-              </Tag>
-            )}
-            {report?.retired && <Tag type="red" size="sm">Retired</Tag>}
-          </div>
-        </div>
-      </div>
+    <Stack gap={5}>
+      <Header
+        title={report?.name || 'Linelist Report'}
+        subtitle={report?.description}
+        actions={
+          <Button kind="ghost" size="sm" renderIcon={ArrowLeft} onClick={() => navigate('/linelist')}>
+            Back to Linelist Reports
+          </Button>
+        }
+      />
 
       {/* Parameters Section */}
       {parameters.length > 0 && (
@@ -719,7 +708,7 @@ const LinelistRunReport: React.FC<Props> = () => {
           <p>Configure the parameters above and click "Run Report" to view results.</p>
         </Tile>
       )}
-    </div>
+    </Stack>
   );
 };
 

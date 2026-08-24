@@ -11,6 +11,7 @@ import {
   Button,
   DataTable,
   DataTableSkeleton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -30,7 +31,6 @@ import {
   Pagination,
   Grid,
   Column,
-  Link,
   Checkbox,
   ProgressBar,
   Modal,
@@ -52,6 +52,7 @@ import { listReportCategories, type ReportCategoryDto } from '../../resources/re
 import { listDataThemes, type DataThemeDto } from '../../resources/theme/data-theme.api';
 import type { LinelistRowGrain } from '../../types/linelist-types';
 
+import Header from '../shared/header/header.component';
 import styles from './linelist-dashboard.page.scss';
 
 type Props = {};
@@ -409,28 +410,11 @@ const LinelistReportsPage: React.FC<Props> = () => {
   ];
 
   return (
-    <div className={styles.page}>
-      {/* Breadcrumb */}
-      <div className={styles.breadcrumb}>
-        <Link href="/" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
-          Report builder
-        </Link>
-        {' / '}
-        <span>Linelist reports</span>
-      </div>
-
-      <div className={styles.header}>
-        <h1>Linelist Reports</h1>
-        <Button
-          kind="primary"
-          size="lg"
-          renderIcon={Add}
-          onClick={() => navigate('/linelist/new')}
-          className={styles.createButton}
-        >
-          Create linelist report
-        </Button>
-      </div>
+    <Stack gap={5}>
+      <Header
+        title="Linelist Reports"
+        subtitle="Manage and run patient list reports with configurable parameters."
+      />
 
       {error && (
         <InlineNotification
@@ -509,6 +493,14 @@ const LinelistReportsPage: React.FC<Props> = () => {
 
               {/* Action buttons */}
               <div className={styles.filterActions}>
+                <Button
+                  kind="ghost"
+                  size="md"
+                  renderIcon={Add}
+                  onClick={() => navigate('/linelist/new')}
+                >
+                  Create linelist report
+                </Button>
                 {selectedReports.size > 0 && (
                   <Button
                     kind="primary"
@@ -763,7 +755,7 @@ const LinelistReportsPage: React.FC<Props> = () => {
           </Tile>
         </div>
       )}
-    </div>
+    </Stack>
   );
 };
 
