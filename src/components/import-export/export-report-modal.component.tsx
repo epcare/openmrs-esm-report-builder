@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Button,
   ButtonSet,
@@ -9,12 +8,11 @@ import {
   ModalBody,
   ModalFooter,
   ProgressBar,
-  TextInput,
   Tag,
   RadioButtonGroup,
   RadioButton,
 } from '@carbon/react';
-import { Information, Checkmark, Error as ErrorIcon, Package } from '@carbon/react/icons';
+import {Checkmark, Error as ErrorIcon, Package } from '@carbon/react/icons';
 
 import { exportReport, type ExportRequest, type ExportResult } from '../../resources/report-import-export/import-export-api';
 import { listReports, type ReportDto } from '../../resources/report/reports.api';
@@ -44,12 +42,10 @@ const EXPORT_PROGRESS_STEPS: ProgressStep[] = [
 type ExportScope = 'compiledReports' | 'artifacts';
 
 const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, onSuccess, initialReport }) => {
-  const { t } = useTranslation();
 
   // Form state
   const [exportScope, setExportScope] = React.useState<ExportScope>('compiledReports');
   const [selectedReport, setSelectedReport] = React.useState<ReportDto | null>(null);
-  const [packageName, setPackageName] = React.useState('');
 
   // Generate auto version based on current timestamp
   const generateAutoVersion = () => {
@@ -73,22 +69,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
   const [exportResult, setExportResult] = React.useState<ExportResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Load reports when modal opens
-  React.useEffect(() => {
-    if (isOpen) {
-      loadReports();
-      resetState();
-    }
-  }, [isOpen]);
-
-  // Set initial report when provided
-  React.useEffect(() => {
-    if (initialReport) {
-      setSelectedReport(initialReport);
-    }
-  }, [initialReport]);
-
-  const loadReports = async () => {
+  const loadReports = React.useCallback(async () => {
     setLoadingReports(true);
     try {
       const data = await listReports({ v: 'default', includeRetired: false });
@@ -98,18 +79,32 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
     } finally {
       setLoadingReports(false);
     }
-  };
+  }, []);
 
-  const resetState = () => {
+  const resetState = React.useCallback(() => {
     setExportScope('compiledReports');
     setSelectedReport(null);
-    setPackageName('');
     setIsExporting(false);
     setCurrentStep(0);
     setProgressSteps(EXPORT_PROGRESS_STEPS);
     setExportResult(null);
     setError(null);
-  };
+  }, []);
+
+  // Load reports when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      loadReports();
+      resetState();
+    }
+  }, [isOpen, resetState, loadReports]);
+
+  // Set initial report when provided
+  React.useEffect(() => {
+    if (initialReport) {
+      setSelectedReport(initialReport);
+    }
+  }, [initialReport]);
 
   const startExport = async () => {
     // Validation

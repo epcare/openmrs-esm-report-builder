@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Button,
   ButtonSet,
@@ -44,8 +43,7 @@ const IMPORT_PROGRESS_STEPS: ProgressStep[] = [
   { key: 'complete', label: 'Complete!', status: 'pending' },
 ];
 
-const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose, onSuccess, preselectedPath }) => {
-  const { t } = useTranslation();
+const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose, onSuccess}) => {
 
   // Import state
   const [isImporting, setIsImporting] = React.useState(false);
