@@ -10,10 +10,12 @@ import {
   Tag,
   TextInput,
   Toggle,
+  RadioButtonGroup,
+  RadioButton,
 } from '@carbon/react';
 import { Checkmark, Error as ErrorIcon, Package as PackageIcon, Information } from '@carbon/react/icons';
 
-import { importPackage, type ImportRequest, type ImportResult } from '../../resources/report-import-export/import-export-api';
+import { importReports, type ImportRequest, type ImportResult } from '../../resources/report-import-export/import-export-api';
 
 import styles from './import-export.styles.scss';
 
@@ -30,7 +32,7 @@ type ProgressStep = {
   status: 'pending' | 'in-progress' | 'complete' | 'error';
 };
 
-const IMPORT_PROGRESS_STEPS: ProgressStep[] = [
+const ARTIFACTS_IMPORT_PROGRESS_STEPS: ProgressStep[] = [
   { key: 'validate', label: 'Validating package...', status: 'pending' },
   { key: 'categories', label: 'Report Categories...', status: 'pending' },
   { key: 'ageCategories', label: 'Age Categories...', status: 'pending' },
@@ -39,16 +41,24 @@ const IMPORT_PROGRESS_STEPS: ProgressStep[] = [
   { key: 'indicators', label: 'Indicators...', status: 'pending' },
   { key: 'sections', label: 'Sections...', status: 'pending' },
   { key: 'library', label: 'Report Library...', status: 'pending' },
-  { key: 'reports', label: 'Built Reports...', status: 'pending' },
   { key: 'complete', label: 'Complete!', status: 'pending' },
 ];
+
+const COMPILED_REPORTS_IMPORT_PROGRESS_STEPS: ProgressStep[] = [
+  { key: 'validate', label: 'Validating package...', status: 'pending' },
+  { key: 'reports', label: 'Compiled Reports...', status: 'pending' },
+  { key: 'complete', label: 'Complete!', status: 'pending' },
+];
+
+type ImportScope = 'compiledReports' | 'artifacts';
 
 const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose, onSuccess}) => {
 
   // Import state
   const [isImporting, setIsImporting] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState(0);
-  const [progressSteps, setProgressSteps] = React.useState<ProgressStep[]>(IMPORT_PROGRESS_STEPS);
+  const [importScope, setImportScope] = React.useState<ImportScope>('artifacts');
+  const [progressSteps, setProgressSteps] = React.useState<ProgressStep[]>(ARTIFACTS_IMPORT_PROGRESS_STEPS);
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -67,13 +77,23 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
   const resetState = () => {
     setIsImporting(false);
     setCurrentStep(0);
-    setProgressSteps(IMPORT_PROGRESS_STEPS);
+    setImportScope('artifacts');
+    setProgressSteps(ARTIFACTS_IMPORT_PROGRESS_STEPS);
     setImportResult(null);
     setError(null);
     setUseCustomPath(false);
     setCustomPath('');
     setPathError(null);
   };
+
+  // Update progress steps when import scope changes
+  React.useEffect(() => {
+    if (importScope === 'artifacts') {
+      setProgressSteps(ARTIFACTS_IMPORT_PROGRESS_STEPS);
+    } else {
+      setProgressSteps(COMPILED_REPORTS_IMPORT_PROGRESS_STEPS);
+    }
+  }, [importScope]);
 
   const validateCustomPath = (path: string): string | null => {
     if (!path || path.trim() === '') {
@@ -104,12 +124,13 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
         await updateProgressStep(i, 'complete');
       }
 
-      // Call the actual import API
-      const request: ImportRequest = useCustomPath
-        ? { sourceDirectory: customPath.trim() }
-        : {}; // Empty = backend uses default location
+      // Call the actual import API with type-based routing
+      const request: ImportRequest = {
+        type: importScope,
+        ...(useCustomPath ? { sourceDirectory: customPath.trim() } : {}),
+      };
 
-      const result = await importPackage(request);
+      const result = await importReports(request);
       await updateProgressStep(progressSteps.length - 1, 'complete');
       setImportResult(result);
 
@@ -159,6 +180,30 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
       <ModalBody>
         {!isImporting && !importResult && (
           <div className={styles.formContainer}>
+            {/* Import Scope Selection */}
+            <div className={styles.formField}>
+              <label className={styles.label}>Import Scope</label>
+              <RadioButtonGroup
+                name="importScope"
+                valueSelected={importScope}
+                onChange={(value) => setImportScope(value as ImportScope)}
+                orientation="vertical"
+              >
+                <RadioButton
+                  value="artifacts"
+                  id="scope-artifacts"
+                  labelText="Report Builder Artifacts (Categories, Indicators, Themes, Sections, etc.)"
+                  disabled={false}
+                />
+                <RadioButton
+                  value="compiledReports"
+                  id="scope-compiled-reports"
+                  labelText="Compiled Reports"
+                  disabled={false}
+                />
+              </RadioButtonGroup>
+            </div>
+
             {/* Info Box */}
             <div className={styles.infoBox}>
               <Information size={20} className={styles.infoIcon} />
@@ -167,7 +212,9 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
                   Quick Initialization
                 </p>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--cds-text-02)' }}>
-                  Loads all reporting artifacts from the default OpenMRS configuration directory.
+                  {importScope === 'artifacts'
+                    ? 'Loads all Report Builder artifacts (categories, indicators, themes, sections, library, etc.) from the default OpenMRS configuration directory.'
+                    : 'Loads all compiled reports from the default OpenMRS configuration directory.'}
                 </p>
               </div>
             </div>
@@ -177,16 +224,21 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
               <h5 style={{ fontSize: '0.875rem', fontWeight: 500, margin: '0 0 0.75rem 0' }}>
                 What will be loaded:
               </h5>
-              <div className={styles.itemsGrid}>
-                <span className={styles.itemTag}>Report Categories</span>
-                <span className={styles.itemTag}>Age Categories & Groups</span>
-                <span className={styles.itemTag}>Data Themes</span>
-                <span className={styles.itemTag}>Indicators</span>
-                <span className={styles.itemTag}>Sections</span>
-                <span className={styles.itemTag}>Report Library</span>
-                <span className={styles.itemTag}>Compiled Reports</span>
-                <span className={styles.itemTag}>ETL Sources & Tasks</span>
-              </div>
+              {importScope === 'artifacts' ? (
+                <div className={styles.itemsGrid}>
+                  <span className={styles.itemTag}>Report Categories</span>
+                  <span className={styles.itemTag}>Age Categories & Groups</span>
+                  <span className={styles.itemTag}>Data Themes</span>
+                  <span className={styles.itemTag}>Indicators</span>
+                  <span className={styles.itemTag}>Sections</span>
+                  <span className={styles.itemTag}>Report Library</span>
+                  <span className={styles.itemTag}>ETL Sources & Tasks</span>
+                </div>
+              ) : (
+                <div className={styles.itemsGrid}>
+                  <span className={styles.itemTag}>Compiled Reports</span>
+                </div>
+              )}
             </div>
 
             {/* Advanced Options */}
@@ -245,7 +297,9 @@ const ImportPackageModal: React.FC<ImportPackageModalProps> = ({ isOpen, onClose
             <div className={styles.progressInfo}>
               <h4>Initializing Report Builder...</h4>
               <p style={{ fontSize: '0.875rem', color: 'var(--cds-text-02)' }}>
-                Loading and configuring reporting artifacts from {useCustomPath ? 'custom directory' : 'default location'}.
+                {importScope === 'artifacts'
+                  ? 'Loading and configuring Report Builder artifacts'
+                  : 'Loading and configuring compiled reports'} from {useCustomPath ? 'custom directory' : 'default location'}.
               </p>
             </div>
 

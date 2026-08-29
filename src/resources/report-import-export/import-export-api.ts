@@ -1,8 +1,6 @@
 import { omrsGet, omrsPost } from '../openmrs-api';
 
 const EXPORT_RESOURCE = '/reportbuilder/ship';
-const EXPORT_ALL_RESOURCE = '/reportbuilder/ship/all';
-const EXPORT_BULK_RESOURCE = '/reportbuilder/ship/bulk';
 const IMPORT_RESOURCE = '/reportbuilder/import';
 
 // Backend response wrapper
@@ -13,11 +11,10 @@ type BackendResponse<T> = {
 };
 
 // Types for Export API
-export type ExportRequest = {
-  reportUuid?: string;
-  version: string;
+export type ShippingRequest = {
+  type: 'compiledReports' | 'artifacts';
+  version?: string;
   destination?: string;
-  entityTypes?: string[];
 };
 
 export type ExportResultData = {
@@ -53,6 +50,7 @@ export type ExportResult = {
 
 // Types for Import API
 export type ImportRequest = {
+  type: 'compiledReports' | 'artifacts';
   sourceDirectory?: string; // Optional - backend uses default location if not provided
 };
 
@@ -99,8 +97,13 @@ export type PackageInfo = {
 };
 
 // API Functions
-export async function exportReport(
-  request: ExportRequest,
+
+/**
+ * Export reports or artifacts based on the type specified in the request.
+ * Uses a unified endpoint with type-based routing.
+ */
+export async function exportReports(
+  request: ShippingRequest,
   signal?: AbortSignal,
 ): Promise<ExportResult> {
   const response = await omrsPost<BackendResponse<ExportResultData>>(EXPORT_RESOURCE, request, signal);
@@ -112,36 +115,11 @@ export async function exportReport(
   };
 }
 
-export async function exportAllReports(
-  version: string,
-  destination?: string,
-  signal?: AbortSignal,
-): Promise<ExportResult> {
-  const response = await omrsPost<BackendResponse<ExportResultData>>(EXPORT_ALL_RESOURCE, { version, destination }, signal);
-  return {
-    success: response.success,
-    message: response.message,
-    ...response.data,
-    errorMessage: response.success ? undefined : response.message,
-  };
-}
-
-export async function exportBulk(
-  entityTypes: string[],
-  version: string,
-  destination?: string,
-  signal?: AbortSignal,
-): Promise<ExportResult> {
-  const response = await omrsPost<BackendResponse<ExportResultData>>(EXPORT_BULK_RESOURCE, { entityTypes, version, destination }, signal);
-  return {
-    success: response.success,
-    message: response.message,
-    ...response.data,
-    errorMessage: response.success ? undefined : response.message,
-  };
-}
-
-export async function importPackage(
+/**
+ * Import reports or artifacts based on the type specified in the request.
+ * Uses a unified endpoint with type-based routing.
+ */
+export async function importReports(
   request: ImportRequest,
   signal?: AbortSignal,
 ): Promise<ImportResult> {

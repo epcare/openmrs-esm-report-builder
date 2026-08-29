@@ -2,20 +2,16 @@ import React from 'react';
 import {
   Button,
   ButtonSet,
-  ComboBox,
   InlineNotification,
   Modal,
   ModalBody,
   ModalFooter,
   ProgressBar,
   Tag,
-  RadioButtonGroup,
-  RadioButton,
 } from '@carbon/react';
 import {Checkmark, Error as ErrorIcon, Package } from '@carbon/react/icons';
 
-import { exportReport, type ExportRequest, type ExportResult } from '../../resources/report-import-export/import-export-api';
-import { listReports, type ReportDto } from '../../resources/report/reports.api';
+import { exportReports, type ShippingRequest, type ExportResult } from '../../resources/report-import-export/import-export-api';
 
 import styles from './import-export.styles.scss';
 
@@ -23,7 +19,6 @@ interface ExportReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (result?: ExportResult) => void;
-  initialReport?: ReportDto | null;
 }
 
 type ProgressStep = {
@@ -33,19 +28,13 @@ type ProgressStep = {
 };
 
 const EXPORT_PROGRESS_STEPS: ProgressStep[] = [
-  { key: 'validate', label: 'Validating report...', status: 'pending' },
+  { key: 'validate', label: 'Validating resources...', status: 'pending' },
   { key: 'collect', label: 'Resolving dependencies...', status: 'pending' },
   { key: 'package', label: 'Creating package...', status: 'pending' },
   { key: 'complete', label: 'Complete!', status: 'pending' },
 ];
 
-type ExportScope = 'compiledReports' | 'artifacts';
-
-const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, onSuccess, initialReport }) => {
-
-  // Form state
-  const [exportScope, setExportScope] = React.useState<ExportScope>('compiledReports');
-  const [selectedReport, setSelectedReport] = React.useState<ReportDto | null>(null);
+const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, onSuccess }) => {
 
   // Generate auto version based on current timestamp
   const generateAutoVersion = () => {
@@ -58,10 +47,6 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
     return `${year}.${month}.${day}-${hours}${minutes}`;
   };
 
-  // Data
-  const [reports, setReports] = React.useState<ReportDto[]>([]);
-  const [loadingReports, setLoadingReports] = React.useState(false);
-
   // Export state
   const [isExporting, setIsExporting] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState(0);
@@ -69,21 +54,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
   const [exportResult, setExportResult] = React.useState<ExportResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  const loadReports = React.useCallback(async () => {
-    setLoadingReports(true);
-    try {
-      const data = await listReports({ v: 'default', includeRetired: false });
-      setReports(data);
-    } catch (err) {
-      setError('Failed to load reports. Please try again.');
-    } finally {
-      setLoadingReports(false);
-    }
-  }, []);
-
   const resetState = React.useCallback(() => {
-    setExportScope('compiledReports');
-    setSelectedReport(null);
     setIsExporting(false);
     setCurrentStep(0);
     setProgressSteps(EXPORT_PROGRESS_STEPS);
@@ -91,28 +62,14 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
     setError(null);
   }, []);
 
-  // Load reports when modal opens
+  // Reset state when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      loadReports();
       resetState();
     }
-  }, [isOpen, resetState, loadReports]);
-
-  // Set initial report when provided
-  React.useEffect(() => {
-    if (initialReport) {
-      setSelectedReport(initialReport);
-    }
-  }, [initialReport]);
+  }, [isOpen, resetState]);
 
   const startExport = async () => {
-    // Validation
-    if (exportScope === 'compiledReports' && !selectedReport) {
-      setError('Please select a compiled report to extract.');
-      return;
-    }
-
     setIsExporting(true);
     setError(null);
 
@@ -124,13 +81,14 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
         await updateProgressStep(i, 'complete');
       }
 
-      // Call the actual export API with auto-generated version
-      const request: ExportRequest = {
-        reportUuid: selectedReport?.uuid,
+      // Call the export API - always exports artifacts
+      // (compiled reports are generated locally by the compile process, not exported)
+      const request: ShippingRequest = {
+        type: 'artifacts',
         version: generateAutoVersion(),
       };
 
-      const result = await exportReport(request);
+      const result = await exportReports(request);
       await updateProgressStep(progressSteps.length - 1, 'complete');
       setExportResult(result);
 
@@ -165,9 +123,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
     return Math.round((currentStep / progressSteps.length) * 100);
   };
 
-  const isValid = exportScope === 'compiledReports'
-    ? selectedReport != null
-    : true;
+  const isValid = true;
 
   return (
     <Modal
@@ -182,62 +138,16 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
       <ModalBody>
         {!isExporting && !exportResult && (
           <div className={styles.formContainer}>
-            {/* Export Scope Selection */}
+            {/* Info Box */}
             <div className={styles.formField}>
-              <label className={styles.label}>Export Scope</label>
-              <RadioButtonGroup
-                name="exportScope"
-                valueSelected={exportScope}
-                onChange={(value) => setExportScope(value as ExportScope)}
-                orientation="vertical"
-              >
-                <RadioButton
-                  value="compiledReports"
-                  id="scope-compiled-reports"
-                  labelText="Compiled Reports"
-                  disabled={false}
-                />
-                <RadioButton
-                  value="artifacts"
-                  id="scope-artifacts"
-                  labelText="Report Builder Artifacts"
-                  disabled={false}
-                />
-              </RadioButtonGroup>
+              <InlineNotification
+                kind="info"
+                title="Extract All Artifacts"
+                subtitle="This will export all Report Builder artifacts (categories, indicators, themes, sections, library, etc.) from the current instance."
+                hideCloseButton
+                lowContrast
+              />
             </div>
-
-            {/* Compiled Report Selection */}
-            {exportScope === 'compiledReports' && (
-              <div className={styles.formField}>
-                <label className={styles.label}>Select Compiled Report</label>
-                <ComboBox
-                  items={reports}
-                  itemToString={(item) => (item ? item.name : '')}
-                  placeholder="Select a compiled report"
-                  titleText=""
-                  id="report-select"
-                  disabled={loadingReports}
-                  selectedItem={selectedReport}
-                  onChange={({ selectedItem }) => setSelectedReport(selectedItem as ReportDto)}
-                  shouldFilterItem={({ item, inputValue }) => {
-                    return item.name.toLowerCase().includes(inputValue.toLowerCase());
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Reporting Artifacts Selection (Placeholder for future implementation) */}
-            {exportScope === 'artifacts' && (
-              <>
-                <InlineNotification
-                  kind="info"
-                  title="Extract All Artifacts"
-                  subtitle="This will extract all reporting artifacts from the current instance."
-                  hideCloseButton
-                  lowContrast
-                />
-              </>
-            )}
 
             {error && (
               <InlineNotification
@@ -256,11 +166,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
           <div className={styles.progressContainer}>
             <div className={styles.progressInfo}>
               <h4>Extracting artifacts...</h4>
-              <p>
-                {exportScope === 'compiledReports'
-                  ? selectedReport?.name || 'Selected report'
-                  : 'All Report Builder artifacts'}
-              </p>
+              <p>All Report Builder artifacts</p>
             </div>
 
             <ProgressBar
@@ -302,7 +208,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
               <div>
                 <h4>Artifacts extracted successfully</h4>
                 <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--cds-text-02)' }}>
-                  {selectedReport?.name || 'All Report Builder artifacts'}
+                  All Report Builder artifacts
                 </p>
                 <p style={{ margin: '0', fontSize: '0.875rem', color: 'var(--cds-text-02)' }}>
                   Version {exportResult.version || 'auto'}

@@ -553,7 +553,6 @@ const ReportDashboardPage: React.FC = () => {
         {/* Export Package Modal */}
         <ExportReportModal
           isOpen={showExportModal}
-          initialReport={reportToExport}
           onClose={() => {
             setShowExportModal(false);
             setReportToExport(null);
