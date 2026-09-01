@@ -16,6 +16,7 @@ import {
     Settings,
     List,
     Dashboard,
+    Activity,
     ArrowRight,
     Folder,
 } from '@carbon/icons-react';
@@ -91,6 +92,14 @@ const ReportBuilderShell: React.FC = () => {
 
                         <SideNavLink
                             renderIcon={Dashboard}
+                            isActive={isActive('/dashboards')}
+                            onClick={() => navigate('/dashboards')}
+                        >
+                            Dashboards
+                        </SideNavLink>
+
+                        <SideNavLink
+                            renderIcon={Activity}
                             isActive={isActive('/etl-dashboard')}
                             onClick={() => navigate('/etl-dashboard')}
                         >
@@ -109,6 +118,13 @@ const ReportBuilderShell: React.FC = () => {
                                 onClick={() => navigate('/import-export')}
                             >
                                 Import / Export
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem
+                                isActive={isActive('/admin/dashboards')}
+                                onClick={() => navigate('/admin/dashboards')}
+                            >
+                                Dashboards
                             </SideNavMenuItem>
 
                             <SideNavMenuItem

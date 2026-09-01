@@ -1,0 +1,196 @@
+// Dashboard viewing pages center their content in the framework's
+// full-width slot; admin/CRUD pages stay full-bleed.
+.dashboard-renderer {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.dashboard-section__accordion {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+.dashboard-loading {
+  padding: 3rem 0;
+}
+
+.dashboard-grid {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Scoped override of Carbon's .cds--css-grid for the dashboards feature only.
+// Composed with the Carbon class (specificity 0,2,0) so it wins over
+// Carbon's base rule regardless of stylesheet order, and leaves every
+// other Carbon grid in the shell untouched.
+.dashboard-grid:global(.cds--css-grid) {
+  // Drop Carbon's 99rem page cap — the grid spans the full content area
+  max-width: none;
+
+  // The page/shell provides its own outer gutters; Carbon's page padding off
+  padding-inline: 0;
+
+  // Tune column gutters if needed (Carbon columns read these):
+  // --cds-grid-gutter: 1rem;
+}
+
+.dashboard-grid__cell {
+  padding: 1rem;
+}
+
+.dashboard-section {
+  margin-top: 0.5rem;
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    padding-left: 1.5rem;
+  }
+
+  &__label {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__count {
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary, #525252);
+  }
+
+  &__accordion {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.report-launch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: var(--cds-layer-accent, #e8e8e8);
+    color: var(--cds-link-primary, #0f62fe);
+  }
+
+  &__title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__description {
+    font-size: 0.8125rem;
+    color: var(--cds-text-secondary, #525252);
+    margin: 0;
+  }
+
+  &__footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &__tags {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+}
+
+.widget-unavailable-card {
+  height: 100%;
+  text-align: center;
+  padding: 2rem 1rem;
+
+  &__icon {
+    color: var(--cds-text-secondary, #525252);
+    margin-bottom: 0.5rem;
+  }
+
+  &__title {
+    font-size: 0.9375rem;
+    margin: 0 0 0.25rem;
+  }
+
+  &__message {
+    font-size: 0.8125rem;
+    color: var(--cds-text-secondary, #525252);
+    margin: 0;
+  }
+}
+
+.dashboard-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+
+  &__icon {
+    color: var(--cds-text-secondary, #525252);
+  }
+
+  &__title {
+    margin: 0.5rem 0 0.25rem;
+  }
+
+  &__message {
+    color: var(--cds-text-secondary, #525252);
+    margin: 0 0 1rem;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+}
+
+.dashboards-index__auto-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboards-index__auto-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboards-index__auto-icon {
+  color: var(--cds-link-primary, #0f62fe);
+}
+
+.dashboards-index__auto-note {
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525252);
+  margin: 0.125rem 0 0;
+}
+
+.dashboards-index__empty-note {
+  color: var(--cds-text-secondary, #525252);
+}

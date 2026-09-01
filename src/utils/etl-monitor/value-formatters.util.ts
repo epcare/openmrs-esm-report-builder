@@ -127,3 +127,41 @@ export function formatFileSize(bytes: number): string {
 
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
+
+/**
+ * Format a timestamp as a relative time string.
+ * Past: "5 minutes ago". Future: "in 51 minutes".
+ * With `pastOnly`, near-future timestamps (clock skew) render as "just now" —
+ * for "last updated"-style fields.
+ */
+export function formatRelativeTime(value: any, options?: { pastOnly?: boolean }): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+
+  if (absMs < 60000) {
+    if (diffMs < 0 || options?.pastOnly) {
+      return 'just now';
+    }
+    return 'in less than a minute';
+  }
+
+  let unitValue: number;
+  let unit: string;
+  if (absMs < 3600000) {
+    unitValue = Math.floor(absMs / 60000);
+    unit = 'minute';
+  } else if (absMs < 86400000) {
+    unitValue = Math.floor(absMs / 3600000);
+    unit = 'hour';
+  } else {
+    unitValue = Math.floor(absMs / 86400000);
+    unit = 'day';
+  }
+
+  const plural = unitValue === 1 ? unit : `${unit}s`;
+  return diffMs >= 0 ? `in ${unitValue} ${plural}` : `${unitValue} ${plural} ago`;
+}

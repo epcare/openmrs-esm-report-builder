@@ -5,6 +5,7 @@
 
 import React from 'react';
 import type { ETLMonitorDto } from '../../../types/etl-monitor';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../types/etl-monitor/etl-monitor-v2.types';
 import { StatusCardRenderer } from './components/status-card-renderer';
 import { SummaryCardRenderer } from './components/summary-card-renderer';
@@ -139,7 +140,7 @@ export function V2MonitorRenderer({ monitor, data, loading, error }: V2MonitorRe
   }
 
   if (loading) {
-    return <div className="monitor-loading">Loading...</div>;
+    return <div className={styles['monitor-loading']}>Loading...</div>;
   }
 
   if (error) {

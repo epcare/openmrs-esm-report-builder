@@ -381,6 +381,7 @@ function getDefaultLayoutForComponent(componentType: MonitorComponentType): Layo
     DATA_TABLE: { section: 'history' as any, span: { sm: 4, md: 8, lg: 16 }, priority: 1 },
     DETAILS: { section: 'configuration' as any, span: { sm: 4, md: 4, lg: 4 }, priority: 1 },
     ERROR_LOG: { section: 'errors' as any, span: { sm: 4, md: 8, lg: 16 }, priority: 1 },
+    LOG: { section: 'history' as any, span: { sm: 4, md: 8, lg: 8 }, priority: 2 },
     TIME_SERIES: { section: 'history' as any, span: { sm: 4, md: 8, lg: 12 }, priority: 2 },
   };
 
@@ -400,6 +401,7 @@ function getDefaultEmptyStateForComponent(componentType: MonitorComponentType): 
     DATA_TABLE: { title: 'No data available', description: 'There are no records to display', tone: 'neutral' },
     DETAILS: { title: 'No configuration available', tone: 'neutral' },
     ERROR_LOG: { title: 'No errors reported', description: 'There are no errors to display', tone: 'success' },
+    LOG: { title: 'No activity', description: 'No events have been recorded yet', tone: 'neutral' },
     TIME_SERIES: { title: 'No data available', description: 'There is no time series data to display', tone: 'neutral' },
   };
 

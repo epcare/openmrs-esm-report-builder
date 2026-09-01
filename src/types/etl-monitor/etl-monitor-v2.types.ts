@@ -22,6 +22,7 @@ export type MonitorComponentType =
   | 'DATA_TABLE' // Legacy alias for TABLE
   | 'DETAILS'
   | 'ERROR_LOG' // Specialized DETAILS variant
+  | 'LOG' // Event timeline card
   | 'TIME_SERIES'; // Chart component
 
 /**
@@ -216,6 +217,18 @@ export interface ComponentSpecificConfig {
   selectable?: boolean;
   /** TABLE: Maximum rows to display (0 = unlimited) */
   maxRows?: number;
+  /** TABLE: Optional drill-down link shown in the table footer */
+  viewAllUrl?: string;
+  /** TABLE: Label for the drill-down link (default "View all") */
+  viewAllLabel?: string;
+  /** METRICS_GRID: Per-field icon names (document | timer | trend | clock | grid | chart) */
+  icons?: Record<string, string>;
+  /** METRICS_GRID: Per-field icon tile colors (hex) */
+  iconColors?: Record<string, string>;
+  /** METRICS_GRID: Per-field value colors (hex, e.g. green "100%" when complete) */
+  valueColors?: Record<string, string>;
+  /** TIME_SERIES: Label under the delta indicator */
+  deltaLabel?: string;
   /** DETAILS: Grouping configuration */
   groups?: Array<{
     key: string;
@@ -308,6 +321,11 @@ export function getDefaultEmptyState(componentType: MonitorComponentType): Empty
       description: 'There are no errors to display',
       tone: 'success',
     },
+    LOG: {
+      title: 'No activity',
+      description: 'No events have been recorded yet',
+      tone: 'neutral',
+    },
     TIME_SERIES: {
       title: 'No data available',
       description: 'There is no time series data to display',
@@ -362,6 +380,11 @@ export function getDefaultLayout(componentType: MonitorComponentType): LayoutMet
       section: 'errors',
       span: { sm: 4, md: 8, lg: 16 },
       priority: 1,
+    },
+    LOG: {
+      section: 'history',
+      span: { sm: 4, md: 8, lg: 8 },
+      priority: 2,
     },
     TIME_SERIES: {
       section: 'history',

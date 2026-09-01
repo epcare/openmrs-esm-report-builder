@@ -1,470 +1,244 @@
 /**
- * Preview & Review Step Component
+ * Preview & Publish Step Component
  * Step 5 of the ETL Monitor Builder
  *
- * Review configuration summary, live preview, and generated JSON
+ * Reference design: docs/image-series-monitor/preview.png (target: stage5)
+ * - Widget preview card with chrome
+ * - Configuration summary (icon + label + value grid)
+ * - Validation checklist
+ * - Save action
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button, InlineNotification } from '@carbon/react';
 import {
-  Stack,
-  InlineNotification,
-  Button,
-  Tabs,
-  Tab,
-  StructuredListWrapper,
-  StructuredListBody,
-  StructuredListRow,
-  StructuredListCell,
-  Tag,
-  CodeSnippet,
-  Toggle,
-} from '@carbon/react';
-import { CheckmarkFilled, WarningFilled, Information, Code as CodeIcon } from '@carbon/icons-react';
+  Globe,
+  Renew,
+  Save,
+  Security,
+  View,
+  Timer,
+  Folder,
+  Copy,
+  Checkmark,
+  CheckmarkFilled,
+  Error as ErrorIcon,
+} from '@carbon/icons-react';
 import { useBuilderContext } from '../etl-monitor-builder-context';
-import { validatePreviewStep, generateConfigFromState, stateToSavePayload } from '../builder-state-machine';
-import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
-import './preview-step.scss';
+import {
+  stateToSavePayload,
+  validatePreviewStep,
+  getAllValidationErrors,
+} from '../builder-state-machine';
+import { MonitorPreviewRenderer } from '../monitor-preview';
+import { MonitorWidgetCard } from '../../renderers/monitor-widget-card.component';
+import { getDesignConfig } from '../design-registry';
+import styles from './preview-step.scss';
+
+const AUTH_LABELS: Record<string, string> = {
+  NONE: 'None',
+  OPENMRS: 'OpenMRS Session',
+  BASIC: 'Basic Auth',
+  API_KEY: 'API Key',
+  BEARER_TOKEN: 'Bearer Token',
+};
 
 /**
- * Configuration summary section
- */
-interface ConfigSummaryProps {
-  state: any;
-}
-
-function ConfigSummary({ state }: ConfigSummaryProps) {
-  const { general, endpoint, componentType, fields, layout, validation } = state;
-
-  const isValid = validation.isValid;
-
-  return (
-    <div className="config-summary">
-      {/* Validation Status */}
-      <div className="config-summary__status">
-        {isValid ? (
-          <InlineNotification
-            kind="success"
-            title="Configuration Valid"
-            subtitle="Your monitor configuration is complete and ready to save."
-            lowContrast
-            hideCloseButton
-          />
-        ) : (
-          <InlineNotification
-            kind="error"
-            title="Configuration Incomplete"
-            subtitle="Please fix the errors before saving."
-            lowContrast
-            hideCloseButton
-          />
-        )}
-      </div>
-
-      {/* General Information */}
-      <div className="config-summary__section">
-        <h4>General Information</h4>
-        <StructuredListWrapper>
-          <StructuredListBody>
-            <StructuredListRow>
-              <StructuredListCell>Name</StructuredListCell>
-              <StructuredListCell>{general.name || <em>Not set</em>}</StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Code</StructuredListCell>
-              <StructuredListCell>{general.code || <em>Not set</em>}</StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Category</StructuredListCell>
-              <StructuredListCell>{general.category || general.categoryLabel || <em>Not set</em>}</StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Refresh Interval</StructuredListCell>
-              <StructuredListCell>{general.refreshInterval} seconds</StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Timeout</StructuredListCell>
-              <StructuredListCell>{general.timeout} seconds</StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Active</StructuredListCell>
-              <StructuredListCell>
-                {general.active ? (
-                  <Tag type="green">Active</Tag>
-                ) : (
-                  <Tag type="gray">Inactive</Tag>
-                )}
-              </StructuredListCell>
-            </StructuredListRow>
-          </StructuredListBody>
-        </StructuredListWrapper>
-      </div>
-
-      {/* Data Source */}
-      <div className="config-summary__section">
-        <h4>Data Source</h4>
-        <StructuredListWrapper>
-          <StructuredListBody>
-            <StructuredListRow>
-              <StructuredListCell>URL</StructuredListCell>
-              <StructuredListCell>
-                <CodeSnippet type="inline" light>
-                  {endpoint.method} {endpoint.url || <em>Not set</em>}
-                </CodeSnippet>
-              </StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Authentication</StructuredListCell>
-              <StructuredListCell>
-                <Tag type="blue">{endpoint.auth?.type || 'NONE'}</Tag>
-              </StructuredListCell>
-            </StructuredListRow>
-          </StructuredListBody>
-        </StructuredListWrapper>
-      </div>
-
-      {/* Component Type */}
-      <div className="config-summary__section">
-        <h4>Display Component</h4>
-        <StructuredListWrapper>
-          <StructuredListBody>
-            <StructuredListRow>
-              <StructuredListCell>Component Type</StructuredListCell>
-              <StructuredListCell>
-                <Tag type="purple">{componentType || <em>Not selected</em>}</Tag>
-              </StructuredListCell>
-            </StructuredListRow>
-            <StructuredListRow>
-              <StructuredListCell>Layout</StructuredListCell>
-              <StructuredListCell>
-                {layout ? (
-                  <span>
-                    Section: <Tag>{layout.section}</Tag>, Priority: {layout.priority}
-                  </span>
-                ) : (
-                  <em>Default layout</em>
-                )}
-              </StructuredListCell>
-            </StructuredListRow>
-          </StructuredListBody>
-        </StructuredListWrapper>
-      </div>
-
-      {/* Fields Summary */}
-      <div className="config-summary__section">
-        <h4>Fields ({fields.length})</h4>
-        {fields.length === 0 ? (
-          <p className="config-summary__empty">No fields configured</p>
-        ) : (
-          <StructuredListWrapper>
-            <StructuredListBody>
-              {fields.map((field: any, index: number) => (
-                <StructuredListRow key={index}>
-                  <StructuredListCell style={{ width: '40%' }}>
-                    <strong>{field.label}</strong>
-                    {field.primary && (
-                      <Tag type="blue" size="sm" style={{ marginLeft: '0.5rem' }}>
-                        Primary
-                      </Tag>
-                    )}
-                  </StructuredListCell>
-                  <StructuredListCell>
-                    <span style={{ fontSize: '0.75rem' }}>
-                      <CodeSnippet type="inline" light>
-                        {field.path}
-                      </CodeSnippet>
-                    </span>
-                  </StructuredListCell>
-                  <StructuredListCell>
-                    <Tag type="gray" size="sm">
-                      {field.type}
-                    </Tag>
-                  </StructuredListCell>
-                </StructuredListRow>
-              ))}
-            </StructuredListBody>
-          </StructuredListWrapper>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Live Preview section
- */
-interface LivePreviewProps {
-  config: DisplayConfigV2;
-  testData: any;
-}
-
-function LivePreview({ config, testData }: LivePreviewProps) {
-  const [previewData, setPreviewData] = useState(testData);
-
-  // Import MonitorRenderer dynamically to avoid circular dependencies
-  const [MonitorRenderer, setMonitorRenderer] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    import('../../renderers/MonitorRenderer').then((module) => {
-      setMonitorRenderer(() => module.MonitorRenderer);
-    });
-  }, []);
-
-  // Sync previewData when testData changes
-  React.useEffect(() => {
-    if (testData) {
-      setPreviewData(testData);
-    }
-  }, [testData]);
-
-  // Create sample data if no test data available (memoized)
-  const sampleData = React.useMemo(() => {
-    const sample: any = {};
-    const now = Date.now();
-    config.fields?.forEach((field, index) => {
-      const path = field.path;
-      const fieldName = path.startsWith('$.') ? path.slice(2) : field.key;
-
-      switch (field.type) {
-        case 'STATUS':
-          // Use lowercase to match typical statusMap keys (renderer handles case-insensitive lookup)
-          sample[fieldName] = 'up';
-          break;
-        case 'PERCENTAGE':
-          sample[fieldName] = 67;
-          break;
-        case 'TIMESTAMP':
-          // Use a timestamp 2 minutes ago for realistic preview
-          sample[fieldName] = now - (2 * 60 * 1000);
-          break;
-        case 'DURATION':
-          sample[fieldName] = 5432;
-          break;
-        case 'BOOLEAN':
-          sample[fieldName] = true;
-          break;
-        case 'NUMBER':
-        case 'INTEGER':
-          sample[fieldName] = 100 + index;
-          break;
-        default:
-          sample[fieldName] = `Sample ${field.label}`;
-      }
-    });
-
-    return sample;
-  }, [config.fields]);
-
-  const dataToPreview = previewData || sampleData;
-
-  return (
-    <div className="live-preview">
-      <div className="live-preview__header">
-        <h4>Live Preview</h4>
-        <Button kind="ghost" size="sm" onClick={() => setPreviewData(testData)}>
-          Refresh Preview
-        </Button>
-      </div>
-
-      <div className="live-preview__content">
-        {MonitorRenderer ? (
-          <MonitorRenderer
-            config={config}
-            data={dataToPreview}
-            loading={false}
-            error={null}
-          />
-        ) : (
-          <div className="live-preview__placeholder">
-            <div className="live-preview__component-type">
-              <Tag type="purple">{config.component}</Tag>
-            </div>
-
-            <div className="live-preview__fields">
-              {config.fields?.slice(0, 5).map((field, index) => (
-                <div key={index} className="live-preview__field">
-                  <span className="live-preview__field-label">{field.label}:</span>
-                  <span className="live-preview__field-value">
-                    {field.type === 'STATUS' ? (
-                      <Tag type="green">Sample</Tag>
-                    ) : field.type === 'PERCENTAGE' ? (
-                      '67%'
-                    ) : field.type === 'TIMESTAMP' ? (
-                      '2024-01-15 10:30 AM'
-                    ) : field.type === 'DURATION' ? (
-                      '2m 34s'
-                    ) : (
-                      'Sample value'
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <p className="live-preview__note">
-              <Information size={16} />
-              Loading renderer...
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Generated JSON section
- */
-interface GeneratedJsonProps {
-  config: DisplayConfigV2;
-  payload: any;
-}
-
-function GeneratedJson({ payload }: GeneratedJsonProps) {
-  const [showApiConfig, setShowApiConfig] = useState(true);
-
-  return (
-    <div className="generated-json">
-      <div className="generated-json__header">
-        <h4>Generated Configuration</h4>
-        <Stack orientation="horizontal" gap={2}>
-          <Toggle
-            id="show-api-config"
-            labelText="API Config"
-            labelA="Hide"
-            labelB="Show"
-            toggled={showApiConfig}
-            onToggle={setShowApiConfig}
-          />
-        </Stack>
-      </div>
-
-      <div className="generated-json__content">
-        {/* Display Configuration */}
-        <div className="generated-json__section">
-          <div className="generated-json__section-header">
-            <h5>display_config_json</h5>
-            <Button kind="ghost" size="sm" renderIcon={CodeIcon}>
-              Copy
-            </Button>
-          </div>
-          <CodeSnippet type="multi" light>
-            {JSON.stringify(JSON.parse(payload.displayConfigJson || '{}'), null, 2)}
-          </CodeSnippet>
-        </div>
-
-        {/* API Configuration */}
-        {showApiConfig && (
-          <div className="generated-json__section">
-            <div className="generated-json__section-header">
-              <h5>config_json</h5>
-              <Button kind="ghost" size="sm" renderIcon={CodeIcon}>
-                Copy
-              </Button>
-            </div>
-            <CodeSnippet type="multi" light>
-              {JSON.stringify(JSON.parse(payload.configJson || '{}'), null, 2)}
-            </CodeSnippet>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Preview & Review Step Component
+ * Preview & Publish Step Component
  */
 export default function PreviewStep() {
-  const { state } = useBuilderContext();
+  const { state, saveMonitor } = useBuilderContext();
+  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'summary' | 'preview' | 'json'>('summary');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
 
-  // Generate configuration and save payload (memoized to prevent re-renders)
-  const displayConfig = useMemo(() => generateConfigFromState(state), [state]);
   const savePayload = useMemo(() => stateToSavePayload(state), [state]);
 
-  // Validate
-  const validation = useMemo(() => validatePreviewStep(state), [state]);
-  const isValid = validation.valid;
-  const errors = validation.errors;
+  // Selected design's card identity (accent tile + label, per the
+  // Visualization Cards sheet) reflected above the live widget
+  const design = getDesignConfig(state.componentType);
 
-  // Sample test data for preview (memoized to prevent re-renders)
-  // Using stable dependencies without optional chaining
-  const testData = useMemo(() => {
-    const data = state.testResult?.data || state.detectedSchema?.rawSample || null;
-    return data;
-  }, [state.testResult, state.detectedSchema]);
+  const allErrors = useMemo(() => getAllValidationErrors(state), [state]);
+  const previewValidation = useMemo(() => validatePreviewStep(state), [state]);
+  const isReady = allErrors.length === 0 && previewValidation.valid;
+
+  // Status mapping checklist item
+  const statusFields = state.fields.filter((f: any) => f.type === 'STATUS');
+  const statusMapped = statusFields.every((f: any) => (f.statusMappings?.length ?? 0) > 0);
+
+  // Configuration summary items
+  const summaryItems = [
+    { icon: <Globe />, label: 'Data source', value: `${state.endpoint.method} ${state.endpoint.url || '—'}` },
+    { icon: <Security />, label: 'Authentication', value: AUTH_LABELS[state.endpoint.auth?.type] || state.endpoint.auth?.type || 'None' },
+    { icon: <View />, label: 'Component', value: design?.label || state.componentType || '—' },
+    { icon: <Timer />, label: 'Timeout', value: `${state.general.timeout} sec` },
+    { icon: <Renew />, label: 'Refresh', value: `${state.general.refreshInterval} sec` },
+    { icon: <Folder />, label: 'Category', value: state.general.category || '—' },
+  ];
+
+  // Validation checklist
+  const checklist = [
+    {
+      pass: state.testResult ? state.testResult.success : state.mode === 'edit' && !!state.endpoint.url,
+      label: state.testResult ? 'Endpoint tested' : state.mode === 'edit' ? 'Endpoint configured' : 'Endpoint tested',
+      sub: state.testResult
+        ? state.testResult.success
+          ? 'Successfully connected and returned data'
+          : `Test failed: ${state.testResult.error || 'unknown error'}`
+        : state.mode === 'edit'
+          ? 'Endpoint configured and saved previously'
+          : 'Run the endpoint test in the Data Source step',
+    },
+    {
+      pass: state.fields.length > 0,
+      label: 'Fields mapped',
+      sub:
+        state.fields.length > 0
+          ? `${state.fields.length} field${state.fields.length === 1 ? '' : 's'} mapped to response paths`
+          : 'Map at least one response field',
+    },
+    {
+      pass: statusFields.length === 0 || statusMapped,
+      label: 'Status mapping complete',
+      sub:
+        statusFields.length === 0
+          ? 'No status fields configured'
+          : statusMapped
+            ? 'Status and thresholds configured'
+            : 'Add status mappings to all STATUS fields',
+    },
+    {
+      pass: previewValidation.valid,
+      label: 'Preview ready',
+      sub: previewValidation.valid
+        ? 'Monitor preview generated successfully'
+        : 'Fix configuration errors to generate the preview',
+    },
+  ];
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveMonitor();
+      navigate('/admin/etl-monitors');
+    } catch (error: any) {
+      setSaveError(error?.message || 'Failed to save monitor');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCopyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(savePayload.displayConfigJson || '');
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — ignore
+    }
+  };
 
   return (
-    <div className="preview-step">
-      <div className="preview-step__header">
-        <h2>Preview & Review</h2>
-        <p className="preview-step__description">
-          Review your configuration, see the live preview, and verify the generated JSON before saving.
-        </p>
+    <div className={styles['preview-step']}>
+      <div className={styles['preview-step__header']}>
+        <h2>Preview &amp; publish</h2>
+        <p className={styles['preview-step__description']}>Review the monitor before saving it to the dashboard.</p>
       </div>
 
-      {/* Validation Status */}
-      {errors.length > 0 && (
+      {saveError && (
         <InlineNotification
           kind="error"
-          title="Configuration Errors"
-          subtitle={errors.length > 0 ? `${errors.length} error(s) - see details above` : ''}
           lowContrast
+          title="Save Failed"
+          subtitle={saveError}
+          onCloseButtonClick={() => setSaveError(null)}
           style={{ marginBottom: '1rem' }}
         />
       )}
 
-      {isValid && (
-        <InlineNotification
-          kind="success"
-          title="Ready to Save"
-          subtitle="Your configuration is complete and ready to be saved."
-          lowContrast
-          style={{ marginBottom: '1rem' }}
-          hideCloseButton
-        />
-      )}
-
-      {/* Tabs */}
-      <Tabs
-        selectedIndex={['summary', 'preview', 'json'].indexOf(activeTab)}
-        onChange={({ selectedIndex }) => {
-          setActiveTab(['summary', 'preview', 'json'][selectedIndex] as any);
-        }}
+      {/* Widget preview: the selected design's card identity + the exact
+          components and styling the dashboard renders */}
+      <MonitorWidgetCard
+        loading={false}
+        onRefresh={() => setPreviewKey((k) => k + 1)}
+        actions={[{ label: copied ? 'Copied!' : 'Copy configuration JSON', onClick: handleCopyJson }]}
       >
-        <Tab id="tab-summary">Configuration Summary</Tab>
-        <Tab id="tab-preview">Live Preview</Tab>
-        <Tab id="tab-json">Generated JSON</Tab>
-      </Tabs>
+        {design && (
+          <div className={styles['preview-design-head']}>
+            <span
+              className={styles['preview-design-head__icon']}
+              style={{ backgroundColor: `${design.accent}1A`, color: design.accent }}
+            >
+              {design.icon}
+            </span>
+            <div className={styles['preview-design-head__text']}>
+              <h3 className={styles['preview-design-head__title']}>{design.label}</h3>
+              <p className={styles['preview-design-head__desc']}>{design.description}</p>
+            </div>
+          </div>
+        )}
+        <div key={previewKey}>
+          <MonitorPreviewRenderer state={state} />
+        </div>
+      </MonitorWidgetCard>
 
-      {/* Tab Content */}
-      <div className="preview-step__content">
-        {activeTab === 'summary' && <ConfigSummary state={state} />}
-        {activeTab === 'preview' && <LivePreview config={displayConfig} testData={testData} />}
-        {activeTab === 'json' && <GeneratedJson config={displayConfig} payload={savePayload} />}
+      {/* Configuration summary + validation checklist */}
+      <div className={styles['preview-section']}>
+        <h4>Configuration summary</h4>
+        <div className={styles['preview-summary']}>
+          {summaryItems.map((item) => (
+            <div key={item.label} className={styles['preview-summary__item']}>
+              <span className={styles['preview-summary__icon']}>{item.icon}</span>
+              <div className={styles['preview-summary__text']}>
+                <div className={styles['preview-summary__label']}>{item.label}</div>
+                <div className={styles['preview-summary__value']}>{item.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles['preview-section__divider']} />
+
+        <h4>Validation checklist</h4>
+        <div className={styles['preview-checklist']}>
+          {checklist.map((item) => (
+            <div key={item.label} className={styles['preview-checklist__item']}>
+              <span className={[styles['preview-checklist__icon'], item.pass ? styles['preview-checklist__icon--pass'] : styles['preview-checklist__icon--fail']].join(' ')}>
+                {item.pass ? <CheckmarkFilled /> : <ErrorIcon />}
+              </span>
+              <div>
+                <div className={styles['preview-checklist__label']}>{item.label}</div>
+                <div className={styles['preview-checklist__sub']}>{item.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Save Readiness */}
-      <div className="preview-step__footer">
-        <div className="preview-step__footer-content">
-          {isValid ? (
-            <div className="preview-step__ready">
-              <CheckmarkFilled size={20} />
-              <span>
-                <strong>Ready to save!</strong> Click the Save Monitor button to create your ETL monitor.
-              </span>
-            </div>
-          ) : (
-            <div className="preview-step__not-ready">
-              <WarningFilled size={20} />
-              <span>
-                <strong>Configuration incomplete.</strong> Please fix the errors before saving.
-              </span>
-            </div>
-          )}
-        </div>
+      {/* Copy JSON + Save */}
+      <div className={styles['preview-save']}>
+        <Button
+          kind="ghost"
+          size="sm"
+          renderIcon={copied ? Checkmark : Copy}
+          onClick={handleCopyJson}
+        >
+          {copied ? 'Copied!' : 'Copy JSON'}
+        </Button>
+        <Button
+          kind="primary"
+          renderIcon={Save}
+          onClick={handleSave}
+          disabled={saving || !isReady}
+          title={isReady ? undefined : allErrors.join(', ') || 'Configuration incomplete'}
+        >
+          {saving ? 'Saving…' : 'Save Monitor'}
+        </Button>
       </div>
     </div>
   );

@@ -73,7 +73,6 @@ const ReportDashboardPage: React.FC = () => {
 
   // Export modal state
   const [showExportModal, setShowExportModal] = React.useState(false);
-  const [reportToExport, setReportToExport] = React.useState<ReportWithMetadata | null>(null);
 
   React.useEffect(() => {
     const ac = new AbortController();
@@ -271,15 +270,13 @@ const ReportDashboardPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, []);
 
-  const handleExportPackage = React.useCallback((report: ReportWithMetadata) => {
-    setReportToExport(report);
+  const handleExportPackage = React.useCallback(() => {
     setShowExportModal(true);
   }, []);
 
   const handleExportSuccess = React.useCallback((result: any) => {
     console.log('Export package successful:', result);
     setShowExportModal(false);
-    setReportToExport(null);
   }, []);
 
   return (
@@ -464,7 +461,7 @@ const ReportDashboardPage: React.FC = () => {
                               />
                               <OverflowMenuItem
                                 itemText="Export Package"
-                                onClick={() => report && handleExportPackage(report)}
+                                onClick={handleExportPackage}
                                 requireTitle
                               />
                             </OverflowMenu>
@@ -555,7 +552,6 @@ const ReportDashboardPage: React.FC = () => {
           isOpen={showExportModal}
           onClose={() => {
             setShowExportModal(false);
-            setReportToExport(null);
           }}
           onSuccess={handleExportSuccess}
         />

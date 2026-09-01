@@ -1,17 +1,15 @@
 /**
- * Status Card Renderer - Figma-Quality Design
- * Modern, polished status card with premium visual design
+ * Status Card Renderer
+ * Reference widget style (docs/image-series-monitor/widgets):
+ * icon tile + title header, large tone-colored status with dot,
+ * description line, and footer meta slots.
  */
 
 import React from 'react';
-import {
-  CheckmarkFilled,
-  ErrorFilled,
-  WarningFilled,
-  Information,
-  Time,
-} from '@carbon/icons-react';
+import { Security, Time, Grid } from '@carbon/icons-react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
+import { formatRelativeTime } from '../../../../utils/etl-monitor/value-formatters.util';
 
 interface StatusCardRendererProps {
   config: DisplayConfigV2;
@@ -44,7 +42,6 @@ export function StatusCardRenderer({ config, fields, rawData, data }: StatusCard
   const statusField = safeFields.find((f) => f.type === 'STATUS') || primaryField;
 
   const statusValue = statusField?.formattedValue;
-  const statusLabel = statusField?.label || 'Status';
 
   // Use pre-calculated tone from field, or determine from value
   const tone = statusField?.statusTone || determineStatusTone(statusValue);
@@ -52,60 +49,54 @@ export function StatusCardRenderer({ config, fields, rawData, data }: StatusCard
   const title = config.presentation?.title || 'Status Monitor';
   const description = config.presentation?.description;
 
-  // Get the timestamp field for display
-  const timestampField = safeFields.find((f) => f.type === 'TIMESTAMP' || f.key === 'timestamp');
-  const lastUpdated = timestampField?.formattedValue || formatTimestamp(new Date());
+  // Remaining visible fields become footer meta slots
+  const metaFields = safeFields
+    .filter((f) => !f.hidden && f.key !== statusField?.key)
+    .slice(0, 3);
 
   return (
-    <div className="status-card-premium">
-      {/* Card Header */}
-      <div className="status-card-premium__header">
-        <div className="status-card-premium__header-content">
-          <h3 className="status-card-premium__title">{title}</h3>
-          {description && (
-            <p className="status-card-premium__description">{description}</p>
-          )}
-        </div>
-        <div className={`status-card-premium__status-indicator status-card-premium__status-indicator--${tone}`}>
-          <div className="status-card-premium__status-dot"></div>
-          <span className="status-card-premium__status-text">{statusValue || 'Unknown'}</span>
-        </div>
-      </div>
-
-      {/* Card Body */}
-      <div className="status-card-premium__body">
-        {/* Main Status Display */}
-        <div className={`status-card-premium__main-status status-card-premium__main-status--${tone}`}>
-          <div className="status-card-premium__status-icon">
-            {getStatusIcon(tone)}
-          </div>
-          <div className="status-card-premium__status-content">
-            <div className="status-card-premium__status-value">{statusValue || 'Unknown'}</div>
-            <div className="status-card-premium__status-label">{statusLabel}</div>
-          </div>
-        </div>
-
-        {/* Additional Fields */}
-        {safeFields.length > 1 && (
-          <div className="status-card-premium__fields">
-            {safeFields
-              .filter((f) => !f.hidden && f.key !== statusField?.key)
-              .slice(0, 4)
-              .map((field) => (
-                <div key={field.key} className="status-card-premium__field">
-                  <div className="status-card-premium__field-label">{field.label}</div>
-                  <div className="status-card-premium__field-value">{field.formattedValue}</div>
-                </div>
-              ))}
-          </div>
+    <div className={[styles['status-card-premium'], styles[`status-card-premium--${tone}`]].join(' ')}>
+      {/* Header: icon tile + title + status pill */}
+      <div className={styles['status-card-premium__header']}>
+        <span className={styles['status-card-premium__icon-tile']}>
+          <Security size={22} />
+        </span>
+        <h3 className={styles['status-card-premium__title']}>{title}</h3>
+        {statusField && (
+          <span
+            className={[
+              styles['status-card-premium__pill'],
+              styles[`status-card-premium__pill--${tone}`],
+            ].join(' ')}
+          >
+            {statusValue || 'Unknown'}
+          </span>
         )}
-
-        {/* Footer with timestamp */}
-        <div className="status-card-premium__footer">
-          <Time size={12} className="status-card-premium__time-icon" />
-          <span className="status-card-premium__timestamp">Last updated: {lastUpdated}</span>
-        </div>
       </div>
+
+      {/* Body: large status + dot, description */}
+      <div className={styles['status-card-premium__body']}>
+        <div className={styles['status-card-premium__status-row']}>
+          <span className={styles['status-card-premium__status-value']}>{statusValue || 'Unknown'}</span>
+          <span className={styles['status-card-premium__dot']} />
+        </div>
+        {description && <p className={styles['status-card-premium__description']}>{description}</p>}
+      </div>
+
+      {/* Footer meta slots (Module, Last checked, ...) */}
+      {metaFields.length > 0 && (
+        <div className={styles['status-card-premium__footer']}>
+          {metaFields.map((field) => (
+            <div key={field.key} className={styles['status-card-premium__meta']}>
+              <span className={styles['status-card-premium__meta-label']}>
+                {field.type === 'TIMESTAMP' ? <Time size={12} /> : <Grid size={12} />}
+                {field.label}
+              </span>
+              <span className={styles['status-card-premium__meta-value']}>{field.formattedValue ?? '—'}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -118,10 +109,10 @@ function determineStatusTone(value: any): string {
 
   const stringValue = String(value).toUpperCase();
 
-  if (stringValue === 'UP' || stringValue === 'ACTIVE' || stringValue === 'SUCCESS' || stringValue === 'OK') {
+  if (stringValue === 'UP' || stringValue === 'ACTIVE' || stringValue === 'SUCCESS' || stringValue === 'OK' || stringValue === 'HEALTHY') {
     return 'success';
   }
-  if (stringValue === 'DOWN' || stringValue === 'ERROR' || stringValue === 'FAILED' || stringValue === 'CRITICAL') {
+  if (stringValue === 'DOWN' || stringValue === 'ERROR' || stringValue === 'FAILED' || stringValue === 'CRITICAL' || stringValue === 'UNHEALTHY') {
     return 'critical';
   }
   if (stringValue === 'WARNING' || stringValue === 'DEGRADED') {
@@ -132,39 +123,6 @@ function determineStatusTone(value: any): string {
   }
 
   return 'neutral';
-}
-
-/**
- * Get status icon based on tone
- */
-function getStatusIcon(tone: string): React.ReactNode {
-  const iconSize = 24;
-
-  switch (tone) {
-    case 'success':
-      return <CheckmarkFilled size={iconSize} />;
-    case 'critical':
-      return <ErrorFilled size={iconSize} />;
-    case 'warning':
-      return <WarningFilled size={iconSize} />;
-    case 'info':
-      return <Information size={iconSize} />;
-    default:
-      return <Information size={iconSize} />;
-  }
-}
-
-/**
- * Format timestamp for display
- */
-function formatTimestamp(date: Date): string {
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
 }
 
 /**
@@ -274,29 +232,9 @@ function formatFieldValue(value: any, fieldConfig: any): any {
     return mapping?.label || value;
   }
 
-  if (fieldConfig.type === 'date' && value) {
-    try {
-      return new Date(value).toLocaleDateString();
-    } catch {
-      return value;
-    }
-  }
-
-  // For TIMESTAMP fields, format as readable date
+  // For TIMESTAMP fields, show relative time ("2 minutes ago" / "in 5 minutes")
   if (fieldConfig.type === 'TIMESTAMP' && value) {
-    try {
-      const date = new Date(value);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-      if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hour${Math.floor(diffMins / 60) > 1 ? 's' : ''} ago`;
-      return `${Math.floor(diffMins / 1440)} day${Math.floor(diffMins / 1440) > 1 ? 's' : ''} ago`;
-    } catch {
-      return value;
-    }
+    return formatRelativeTime(value, { pastOnly: true });
   }
 
   if (fieldConfig.type === 'boolean') {

@@ -1,0 +1,198 @@
+/**
+ * Generated Configuration Panel Styles
+ */
+
+.generated-config-panel {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+
+  &__header {
+    h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #161616;
+    }
+  }
+
+  &__tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  &__tab {
+    appearance: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #525252;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+
+    &:focus-visible {
+      outline: 2px solid #0f62fe;
+      outline-offset: -2px;
+    }
+
+    &--active {
+      color: #161616;
+      font-weight: 600;
+      border-bottom-color: #045d78;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+  }
+
+  &__json-wrap {
+    position: relative;
+  }
+
+  &__copy {
+    position: absolute !important;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+  }
+
+  &__json {
+    margin: 0;
+    padding: 1rem;
+    background: #f4f4f4;
+    border: 1px solid #e0e0e0;
+    border-radius: 0.5rem;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    overflow: auto;
+    max-height: 520px;
+    white-space: pre;
+  }
+
+  &__banner {
+    display: flex;
+    gap: 0.625rem;
+    align-items: flex-start;
+    padding: 0.875rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+
+    svg {
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+    }
+
+    &--ready {
+      background: #defbe6;
+      color: #0e6027;
+
+      svg {
+        color: #24a148;
+      }
+    }
+
+    &--blocked {
+      background: #ffd7d9;
+      color: #a2191f;
+
+      svg {
+        color: #da1e28;
+      }
+    }
+  }
+}
+
+/* JSON syntax colors */
+.json-key {
+  color: #0d8085;
+}
+
+.json-string {
+  color: #5b54d9;
+}
+
+.json-number {
+  color: #2f80ed;
+}
+
+.json-boolean {
+  color: #da1e28;
+}
+
+/* Dark theme */
+[data-theme='dark'] {
+  .generated-config-panel {
+    background: #1f2937;
+    border-color: #393939;
+
+    &__header h4 {
+      color: #f4f4f4;
+    }
+
+    &__tabs {
+      border-bottom-color: #393939;
+    }
+
+    &__tab {
+      color: #8d8d8d;
+
+      &--active {
+        color: #f4f4f4;
+        border-bottom-color: #3ddbd9;
+      }
+    }
+
+    &__json {
+      background: #16191e;
+      border-color: #393939;
+    }
+
+    &__banner--ready {
+      background: rgba(36, 161, 72, 0.15);
+      color: #42be65;
+
+      svg {
+        color: #42be65;
+      }
+    }
+
+    &__banner--blocked {
+      background: rgba(218, 30, 40, 0.15);
+      color: #fa4d56;
+
+      svg {
+        color: #fa4d56;
+      }
+    }
+  }
+
+  .json-key {
+    color: #3ddbd9;
+  }
+
+  .json-string {
+    color: #9b8cff;
+  }
+
+  .json-number {
+    color: #78a9ff;
+  }
+
+  .json-boolean {
+    color: #fa4d56;
+  }
+}

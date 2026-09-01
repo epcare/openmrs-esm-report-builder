@@ -3,6 +3,8 @@ import {
     Button,
     InlineLoading,
     InlineNotification,
+    OverflowMenu,
+    OverflowMenuItem,
     Tile,
 } from '@carbon/react';
 import { Renew as Refresh, WarningFilled } from '@carbon/icons-react';
@@ -20,6 +22,7 @@ interface ETLMonitorCardShellProps {
     onRefresh?: () => void;
     refreshDisabled?: boolean;
     extraActions?: React.ReactNode;
+    onEdit?: () => void;
     size?: 'sm' | 'md' | 'lg';
 }
 
@@ -31,6 +34,7 @@ export default function ETLMonitorCardShell({
     onRefresh,
     refreshDisabled = false,
     extraActions,
+    onEdit,
     size = 'md',
 }: ETLMonitorCardShellProps) {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -62,6 +66,11 @@ export default function ETLMonitorCardShell({
                             onClick={handleRefresh}
                             disabled={refreshDisabled || isRefreshing || loading}
                         />
+                    )}
+                    {onEdit && (
+                        <OverflowMenu flipped ariaLabel="Monitor actions" size="sm">
+                            <OverflowMenuItem itemText="Edit monitor" onClick={onEdit} />
+                        </OverflowMenu>
                     )}
                 </div>
             </div>

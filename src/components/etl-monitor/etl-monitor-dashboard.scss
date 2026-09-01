@@ -131,3 +131,18 @@
     }
   }
 }
+
+/* V2 monitor card: chrome actions overlay the widget header */
+.etl-monitor-v2-card {
+  position: relative;
+
+  &__actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+}

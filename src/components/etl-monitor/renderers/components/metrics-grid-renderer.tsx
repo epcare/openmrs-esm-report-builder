@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
 
 interface MetricsGridRendererProps {
@@ -23,29 +24,29 @@ interface MetricsGridRendererProps {
 }
 
 export function MetricsGridRenderer({ config, fields }: MetricsGridRendererProps) {
-  const visibleFields = fields.filter((f) => !f.hidden);
+  const visibleFields = (fields || []).filter((f) => !f.hidden);
   const labelsAbove = config.componentConfig?.labelsAbove !== false;
 
   return (
-    <div className="metrics-grid-renderer">
+    <div className={styles['metrics-grid-renderer']}>
       {config.presentation?.title && (
-        <h4 className="metrics-grid-renderer__title">{config.presentation.title}</h4>
+        <h4 className={styles['metrics-grid-renderer__title']}>{config.presentation.title}</h4>
       )}
 
       <div
         className={[
-          'metrics-grid-renderer__grid',
-          labelsAbove ? 'metrics-grid-renderer__grid--labels-above' : '',
+          styles['metrics-grid-renderer__grid'],
+          labelsAbove ? styles['metrics-grid-renderer__grid--labels-above'] : '',
         ].join(' ')}
       >
         {visibleFields.map((field) => (
-          <div key={field.key} className="metrics-grid-renderer__metric">
+          <div key={field.key} className={styles['metrics-grid-renderer__metric']}>
             {labelsAbove && (
-              <div className="metrics-grid-renderer__metric-label">{field.label}</div>
+              <div className={styles['metrics-grid-renderer__metric-label']}>{field.label}</div>
             )}
-            <div className="metrics-grid-renderer__metric-value">{field.formattedValue}</div>
+            <div className={styles['metrics-grid-renderer__metric-value']}>{field.formattedValue}</div>
             {!labelsAbove && (
-              <div className="metrics-grid-renderer__metric-label">{field.label}</div>
+              <div className={styles['metrics-grid-renderer__metric-label']}>{field.label}</div>
             )}
           </div>
         ))}

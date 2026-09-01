@@ -13,7 +13,10 @@ import {
   TableCell,
   Tag,
 } from '@carbon/react';
+import { ArrowRight } from '@carbon/icons-react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
+import { formatSemanticValue, resolveRowFieldValue } from '../data-transformer';
 
 interface TableRendererProps {
   config: DisplayConfigV2;
@@ -35,39 +38,19 @@ export function TableRenderer({ config, fields, arrayData }: TableRendererProps)
   // Use arrayData provided by MonitorRenderer
   const tableData = arrayData || [];
 
-  const visibleFields = fields.filter((f) => !f.hidden);
+  const visibleFields = (fields || []).filter((f) => !f.hidden);
   const maxRows = config.componentConfig?.maxRows || 50;
   const displayData = tableData.slice(0, maxRows);
 
   /**
-   * Extract value from row data using field path
+   * Extract value from row data using field path.
+   * Delegates to the shared resolver so root-relative paths
+   * (e.g. $.data.startTime from a { data: [...] } envelope) and
+   * indexed paths resolve the same way as everywhere else.
    */
   const getRowValue = (row: any, field: any) => {
-    if (!row) return '-';
-
-    const path = field.path;
-    if (!path) return '-';
-
-    // Handle nested paths like $.fieldName
-    if (path.startsWith('$.')) {
-      const parts = path.substring(2).split('.');
-      let value = row;
-      for (const part of parts) {
-        if (value && typeof value === 'object' && part in value) {
-          value = value[part];
-        } else {
-          return '-';
-        }
-      }
-      return value;
-    }
-
-    // Direct key access
-    if (field.key in row) {
-      return row[field.key];
-    }
-
-    return '-';
+    const value = resolveRowFieldValue(row, field, config.data?.arrayPath);
+    return value === undefined ? '-' : value;
   };
 
   /**
@@ -106,21 +89,42 @@ export function TableRenderer({ config, fields, arrayData }: TableRendererProps)
       return <Tag type="gray">{value}</Tag>;
     }
 
-    return String(value);
+    // Percentage cells render as value + inline progress bar (widget #5)
+    if (field.type === 'PERCENTAGE') {
+      const numeric =
+        typeof value === 'number'
+          ? Math.max(0, Math.min(100, value))
+          : parseFloat(String(value).replace('%', '')) || 0;
+      return (
+        <span className={styles['table-renderer__progress']}>
+          <span className={styles['table-renderer__progress-label']}>
+            {formatSemanticValue(value, field)}
+          </span>
+          <span className={styles['table-renderer__progress-track']}>
+            <span
+              className={styles['table-renderer__progress-fill']}
+              style={{ width: `${numeric}%` }}
+            />
+          </span>
+        </span>
+      );
+    }
+
+    return formatSemanticValue(value, field);
   };
 
   return (
-    <div className="table-renderer">
-      <div className="table-renderer__header">
+    <div className={styles['table-renderer']}>
+      <div className={styles['table-renderer__header']}>
         {config.presentation?.title && (
-          <h4 className="table-renderer__title">{config.presentation.title}</h4>
+          <h4 className={styles['table-renderer__title']}>{config.presentation.title}</h4>
         )}
       </div>
 
       {displayData.length === 0 ? (
-        <div className="table-renderer__empty">No data to display</div>
+        <div className={styles['table-renderer__empty']}>No data to display</div>
       ) : (
-        <div className="table-renderer__table-wrapper">
+        <div className={styles['table-renderer__table-wrapper']}>
           <Table size="sm">
             <TableHead>
               <TableRow>
@@ -150,8 +154,18 @@ export function TableRenderer({ config, fields, arrayData }: TableRendererProps)
       )}
 
       {tableData.length > maxRows && (
-        <div className="table-renderer__footer">
-          Showing {maxRows} of {tableData.length} rows
+        <div className={styles['table-renderer__footer']}>
+          <span className={styles['table-renderer__footer-count']}>
+            Showing {maxRows} of {tableData.length} rows
+          </span>
+          {config.componentConfig?.viewAllUrl && (
+            <a
+              href={config.componentConfig.viewAllUrl}
+              className={styles['table-renderer__footer-link']}
+            >
+              {config.componentConfig.viewAllLabel || 'View all'} <ArrowRight size={12} />
+            </a>
+          )}
         </div>
       )}
     </div>

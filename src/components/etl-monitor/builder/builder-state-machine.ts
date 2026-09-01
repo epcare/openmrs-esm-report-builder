@@ -16,6 +16,13 @@ import {
   getDefaultEmptyState,
   getDefaultLayout,
 } from '../../../types/etl-monitor/etl-monitor-v2.types';
+import { pathResolvesInData } from '../renderers/data-transformer';
+
+/**
+ * Components that render rows from an array; their field paths
+ * resolve per row rather than against the response root
+ */
+const ROW_BASED_COMPONENTS = ['TABLE', 'DATA_TABLE', 'ERROR_LOG', 'LOG', 'TIME_SERIES'];
 
 /**
  * Validation result for a step
@@ -23,6 +30,8 @@ import {
 export interface StepValidation {
   valid: boolean;
   errors: string[];
+  /** Non-blocking hints (e.g. paths that don't resolve in the tested response) */
+  warnings?: string[];
 }
 
 /**
@@ -57,10 +66,13 @@ export function validateGeneralStep(config: GeneralConfig): StepValidation {
 
 /**
  * Validate data source step
+ * `allowUntested` relaxes the test requirement (used when editing a
+ * monitor that was already saved with a working endpoint)
  */
 export function validateDataSourceStep(
   endpoint: NormalizedEndpointConfig,
-  testResult?: EndpointTestResult
+  testResult?: EndpointTestResult,
+  allowUntested = false
 ): StepValidation {
   const errors: string[] = [];
 
@@ -71,7 +83,9 @@ export function validateDataSourceStep(
   }
 
   if (!testResult) {
-    errors.push('Endpoint must be tested before proceeding');
+    if (!allowUntested) {
+      errors.push('Endpoint must be tested before proceeding');
+    }
   } else if (!testResult.success) {
     errors.push('Endpoint test failed: ' + (testResult.error || 'Unknown error'));
   }
@@ -100,10 +114,18 @@ export function validateDesignStep(componentType?: MonitorComponentType): StepVa
 
 /**
  * Validate fields step
+ *
+ * `testData` (the captured endpoint test response) enables path warnings:
+ * fields whose path resolves to nothing in the real response are reported as
+ * warnings — they don't block saving, but they usually mean the path is
+ * root-relative (e.g. $.data.startTime) where a row-relative ($.startTime)
+ * one is needed, or the backend simply doesn't send that key.
  */
 export function validateFieldsStep(
   fields: BuilderFieldConfig[],
-  componentType?: MonitorComponentType
+  componentType?: MonitorComponentType,
+  testData?: any,
+  arrayPath?: string
 ): StepValidation {
   const errors: string[] = [];
 
@@ -139,9 +161,25 @@ export function validateFieldsStep(
     }
   }
 
+  // Warn about paths that don't resolve in the tested response
+  const warnings: string[] = [];
+  if (testData !== undefined && testData !== null) {
+    const rowBased = ROW_BASED_COMPONENTS.includes(componentType as string);
+    for (const field of fields) {
+      if (!field.path || field.path.trim() === '') continue;
+      if (!pathResolvesInData(field.path, testData, arrayPath, rowBased)) {
+        warnings.push(
+          `Field "${field.label}" path "${field.path}" doesn't match the tested response` +
+            (rowBased ? ' — use a row-relative path like $.fieldName' : '')
+        );
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
@@ -222,6 +260,14 @@ export function generateConfigFromState(state: MonitorBuilderState): DisplayConf
   } else {
     config.emptyState = getDefaultEmptyState(state.componentType || 'SUMMARY_CARD');
   }
+
+  // Add presentation options
+  config.presentation = {
+    ...config.presentation,
+    title: config.presentation?.title || state.general.name || undefined,
+    description: config.presentation?.description || state.general.description || undefined,
+    density: state.density || 'compact',
+  };
 
   // Add component-specific configuration
   if (state.componentConfig) {
@@ -312,8 +358,8 @@ export function getAllValidationErrors(state: MonitorBuilderState): string[] {
   const generalValidation = validateGeneralStep(state.general);
   errors.push(...generalValidation.errors);
 
-  // Data source step
-  const dataSourceValidation = validateDataSourceStep(state.endpoint, state.testResult);
+  // Data source step (editing a saved monitor doesn't require a fresh test)
+  const dataSourceValidation = validateDataSourceStep(state.endpoint, state.testResult, state.mode === 'edit');
   errors.push(...dataSourceValidation.errors);
 
   // Design step

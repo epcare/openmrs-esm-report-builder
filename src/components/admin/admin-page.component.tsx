@@ -30,6 +30,11 @@ export default function AdminPage() {
           <h4>ETL Tasks</h4>
           <p>Configure and run scheduled ETL processes for data extraction and transformation.</p>
         </ClickableTile>
+
+        <ClickableTile style={tileStyle} onClick={() => navigate('/admin/dashboards')}>
+          <h4>Dashboards</h4>
+          <p>Configure dashboards composed of sections and widgets (ETL monitors, reports).</p>
+        </ClickableTile>
       </div>
     </Stack>
   );

@@ -13,9 +13,11 @@ import TableRenderer from './TableRenderer';
 import MetricsGridRenderer from './MetricsGridRenderer';
 import ErrorLogRenderer from './ErrorLogRenderer';
 import DetailsRenderer from './DetailsRenderer';
+import LogRenderer from './components/log-renderer';
+import TimeSeriesRenderer from './components/time-series-renderer';
 import type { DisplayConfigV2 } from '../../../types/etl-monitor/etl-monitor-v2.types';
 import { transformDataToFields, isDataEmpty, transformArrayDataToRows } from './data-transformer';
-import './monitor-renderers.scss';
+import styles from './monitor-renderers.scss';
 
 interface MonitorRendererProps {
   config: DisplayConfigV2;
@@ -36,7 +38,8 @@ const COMPONENT_RENDERERS: Record<string, React.FC<any>> = {
   METRICS_GRID: MetricsGridRenderer,
   ERROR_LOG: ErrorLogRenderer,
   DETAILS: DetailsRenderer,
-  TIME_SERIES: MetricsGridRenderer, // Fallback for now
+  LOG: LogRenderer,
+  TIME_SERIES: TimeSeriesRenderer,
 };
 
 /**
@@ -44,19 +47,20 @@ const COMPONENT_RENDERERS: Record<string, React.FC<any>> = {
  */
 function EmptyState({ config }: { config: DisplayConfigV2 }) {
   const emptyConfig = config.emptyState;
+  const tone = emptyConfig?.tone || 'neutral';
 
   return (
-    <div className="monitor-empty-state">
-      <div className="monitor-empty-state__icon">
+    <div className={styles['monitor-empty-state']}>
+      <div className={[styles['monitor-empty-state__icon'], styles[`monitor-empty-state__icon--${tone}`]].join(' ')}>
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <circle cx="24" cy="24" r="20" stroke="#c6c6c6" strokeWidth="2" fill="none"/>
-          <path d="M16 24L22 30L32 18" stroke="#8d8d8d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+          <path d="M16 24L22 30L32 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <h4 className="monitor-empty-state__title">
+      <h4 className={styles['monitor-empty-state__title']}>
         {emptyConfig?.title || 'No Data'}
       </h4>
-      <p className="monitor-empty-state__description">
+      <p className={styles['monitor-empty-state__description']}>
         {emptyConfig?.description || 'No data available at this time.'}
       </p>
     </div>
@@ -68,9 +72,9 @@ function EmptyState({ config }: { config: DisplayConfigV2 }) {
  */
 function LoadingState() {
   return (
-    <div className="monitor-loading-state">
-      <div className="monitor-loading-state__spinner" />
-      <p className="monitor-loading-state__text">Loading monitor data...</p>
+    <div className={styles['monitor-loading-state']}>
+      <div className={styles['monitor-loading-state__spinner']} />
+      <p className={styles['monitor-loading-state__text']}>Loading monitor data...</p>
     </div>
   );
 }
@@ -80,15 +84,15 @@ function LoadingState() {
  */
 function ErrorState({ error }: { error: string }) {
   return (
-    <div className="monitor-error-state">
-      <div className="monitor-error-state__icon">
+    <div className={styles['monitor-error-state']}>
+      <div className={styles['monitor-error-state__icon']}>
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
           <circle cx="16" cy="16" r="14" stroke="#da1e28" strokeWidth="2" fill="none"/>
           <path d="M16 10V16M16 20V22" stroke="#da1e28" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       </div>
-      <h4 className="monitor-error-state__title">Unable to Load Monitor</h4>
-      <p className="monitor-error-state__description">{error}</p>
+      <h4 className={styles['monitor-error-state__title']}>Unable to Load Monitor</h4>
+      <p className={styles['monitor-error-state__description']}>{error}</p>
     </div>
   );
 }
@@ -98,16 +102,16 @@ function ErrorState({ error }: { error: string }) {
  */
 function FallbackRenderer({ config, data }: { config: DisplayConfigV2; data?: any }) {
   return (
-    <div className="monitor-fallback">
-      <div className="monitor-fallback__header">
+    <div className={styles['monitor-fallback']}>
+      <div className={styles['monitor-fallback__header']}>
         <h5>{config.presentation?.title || 'Monitor'}</h5>
       </div>
-      <div className="monitor-fallback__content">
-        <p className="monitor-fallback__note">
+      <div className={styles['monitor-fallback__content']}>
+        <p className={styles['monitor-fallback__note']}>
           Component type <code>{config.component}</code> is not yet supported.
         </p>
         {data && (
-          <pre className="monitor-fallback__data">
+          <pre className={styles['monitor-fallback__data']}>
             {JSON.stringify(data, null, 2)}
           </pre>
         )}
@@ -146,8 +150,9 @@ export function MonitorRenderer({ config, data, loading, error }: MonitorRendere
   }
 
   // Handle different renderer signatures
-  // Simple renderers (STATUS_CARD, SUMMARY_CARD, PROGRESS, DETAILS) expect { config, data }
-  const simpleRenderers = ['STATUS_CARD', 'SUMMARY_CARD', 'PROGRESS', 'DETAILS'];
+  // Simple renderers (STATUS_CARD, SUMMARY_CARD, PROGRESS) transform { config, data } themselves;
+  // everything else receives fields transformed by data-transformer
+  const simpleRenderers = ['STATUS_CARD', 'SUMMARY_CARD', 'PROGRESS'];
   if (simpleRenderers.includes(config.component)) {
     return <Renderer config={config} data={data} />;
   }
@@ -156,7 +161,7 @@ export function MonitorRenderer({ config, data, loading, error }: MonitorRendere
   const fields = transformDataToFields(data, config);
 
   // For table-like components, also provide array data
-  const arrayData = (config.component === 'TABLE' || config.component === 'DATA_TABLE' || config.component === 'ERROR_LOG')
+  const arrayData = ['TABLE', 'DATA_TABLE', 'ERROR_LOG', 'LOG', 'TIME_SERIES'].includes(config.component)
     ? transformArrayDataToRows(data, config)
     : null;
 

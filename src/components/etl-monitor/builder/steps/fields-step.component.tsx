@@ -519,12 +519,13 @@ export default function FieldsStep() {
   const { state } = useBuilderContext();
   const updateState = useUpdateBuilderState();
 
-  const { fields, componentType, detectedSchema } = state;
+  const { fields, componentType, detectedSchema, testResult } = state;
 
   // UI state
   const [showFieldModal, setShowFieldModal] = useState(false);
   const [editingField, setEditingField] = useState<BuilderFieldConfig | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   // Local timestamp configuration state
   const [timestampConfig, setTimestampConfig] = useState({
@@ -653,9 +654,15 @@ export default function FieldsStep() {
    * Memoized to prevent recreation
    */
   const validateFields = React.useCallback(() => {
-    const validation = validateFieldsStep(fields, componentType);
+    const validation = validateFieldsStep(
+      fields,
+      componentType,
+      testResult?.data,
+      detectedSchema?.arrayPath,
+    );
     setErrors(validation.errors);
-  }, [fields, componentType]);
+    setWarnings(validation.warnings ?? []);
+  }, [fields, componentType, testResult, detectedSchema]);
 
   // Validate on mount and when fields/component type changes
   React.useEffect(() => {
@@ -681,6 +688,17 @@ export default function FieldsStep() {
           kind="error"
           title="Field Configuration Errors"
           subtitle={errors.length > 0 ? `${errors.length} error(s) - see details above` : ''}
+          lowContrast
+          style={{ marginBottom: '1rem' }}
+        />
+      )}
+
+      {/* Path Warnings (non-blocking — paths that don't resolve in the tested response) */}
+      {warnings.length > 0 && (
+        <InlineNotification
+          kind="warning"
+          title="Unresolved Field Paths"
+          subtitle={warnings.join(' · ')}
           lowContrast
           style={{ marginBottom: '1rem' }}
         />

@@ -1,0 +1,16 @@
+/**
+ * Monitor Widget Card Styles (dashboard chrome)
+ */
+
+.monitor-widget-card {
+  position: relative;
+
+  &__actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+  }
+}

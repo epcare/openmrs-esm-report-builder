@@ -133,8 +133,14 @@ function inferTypeFromFieldName(fieldName: string): SemanticDataType | null {
 
 /**
  * Analyze JSON response and detect fields
+ *
+ * Handles both payload shapes:
+ * - bare array root: the items are the rows (arrayPath = the root)
+ * - object envelope with an array-of-objects property (e.g. { data: [...] }):
+ *   the property becomes the row array and its item keys are detected as
+ *   row-relative fields ($.key) so they resolve per row in table-like renderers
  */
-function analyzeResponseSchema(data: any, path: string = '$'): DetectedSchema {
+function analyzeResponseSchema(data: any, path: string = '$', detectRowArrays = true): DetectedSchema {
   if (!data || typeof data !== 'object') {
     return {
       rootPath: '$',
@@ -150,8 +156,16 @@ function analyzeResponseSchema(data: any, path: string = '$'): DetectedSchema {
   // Check if this is an array
   if (Array.isArray(data)) {
     if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
-      // Array of objects - analyze first item
-      return analyzeResponseSchema(data[0], `${path}[0]`);
+      // Array of objects - analyze first item with row-relative paths
+      const itemSchema = analyzeResponseSchema(data[0], '$', false);
+      return {
+        rootPath: path,
+        arrayPath: path,
+        isArray: true,
+        fields: itemSchema.fields,
+        rawSample: data,
+        detectedAt: new Date().toISOString(),
+      };
     }
     return {
       rootPath: path,
@@ -164,12 +178,32 @@ function analyzeResponseSchema(data: any, path: string = '$'): DetectedSchema {
   }
 
   // Object - analyze each property
+  let rowArrayPath: string | undefined;
+
   for (const [key, value] of Object.entries(data)) {
     if (value === null || typeof value === 'function' || typeof value === 'symbol') {
       continue;
     }
 
     const fieldPath = `${path}.${key}`;
+
+    // Top-level array of objects: treat it as the row array (e.g. { data: [...] })
+    // and detect its item keys as row-relative fields
+    if (
+      detectRowArrays &&
+      path === '$' &&
+      Array.isArray(value) &&
+      value.length > 0 &&
+      typeof value[0] === 'object' &&
+      value[0] !== null
+    ) {
+      if (!rowArrayPath) {
+        rowArrayPath = fieldPath;
+        fields.push(...analyzeResponseSchema(value[0], '$', false).fields);
+      }
+      continue;
+    }
+
     const detectedType = detectValueType(value);
     const inferredType = inferTypeFromFieldName(key);
     const suggestedType = inferredType || detectedType;
@@ -187,7 +221,7 @@ function analyzeResponseSchema(data: any, path: string = '$'): DetectedSchema {
 
     // Recursively analyze nested objects
     if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
-      const nestedSchema = analyzeResponseSchema(value, fieldPath);
+      const nestedSchema = analyzeResponseSchema(value, fieldPath, detectRowArrays && path !== '$');
       fields.push(...nestedSchema.fields);
     }
   }
@@ -195,6 +229,7 @@ function analyzeResponseSchema(data: any, path: string = '$'): DetectedSchema {
   return {
     rootPath: path,
     isArray: false,
+    arrayPath: rowArrayPath,
     fields,
     rawSample: data,
     detectedAt: new Date().toISOString(),

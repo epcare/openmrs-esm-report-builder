@@ -7,7 +7,8 @@ import type {
   DisplayConfigV2,
   MonitorComponentType,
   SemanticDataType,
-  StatusTone
+  StatusTone,
+  DisplayDensity
 } from './etl-monitor-v2.types';
 import type { ETLMonitorDto } from './etl-monitor.types';
 
@@ -260,6 +261,9 @@ export interface MonitorBuilderState {
     priority: number;
   };
 
+  /** Display density (saved under displayConfig.presentation.density) */
+  density?: DisplayDensity;
+
   /** Empty state configuration */
   emptyState?: {
     title: string;
@@ -296,6 +300,7 @@ export type BuilderAction =
   | { type: 'REMOVE_FIELD'; payload: string }
   | { type: 'SET_COMPONENT_CONFIG'; payload: Partial<ComponentConfigState> }
   | { type: 'SET_LAYOUT'; payload: MonitorBuilderState['layout'] }
+  | { type: 'SET_DENSITY'; payload: DisplayDensity }
   | { type: 'SET_EMPTY_STATE'; payload: MonitorBuilderState['emptyState'] }
   | { type: 'SET_CURRENT_STEP'; payload: BuilderStep }
   | { type: 'VALIDATE_STEP'; payload: BuilderStep }
@@ -418,6 +423,7 @@ export function getDefaultBuilderState(mode: BuilderMode = 'create'): MonitorBui
     endpoint: getDefaultEndpointConfig(),
     fields: [],
     componentConfig: getDefaultComponentConfig(),
+    density: 'compact',
     validation: getDefaultValidationState(),
     stepValidation: getDefaultStepValidationState(),
     isDirty: false,

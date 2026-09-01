@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
 
 interface SummaryCardRendererProps {
@@ -29,19 +30,19 @@ export function SummaryCardRenderer({ config, fields, data }: SummaryCardRendere
   const visibleFields = derivedFields.filter((f) => !f.hidden);
 
   return (
-    <div className="monitor-summary-card">
-      <div className="monitor-summary-card__header">
+    <div className={styles['monitor-summary-card']}>
+      <div className={styles['monitor-summary-card__header']}>
         {config.presentation?.title && (
-          <h4 className="monitor-summary-card__title">{config.presentation.title}</h4>
+          <h4 className={styles['monitor-summary-card__title']}>{config.presentation.title}</h4>
         )}
       </div>
 
-      <div className="monitor-summary-card__body">
-        <div className="monitor-summary-card__metrics">
+      <div className={styles['monitor-summary-card__body']}>
+        <div className={styles['monitor-summary-card__metrics']}>
           {visibleFields.map((field) => (
-            <div key={field.key} className="monitor-summary-card__metric">
-              <div className="monitor-summary-card__metric-label">{field.label}</div>
-              <div className="monitor-summary-card__metric-value">{field.formattedValue}</div>
+            <div key={field.key} className={styles['monitor-summary-card__metric']}>
+              <div className={styles['monitor-summary-card__metric-label']}>{field.label}</div>
+              <div className={styles['monitor-summary-card__metric-value']}>{field.formattedValue}</div>
             </div>
           ))}
         </div>
@@ -65,6 +66,7 @@ function transformDataToFields(data: any, config: DisplayConfigV2) {
     primary: boolean;
     hidden: boolean;
     order?: number;
+    statusTone?: string;
   }> = [];
 
   // If config defines field mappings, apply them
@@ -81,6 +83,10 @@ function transformDataToFields(data: any, config: DisplayConfigV2) {
         primary: fieldConfig.primary || false,
         hidden: fieldConfig.hidden || false,
         order: fieldConfig.order,
+        statusTone:
+          fieldConfig.type === 'STATUS' && value != null
+            ? mappingTone(value, fieldConfig)
+            : undefined,
       });
     }
   } else {
@@ -101,6 +107,13 @@ function transformDataToFields(data: any, config: DisplayConfigV2) {
   }
 
   return fields;
+}
+
+function mappingTone(value: any, fieldConfig: any): string | undefined {
+  const stringValue = String(value);
+  const mapping =
+    fieldConfig.statusMap?.[stringValue] ?? fieldConfig.statusMap?.[stringValue.toLowerCase()];
+  return mapping?.tone;
 }
 
 /**

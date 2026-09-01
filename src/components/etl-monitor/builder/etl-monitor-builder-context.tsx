@@ -119,6 +119,13 @@ function builderReducer(state: MonitorBuilderState, action: BuilderAction): Moni
         isDirty: true,
       };
 
+    case 'SET_DENSITY':
+      return {
+        ...state,
+        density: action.payload,
+        isDirty: true,
+      };
+
     case 'SET_EMPTY_STATE':
       return {
         ...state,
@@ -175,7 +182,7 @@ function validateStepInState(state: MonitorBuilderState, step: BuilderStep): Mon
       break;
     }
     case 'data-source': {
-      const result = validateDataSourceStep(state.endpoint, state.testResult);
+      const result = validateDataSourceStep(state.endpoint, state.testResult, state.mode === 'edit');
       stepValidation['data-source'] = {
         endpointTested: !!state.testResult,
         endpointValid: result.valid,
@@ -193,7 +200,12 @@ function validateStepInState(state: MonitorBuilderState, step: BuilderStep): Mon
       break;
     }
     case 'fields': {
-      const result = validateFieldsStep(state.fields, state.componentType);
+      const result = validateFieldsStep(
+        state.fields,
+        state.componentType,
+        state.testResult?.data,
+        state.detectedSchema?.arrayPath,
+      );
       stepValidation.fields = {
         requiredFieldsMapped: result.errors.filter(e => e.includes('required')).length === 0,
         primaryFieldSet: state.fields.some(f => f.primary),
@@ -404,6 +416,7 @@ function loadMonitorIntoState(monitor: any): MonitorBuilderState {
     state.componentConfig = displayConfig.componentConfig ? { ...displayConfig.componentConfig } : {};
     state.layout = displayConfig.layout ? { ...displayConfig.layout } : undefined;
     state.emptyState = displayConfig.emptyState ? { ...displayConfig.emptyState } : undefined;
+    state.density = displayConfig.presentation?.density || 'compact';
   } else if (displayConfig.columns && Array.isArray(displayConfig.columns) && displayConfig.columns.length > 0) {
     // V1 format - convert to V2
     console.log('Converting V1 monitor format to V2 for editing:', monitor.code);
@@ -503,6 +516,9 @@ export function BuilderProvider({ children, mode, monitorId }: BuilderProviderPr
     }
     if (updates.layout !== undefined) {
       dispatch({ type: 'SET_LAYOUT', payload: updates.layout });
+    }
+    if (updates.density !== undefined) {
+      dispatch({ type: 'SET_DENSITY', payload: updates.density });
     }
     if (updates.emptyState !== undefined) {
       dispatch({ type: 'SET_EMPTY_STATE', payload: updates.emptyState });

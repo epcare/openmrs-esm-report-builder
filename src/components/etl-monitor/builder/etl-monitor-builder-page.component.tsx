@@ -9,11 +9,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, InlineNotification, Tag, Select, SelectItem } from '@carbon/react';
 import { ArrowLeft, ArrowRight, Save, CheckmarkFilled, Information, Help as HelpIcon } from '@carbon/icons-react';
 import { useBuilderContext, useStepNavigation, BuilderProvider } from './etl-monitor-builder-context';
-import { getAllValidationErrors, generateConfigFromState } from './builder-state-machine';
+import { getAllValidationErrors } from './builder-state-machine';
 import styles from './etl-monitor-builder-page.scss';
-import rendererStyles from '../renderers/monitor-renderers.scss';
-import { MonitorRenderer } from '../renderers/MonitorRenderer';
-import type { DisplayConfigV2 } from '../../../types/etl-monitor/etl-monitor-v2.types';
+import type { DisplayDensity } from '../../../types/etl-monitor/etl-monitor-v2.types';
+import { MonitorPreviewRenderer } from './monitor-preview';
+import { GeneratedConfigPanel } from './generated-config-panel.component';
 
 import {
   GeneralStep,
@@ -22,142 +22,6 @@ import {
   FieldsStep,
   PreviewStep,
 } from './steps';
-
-/**
- * Monitor Preview Renderer Component
- * Wraps the actual MonitorRenderer with sample data from the builder state
- */
-interface MonitorPreviewRendererProps {
-  state: any;
-}
-
-function MonitorPreviewRenderer({ state }: MonitorPreviewRendererProps) {
-  // Generate display config from state
-  const displayConfig: DisplayConfigV2 = generateConfigFromState(state);
-
-  // Get sample data from test result or create sample based on fields
-  const sampleData = state.testResult?.data || createSampleData(state, displayConfig);
-
-  return (
-    <div className={rendererStyles['monitor-preview-wrapper']}>
-      <MonitorRenderer
-        config={displayConfig}
-        data={sampleData}
-        loading={false}
-        error={null}
-      />
-    </div>
-  );
-}
-
-/**
- * Create sample data for preview based on configured fields
- */
-function createSampleData(state: any, config: DisplayConfigV2): any {
-  const { fields, componentType } = state;
-
-  if (!fields || fields.length === 0) {
-    return {};
-  }
-
-  // Create sample values based on field paths and types
-  const sample: any = {};
-
-  fields.forEach((field: any) => {
-    const path = field.path;
-
-    // Handle nested paths like $.module
-    if (path.startsWith('$.')) {
-      const fieldName = path.slice(2);
-      sample[fieldName] = getSampleValueForField(field);
-    } else {
-      // Direct field name
-      sample[field.key] = getSampleValueForField(field);
-    }
-  });
-
-  // For table components, create an array of rows
-  if (componentType === 'DATA_TABLE' || componentType === 'TABLE' || componentType === 'ERROR_LOG') {
-    // Create data array structure
-    const arrayPath = config.data?.arrayPath || '$.data';
-    const basePath = arrayPath.startsWith('$.') ? arrayPath.slice(2) : 'data';
-
-    // Create multiple rows with variations
-    sample[basePath] = [
-      createRowSample(fields, 0),
-      createRowSample(fields, 1, { status: 'COMPLETED', result: 'SUCCESS' }),
-      createRowSample(fields, 2, { status: 'FAILED', result: 'ERROR' }),
-    ];
-  }
-
-  return sample;
-}
-
-/**
- * Get a sample value for a specific field type with row index variation
- */
-function getSampleValueForField(field: any, rowIndex: number = 0): any {
-  switch (field.type) {
-    case 'STATUS':
-      // Check for status mappings to use a mapped value
-      if (field.statusMappings && field.statusMappings.length > 0) {
-        return field.statusMappings[0].rawValue || 'UP';
-      }
-      return 'UP';
-    case 'TIMESTAMP':
-      // Different timestamps for each row
-      return Date.now() - (rowIndex * 3600000);
-    case 'DURATION':
-      // Different durations for each row
-      return 1000 + (rowIndex * 500);
-    case 'BOOLEAN':
-      return rowIndex % 2 === 0;
-    case 'NUMBER':
-    case 'INTEGER':
-    case 'DECIMAL':
-      // Different numbers for each row
-      return Math.floor(Math.random() * 1000) + 100 + (rowIndex * 100);
-    case 'PERCENTAGE':
-      // Varying percentages
-      return Math.max(0, Math.min(100, 80 - (rowIndex * 20)));
-    case 'DATE':
-      return new Date(Date.now() - (rowIndex * 86400000)).toISOString().split('T')[0];
-    case 'TIME':
-      return new Date(Date.now() - (rowIndex * 3600000)).toTimeString().split(' ')[0];
-    default:
-      return `Sample ${field.label} ${rowIndex + 1}`;
-  }
-}
-
-/**
- * Create a sample row for table components
- */
-function createRowSample(fields: any[], index: number, overrides: Record<string, any> = {}): any {
-  const row: any = { _id: index + 1 };
-
-  fields.forEach((field: any) => {
-    const path = field.path;
-    let fieldName;
-
-    // Extract field name from path
-    if (path.startsWith('$.')) {
-      fieldName = path.slice(2);
-    } else if (path.includes('.')) {
-      fieldName = path.split('.').pop();
-    } else {
-      fieldName = field.key;
-    }
-
-    // Use override if available
-    if (overrides[fieldName] !== undefined) {
-      row[fieldName] = overrides[fieldName];
-    } else {
-      row[fieldName] = getSampleValueForField(field, index);
-    }
-  });
-
-  return row;
-}
 
 /**
  * Builder Page Component
@@ -188,7 +52,7 @@ interface BuilderContentProps {
 }
 
 function BuilderContent({ onClose, mode }: BuilderContentProps) {
-  const { state, saveMonitor } = useBuilderContext();
+  const { state, saveMonitor, updateState } = useBuilderContext();
   const {
     currentStep,
     goToNextStep,
@@ -399,8 +263,11 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
             </div>
           </div>
 
-          {/* Right Panel - Live Preview */}
+          {/* Right Panel - Live Preview (Generated Configuration on the Preview step) */}
           <div className={styles['builder-preview']}>
+            {currentStep === 'preview' ? (
+              <GeneratedConfigPanel />
+            ) : (
             <div className={styles['builder-preview-panel']}>
               <div className={styles['builder-preview-header']}>
                 <h4>Live Preview</h4>
@@ -432,13 +299,13 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
                               id="density-select"
                               size="sm"
                               inline
-                              value={state.layout?.section || 'compact'}
-                              onChange={() => {
-                                // Would update state.layout.density
+                              value={state.density || 'compact'}
+                              onChange={(e) => {
+                                updateState({ density: (e.target as HTMLSelectElement).value as DisplayDensity });
                               }}
                             >
                               <SelectItem value="compact" text="Compact" />
-                              <SelectItem value="comfortable" text="Comfortable" />
+                              <SelectItem value="default" text="Default" />
                               <SelectItem value="spacious" text="Spacious" />
                             </Select>
                           </div>
@@ -449,19 +316,27 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
                               size="sm"
                               inline
                               value={state.layout?.section || 'overview'}
-                              onChange={() => {
-                                // Would update state.layout.section
+                              onChange={(e) => {
+                                updateState({
+                                  layout: {
+                                    section: (e.target as HTMLSelectElement).value,
+                                    span: state.layout?.span ?? { sm: 4, md: 4, lg: 4 },
+                                    priority: state.layout?.priority ?? 1,
+                                  },
+                                });
                               }}
                             >
                               <SelectItem value="overview" text="Overview" />
-                              <SelectItem value="details" text="Details" />
-                              <SelectItem value="performance" text="Performance" />
+                              <SelectItem value="execution" text="Execution" />
+                              <SelectItem value="history" text="History" />
+                              <SelectItem value="errors" text="Errors" />
+                              <SelectItem value="configuration" text="Configuration" />
                             </Select>
                           </div>
                         </div>
                         <div className={styles['builder-preview-settings-note']}>
                           <Information size={12} />
-                          <span>You can change the design later. Your field mappings will be preserved.</span>
+                          <span>You can change the design or settings later. Your data and mappings will be preserved.</span>
                         </div>
                       </div>
                     )}
@@ -496,6 +371,7 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>

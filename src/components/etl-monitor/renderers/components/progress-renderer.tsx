@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
 
 interface ProgressRendererProps {
@@ -39,32 +40,32 @@ export function ProgressRenderer({ config, fields, data }: ProgressRendererProps
   const stage = stageField?.formattedValue;
 
   return (
-    <div className="monitor-progress">
-      <div className="monitor-progress__header">
+    <div className={styles['monitor-progress']}>
+      <div className={styles['monitor-progress__header']}>
         {config.presentation?.title && (
-          <h4 className="monitor-progress__title">{config.presentation.title}</h4>
+          <h4 className={styles['monitor-progress__title']}>{config.presentation.title}</h4>
         )}
       </div>
 
-      <div className="monitor-progress__body">
-        <div className="monitor-progress__info">
-          <div className="monitor-progress__percentage">{percentage}%</div>
-          <div className="monitor-progress__stage">{stage || 'In Progress'}</div>
+      <div className={styles['monitor-progress__body']}>
+        <div className={styles['monitor-progress__info']}>
+          <div className={styles['monitor-progress__percentage']}>{percentage}%</div>
+          <div className={styles['monitor-progress__stage']}>{stage || 'In Progress'}</div>
         </div>
 
-        <div className="monitor-progress__bar-container">
-          <div className="monitor-progress__bar" style={{ width: `${percentage}%` }}></div>
+        <div className={styles['monitor-progress__bar-container']}>
+          <div className={styles['monitor-progress__bar']} style={{ width: `${percentage}%` }}></div>
         </div>
 
         {safeFields.length > 2 && (
-          <div className="monitor-progress__fields">
+          <div className={styles['monitor-progress__fields']}>
             {safeFields
               .filter((f) => f.key !== percentageField?.key && f.key !== stageField?.key && !f.hidden)
               .slice(0, 3)
               .map((field) => (
-                <div key={field.key} className="monitor-progress__field">
-                  <span className="monitor-progress__field-label">{field.label}:</span>
-                  <span className="monitor-progress__field-value">{field.formattedValue}</span>
+                <div key={field.key} className={styles['monitor-progress__field']}>
+                  <span className={styles['monitor-progress__field-label']}>{field.label}:</span>
+                  <span className={styles['monitor-progress__field-value']}>{field.formattedValue}</span>
                 </div>
               ))}
           </div>

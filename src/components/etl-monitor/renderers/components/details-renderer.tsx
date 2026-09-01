@@ -5,7 +5,9 @@
 
 import React from 'react';
 import { StructuredListWrapper, StructuredListBody, StructuredListRow, StructuredListCell, Tag } from '@carbon/react';
+import styles from '../monitor-renderers.scss';
 import type { DisplayConfigV2 } from '../../../../types/etl-monitor/etl-monitor-v2.types';
+import { formatRelativeTime } from '../../../../utils/etl-monitor/value-formatters.util';
 
 interface DetailsRendererProps {
   config: DisplayConfigV2;
@@ -20,25 +22,31 @@ interface DetailsRendererProps {
     statusTone?: string;
     statusMap?: Record<string, any>;
     order?: number;
+    format?: any;
+    path?: string;
   }>;
   arrayData?: any;
   rawData?: any;
+  data?: any;
 }
 
-export function DetailsRenderer({ config, fields }: DetailsRendererProps) {
-  const visibleFields = fields.filter((f) => !f.hidden);
+export function DetailsRenderer({ config, fields, data }: DetailsRendererProps) {
+  // Fields are provided by MonitorRenderer's data-transformer path; fall back
+  // to transforming data here if a caller passes raw data instead
+  const derivedFields = fields || (data ? transformDataToFields(data, config) : []);
+  const visibleFields = (derivedFields || []).filter((f) => !f.hidden);
   const isErrorLog = config.component === 'ERROR_LOG';
 
   return (
-    <div className="details-renderer">
-      <div className="details-renderer__header">
+    <div className={styles['details-renderer']}>
+      <div className={styles['details-renderer__header']}>
         {config.presentation?.title && (
-          <h4 className="details-renderer__title">{config.presentation.title}</h4>
+          <h4 className={styles['details-renderer__title']}>{config.presentation.title}</h4>
         )}
       </div>
 
       {visibleFields.length === 0 ? (
-        <div className="details-renderer__empty">No details to display</div>
+        <div className={styles['details-renderer__empty']}>No details to display</div>
       ) : (
         <StructuredListWrapper>
           <StructuredListBody>
@@ -56,8 +64,15 @@ export function DetailsRenderer({ config, fields }: DetailsRendererProps) {
                     <Tag type={field.statusTone === 'success' ? 'green' : field.statusTone === 'critical' ? 'red' : field.statusTone === 'warning' ? 'purple' : 'gray'}>
                       {field.formattedValue}
                     </Tag>
+                  ) : field.type === 'TIMESTAMP' && field.format?.timestamp?.display ? (
+                    <span className={styles['details-renderer__timestamp']}>
+                      <span className={styles['details-renderer__value']}>{field.formattedValue}</span>
+                      <span className={styles['details-renderer__timestamp-sub']}>
+                        {formatRelativeTime(field.value)}
+                      </span>
+                    </span>
                   ) : (
-                    <span className="details-renderer__value">{field.formattedValue}</span>
+                    <span className={styles['details-renderer__value']}>{field.formattedValue}</span>
                   )}
                 </StructuredListCell>
               </StructuredListRow>
@@ -86,6 +101,8 @@ export function transformDataToFields(data: any, config: DisplayConfigV2) {
     statusTone?: string;
     statusMap?: Record<string, any>;
     order?: number;
+    format?: any;
+    path?: string;
   }> = [];
 
   // If config defines field mappings, apply them
