@@ -16,7 +16,6 @@ import {
     Settings,
     List,
     Dashboard,
-    Activity,
     ArrowRight,
     Folder,
 } from '@carbon/icons-react';
@@ -51,11 +50,19 @@ const ReportBuilderShell: React.FC = () => {
                             Run Reports
                         </SideNavLink>
 
+                        <SideNavLink
+                            renderIcon={Dashboard}
+                            isActive={isActive('/dashboards')}
+                            onClick={() => navigate('/dashboards')}
+                        >
+                            Dashboards
+                        </SideNavLink>
+
                         <SideNavMenu
                             renderIcon={Folder}
                             title="Report Design"
                             isActive={isActive('/reports') || isActive('/linelist') || isActive('/indicators') || isActive('/sections')}
-                            defaultExpanded={true}
+                            defaultExpanded={false}
                         >
                             <SideNavMenuItem
                                 renderIcon={Report}
@@ -89,22 +96,6 @@ const ReportBuilderShell: React.FC = () => {
                                 Sections
                             </SideNavMenuItem>
                         </SideNavMenu>
-
-                        <SideNavLink
-                            renderIcon={Dashboard}
-                            isActive={isActive('/dashboards')}
-                            onClick={() => navigate('/dashboards')}
-                        >
-                            Dashboards
-                        </SideNavLink>
-
-                        <SideNavLink
-                            renderIcon={Activity}
-                            isActive={isActive('/etl-dashboard')}
-                            onClick={() => navigate('/etl-dashboard')}
-                        >
-                            ETL Dashboard
-                        </SideNavLink>
 
                         <SideNavMenu
                             renderIcon={Settings}

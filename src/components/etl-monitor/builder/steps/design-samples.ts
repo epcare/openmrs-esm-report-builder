@@ -232,7 +232,6 @@ export function getDesignSample(type: MonitorComponentType): DesignSample {
 
     case 'TIME_SERIES': {
       const now = Date.now();
-      // ~6h of duration samples ending at 2h 28m (sheet example)
       const values = [
         8920000, 8610000, 8360000, 8480000, 8120000, 8240000,
         8900000, 9250000, 9030000, 8927000,
@@ -263,5 +262,17 @@ export function getDesignSample(type: MonitorComponentType): DesignSample {
     }
 
     default:
+      return {
+        config: {
+          schemaVersion: 2,
+          component: 'TIME_SERIES',
+          fields: [
+            { key: 'average', label: 'Average', path: '$.average', type: 'TEXT' },
+            { key: 'max', label: 'Max', path: '$.max', type: 'TEXT' },
+            { key: 'trend', label: 'Trend', path: '$.trend', type: 'TEXT' },
+          ],
+        },
+        data: { average: '2.3s', max: '5.1s', trend: '↑ 12%' },
+      };
   }
 }
