@@ -29,12 +29,24 @@ export function ProgressRenderer({ config, fields, data }: ProgressRendererProps
   const derivedFields = fields || (data ? transformDataToFields(data, config) : []);
   const safeFields = derivedFields || [];
 
-  const percentageField = safeFields.find((f) => f.type === 'PERCENTAGE');
-  const stageField = safeFields.find((f) => f.key === config.componentConfig?.stageFieldKey);
+  const percentageField =
+    safeFields.find((f) => f.type === 'PERCENTAGE') ||
+    safeFields.find((f) => f.primary) ||
+    safeFields[0];
+
+  // Explicitly configured stage field, else the first TEXT field
+  // (e.g. "Current Stage" when stageFieldKey was not configured)
+  const stageField =
+    safeFields.find((f) => f.key === config.componentConfig?.stageFieldKey) ||
+    safeFields.find((f) => f.type === 'TEXT');
 
   let percentage = 0;
-  if (percentageField?.value && typeof percentageField.value === 'number') {
-    percentage = Math.min(100, Math.max(0, percentageField.value));
+  const rawPercentage = percentageField?.value;
+  if (typeof rawPercentage === 'number') {
+    percentage = Math.min(100, Math.max(0, rawPercentage));
+  } else if (percentageField?.formattedValue != null) {
+    const parsed = parseFloat(String(percentageField.formattedValue).replace('%', ''));
+    if (!isNaN(parsed)) percentage = Math.min(100, Math.max(0, parsed));
   }
 
   const stage = stageField?.formattedValue;

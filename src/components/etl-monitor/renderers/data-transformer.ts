@@ -88,9 +88,20 @@ export function resolveRawRows(data: any, config: DisplayConfigV2): any[] {
 export function transformDataToFields(data: any, config: DisplayConfigV2): RenderedField[] {
   if (!data || typeof data !== 'object') return [];
 
+  // Honor data.rootPath: envelope responses (e.g. { data: {...} }) resolve
+  // their fields relative to the configured root, not the envelope itself
+  let base: any = data;
+  const rootPath = config.data?.rootPath;
+  if (rootPath && rootPath !== '$') {
+    const viaRoot = resolveFieldValue(data, rootPath);
+    if (viaRoot !== undefined && viaRoot !== null && typeof viaRoot === 'object') {
+      base = viaRoot;
+    }
+  }
+
   if (Array.isArray(config.fields) && config.fields.length > 0) {
     return config.fields.map((field) => {
-      const value = resolveFieldValue(data, field.path || field.key);
+      const value = resolveFieldValue(base, field.path || field.key);
       return {
         key: field.key,
         label: field.label || field.key,
@@ -109,14 +120,14 @@ export function transformDataToFields(data: any, config: DisplayConfigV2): Rende
   }
 
   // No field mappings: expose data properties as fields
-  return Object.keys(data).map((key, index) => {
-    const type = semanticTypeOf(data[key]);
+  return Object.keys(base).map((key, index) => {
+    const type = semanticTypeOf(base[key]);
     const pseudoField = { key, label: key, path: `$.${key}`, type } as FieldConfiguration;
     return {
       key,
       label: key,
-      value: data[key],
-      formattedValue: formatFieldValue(data[key], pseudoField),
+      value: base[key],
+      formattedValue: formatFieldValue(base[key], pseudoField),
       type,
       primary: index === 0,
       hidden: false,

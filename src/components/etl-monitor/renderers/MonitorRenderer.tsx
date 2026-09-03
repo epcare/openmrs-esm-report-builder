@@ -149,16 +149,16 @@ export function MonitorRenderer({ config, data, loading, error }: MonitorRendere
     return <FallbackRenderer config={config} data={data} />;
   }
 
-  // Handle different renderer signatures
-  // Simple renderers (STATUS_CARD, SUMMARY_CARD, PROGRESS) transform { config, data } themselves;
-  // everything else receives fields transformed by data-transformer
+  // Path-resolved, semantically formatted fields for every component
+  const fields = transformDataToFields(data, config);
+
+  // Simple renderers (single-value components) take fields + raw data;
+  // row-based components additionally receive resolved rows
   const simpleRenderers = ['STATUS_CARD', 'SUMMARY_CARD', 'PROGRESS'];
   if (simpleRenderers.includes(config.component)) {
-    return <Renderer config={config} data={data} />;
+    return <Renderer config={config} fields={fields} data={data} />;
   }
 
-  // Transform data into formatted fields for complex renderers
-  const fields = transformDataToFields(data, config);
 
   // For table-like components, also provide array data
   const arrayData = ['TABLE', 'DATA_TABLE', 'ERROR_LOG', 'LOG', 'TIME_SERIES'].includes(config.component)
