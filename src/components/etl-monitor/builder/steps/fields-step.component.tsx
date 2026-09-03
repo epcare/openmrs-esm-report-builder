@@ -479,10 +479,9 @@ function FieldRow({
                 kind="ghost"
                 size="sm"
                 hasIconOnly
-                renderIcon={isPrimary ? DeleteIcon : EditIcon}
-                iconDescription={isPrimary ? 'Cannot delete primary field' : 'Edit field'}
-                onClick={isPrimary ? undefined : onEdit}
-                disabled={isPrimary}
+                renderIcon={EditIcon}
+                iconDescription="Edit field"
+                onClick={onEdit}
               />
               <Button
                 kind="ghost"
@@ -491,7 +490,6 @@ function FieldRow({
                 renderIcon={DeleteIcon}
                 iconDescription="Delete field"
                 onClick={onDelete}
-                disabled={isPrimary}
               />
             </Stack>
           </div>
@@ -575,12 +573,16 @@ export default function FieldsStep() {
   };
 
   /**
-   * Handle delete field
+   * Handle delete field — every field is removable. If the primary field is
+   * deleted, the first remaining field takes over the primary role so
+   * components that rely on one stay valid.
    */
   const handleDeleteField = (key: string) => {
-    updateState({
-      fields: fields.filter((f) => f.key !== key),
-    });
+    const remaining = fields.filter((f) => f.key !== key);
+    if (remaining.length > 0 && !remaining.some((f) => f.primary)) {
+      remaining[0] = { ...remaining[0], primary: true };
+    }
+    updateState({ fields: remaining });
     validateFields();
   };
 

@@ -139,6 +139,11 @@ function inferTypeFromFieldName(fieldName: string): SemanticDataType | null {
  * - object envelope with an array-of-objects property (e.g. { data: [...] }):
  *   the property becomes the row array and its item keys are detected as
  *   row-relative fields ($.key) so they resolve per row in table-like renderers
+ *
+ * Container values (plain objects, object arrays) are never detected as fields —
+ * they are recursed into so only leaf values (e.g. $.data.id) become fields.
+ * A container would otherwise render "[Object/Array]" and every key inside it
+ * would surface as a row/option of its own.
  */
 function analyzeResponseSchema(data: any, path: string = '$', detectRowArrays = true): DetectedSchema {
   if (!data || typeof data !== 'object') {
@@ -204,6 +209,16 @@ function analyzeResponseSchema(data: any, path: string = '$', detectRowArrays = 
       continue;
     }
 
+    // Containers are not fields: recurse into plain objects so their leaf keys
+    // become fields; skip non-row object arrays (nothing renderable to show)
+    if (typeof value === 'object') {
+      if (!Array.isArray(value)) {
+        const nestedSchema = analyzeResponseSchema(value, fieldPath, detectRowArrays && path !== '$');
+        fields.push(...nestedSchema.fields);
+      }
+      continue;
+    }
+
     const detectedType = detectValueType(value);
     const inferredType = inferTypeFromFieldName(key);
     const suggestedType = inferredType || detectedType;
@@ -213,17 +228,11 @@ function analyzeResponseSchema(data: any, path: string = '$', detectRowArrays = 
       path: fieldPath,
       type: detectedType,
       suggestedType: suggestedType !== detectedType ? suggestedType : undefined,
-      sampleValue: typeof value === 'object' ? '[Object/Array]' : value,
+      sampleValue: value,
       description: `Detected field: ${key}`,
     };
 
     fields.push(field);
-
-    // Recursively analyze nested objects
-    if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
-      const nestedSchema = analyzeResponseSchema(value, fieldPath, detectRowArrays && path !== '$');
-      fields.push(...nestedSchema.fields);
-    }
   }
 
   return {

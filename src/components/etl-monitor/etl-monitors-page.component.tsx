@@ -94,11 +94,17 @@ const emptyForm: FormState = {
 
 const monitorTypeOptions: { value: MonitorType; label: string }[] = [
   { value: 'STATUS_CARD', label: 'Status Card' },
-  { value: 'PROGRESS_BAR', label: 'Progress Bar' },
-  { value: 'DATA_TABLE', label: 'Data Table' },
-  { value: 'TIME_SERIES', label: 'Time Series' },
-  { value: 'ERROR_LOG', label: 'Error Log' },
-  { value: 'METRICS_GRID', label: 'Metrics Grid' },
+  { value: 'METRICS_GRID', label: 'Metric Card' },
+  { value: 'PROGRESS', label: 'Progress Card' },
+  { value: 'TABLE', label: 'Table Card' },
+  { value: 'DETAILS', label: 'Details Card' },
+  { value: 'SUMMARY_CARD', label: 'Summary Card' },
+  { value: 'LOG', label: 'Log / Timeline Card' },
+  { value: 'ERROR_LOG', label: 'Error Log Card' },
+  { value: 'TIME_SERIES', label: 'Time Series Chart' },
+  // Legacy v1 names (kept for existing monitors)
+  { value: 'PROGRESS_BAR', label: 'Progress Bar (legacy)' },
+  { value: 'DATA_TABLE', label: 'Data Table (legacy)' },
 ];
 
 const authTypeOptions: { value: AuthType; label: string }[] = [

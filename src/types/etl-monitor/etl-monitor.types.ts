@@ -44,7 +44,8 @@ export type MonitorType =
     | 'SUMMARY_CARD'
     | 'PROGRESS'
     | 'TABLE'
-    | 'DETAILS';
+    | 'DETAILS'
+    | 'LOG'; // Event timeline card
 
 export type AuthType = 'NONE' | 'BASIC' | 'API_KEY' | 'BEARER_TOKEN' | 'OPENMRS';
 
