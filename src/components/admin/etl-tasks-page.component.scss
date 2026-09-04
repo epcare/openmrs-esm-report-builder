@@ -1,101 +1,370 @@
-.emptyState {
-  text-align: center;
-  padding: 3rem 2rem;
-  background: var(--cds-ui-background);
+.page {
+  display: grid;
+  gap: 1.5rem;
+  padding: 0 1rem 2rem;
 }
 
-.emptyStateIcon {
-  color: var(--cds-text-04);
+/* KPI strip — one line, equal widths that shrink as cards are added */
+.kpiGrid {
+  display: grid;
+  gap: 1rem;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(200px, 1fr);
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--cds-layer, #fff);
+  border: 1px solid var(--cds-border-subtle, #dee3ed);
+  border-radius: 8px;
+}
+
+.kpiIcon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.kpiIconhealthy {
+  background: #ebfff0;
+  color: #009e47;
+}
+
+.kpiIconinfo {
+  background: var(--cds-layer-accent, #edf5ff);
+  color: var(--cds-link, #0f62fe);
+}
+
+.kpiIcondanger {
+  background: #fff1f1;
+  color: #da1e28;
+}
+
+.kpiIconneutral {
+  background: var(--cds-layer-accent, #edf0f4);
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.kpiText {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.kpiValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--cds-text-primary, #0a142e);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpiSubtext {
+  font-size: 0.6875rem;
+  color: var(--cds-text-secondary, #525e78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Toolbar */
+.toolbarControls {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.searchBox {
+  width: 220px;
+}
+
+/* Status filter tabs */
+.filterTabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #dee3ed);
+}
+
+.filterTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525e78);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--cds-text-primary, #0a142e);
+  }
+}
+
+.filterTabActive {
+  border-bottom-color: var(--cds-border-brand, #0f62fe);
+  color: var(--cds-text-primary, #0a142e);
+  font-weight: 600;
+}
+
+.countChip {
+  padding: 0 0.375rem;
+  border-radius: 8px;
+  background: var(--cds-layer-accent, #edf0f4);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Live Execution empty state */
+.liveEmpty {
+  display: grid;
+  justify-items: center;
+  gap: 0.375rem;
+  padding: 2.5rem 2rem;
+  border: 1px solid var(--cds-border-subtle, #dee3ed);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.liveEmptyTitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #0a142e);
+}
+
+.liveEmptyHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525e78);
+
+  strong {
+    color: var(--cds-text-primary, #0a142e);
+  }
+}
+
+.sectionHeading {
   margin-bottom: 1rem;
+}
+
+.monitorsGrid {
+  display: grid;
+  gap: 1rem;
+  grid-auto-flow: column;
+  /* One row: every monitor shares the width equally, shrinking as the count
+     grows; below 220px the row scrolls instead of crushing the widgets */
+  grid-auto-columns: minmax(220px, 1fr);
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.monitorMissingCard {
+  display: grid;
+  align-content: start;
+  gap: 0.375rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--cds-border-subtle, #dee3ed);
+  border-radius: 8px;
+}
+
+.monitorMissingTitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #0a142e);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitorMissingHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toolbarHeading {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #0a142e);
+}
+
+.toolbarSubtext {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525e78);
 }
 
 .tasksGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
-}
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
-.taskTile {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  transition: box-shadow 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  @media (max-width: 67rem) {
+    grid-template-columns: 1fr;
   }
 }
 
-.taskHeader {
+.taskCard {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--cds-layer, #fff);
+  border: 1px solid var(--cds-border-subtle, #dee3ed);
+  border-radius: 8px;
+}
+
+.cardHead {
+  display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.taskIcon {
-  font-size: 1.5rem;
-  line-height: 1;
+.cardIcon {
+  display: grid;
   flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--cds-layer-accent, #edf5ff);
+  color: var(--cds-link, #0f62fe);
 }
 
-.taskInfo {
-  flex: 1;
+.cardIconMuted {
+  background: var(--cds-layer-accent, #edf0f4);
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.cardHeadText {
   min-width: 0;
 }
 
-.taskName {
+.cardTitle {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 600;
+  color: var(--cds-text-primary, #0a142e);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.taskDescription {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
-  color: var(--cds-text-02);
+.cardDescription {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary, #525e78);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.priorityTag {
+.statusPill {
+  display: inline-flex;
   flex-shrink: 0;
-  font-size: 0.75rem;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.6875rem;
+  font-weight: 600;
 }
 
-.taskMetadata {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.statusPillActive {
+  background: #ebfff0;
+  color: #009e47;
+}
+
+.statusPillInactive {
+  background: var(--cds-layer-accent, #edf0f4);
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.statusPillUnknown {
+  background: var(--cds-layer-accent, #edf0f4);
+  color: var(--cds-text-secondary, #525e78);
+  font-style: italic;
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--cds-border-subtle, #dee3ed);
+}
+
+.metaItem {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.metaLabel {
+  font-size: 0.6875rem;
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.metaValue {
   font-size: 0.875rem;
-  color: var(--cds-text-02);
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--cds-ui-03);
+  font-weight: 600;
+  color: var(--cds-text-primary, #0a142e);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.taskCode {
-  font-family: monospace;
-  background: var(--cds-ui-02);
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-}
-
-.taskSchedule {
+.cardActions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-}
-
-.taskActions {
-  display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  margin-top: auto;
 }
 
-.executionStatus {
-  padding: 0.5rem 0;
+.monitorMissing {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--cds-text-secondary, #525e78);
+}
+
+.executingStatus {
+  padding: 0.5rem 0 0;
+}
+
+.emptyState {
+  display: grid;
+  justify-items: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.emptyStateIcon {
+  color: var(--cds-icon-secondary, #525e78);
 }

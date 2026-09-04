@@ -30,5 +30,14 @@ export const configSchema = {
         _type: Type.String,
       },
     },
+    progressMonitors: {
+      _default: [],
+      _description:
+        'Codes (preferred) or UUIDs of ETL monitors whose live progress is shown above the task list. Each entry renders as an auto-refreshing monitor card.',
+      _type: Type.Array,
+      _elements: {
+        _type: Type.String,
+      },
+    },
   },
 };

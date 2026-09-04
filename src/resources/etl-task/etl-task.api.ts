@@ -3,24 +3,16 @@
  * Handles fetching and executing ETL tasks using frontend config
  */
 
-import { openmrsFetch, useConfig } from '@openmrs/esm-framework';
+import { openmrsFetch } from '@openmrs/esm-framework';
 import type { OpenMRSTaskDefinition, ETLTaskExecutionResponse } from './etl-task.types';
 
 /**
- * Get ETL task configuration from frontend config
- */
-export function useETLTaskConfig() {
-  const config = useConfig();
-  return config?.etlTasks?.taskNames || '';
-}
-
-/**
- * Fetch all available OpenMRS task definitions
+ * Fetch all available OpenMRS task definitions (with scheduler metadata)
  */
 export async function fetchAllTaskDefinitions(signal?: AbortSignal): Promise<OpenMRSTaskDefinition[]> {
   try {
     const response = await openmrsFetch(
-      '/ws/rest/v1/taskdefinition?v=custom:(uuid,name,description,taskClass)',
+      '/ws/rest/v1/taskdefinition?v=custom:(uuid,name,description,taskClass,started,lastExecutionTime,repeatInterval)',
       { signal },
     );
     const data = await response.json();
@@ -31,17 +23,38 @@ export async function fetchAllTaskDefinitions(signal?: AbortSignal): Promise<Ope
   }
 }
 
-/**
- * Fetch tasks by names (from config)
- */
-export async function fetchTasksByNames(taskNames: string, signal?: AbortSignal): Promise<OpenMRSTaskDefinition[]> {
-  if (!taskNames.trim()) return [];
+export interface ConfiguredTasksResult {
+  /** Configured names that matched a task definition, in fetch order */
+  tasks: OpenMRSTaskDefinition[];
+  /** Configured names with no matching task definition */
+  unknownNames: string[];
+}
 
-  const names = taskNames.split(',').map((n) => n.trim()).filter((n) => n);
+/**
+ * Fetch the task definitions for a list of configured task names,
+ * partitioning into matched definitions and unknown configured names.
+ * Matching is exact and case-sensitive so config typos surface as unknown names.
+ */
+export async function fetchConfiguredTasks(
+  taskNames: string[],
+  signal?: AbortSignal,
+): Promise<ConfiguredTasksResult> {
+  const names = taskNames.map((n) => (typeof n === 'string' ? n.trim() : '')).filter((n) => n);
+  if (names.length === 0) return { tasks: [], unknownNames: [] };
+
   const allTasks = await fetchAllTaskDefinitions(signal);
 
-  // Return tasks that match any of the configured names
-  return allTasks.filter((task) => names.includes(task.name));
+  const matched = new Set<string>();
+  const tasks: OpenMRSTaskDefinition[] = [];
+  for (const task of allTasks) {
+    if (names.includes(task.name)) {
+      tasks.push(task);
+      matched.add(task.name);
+    }
+  }
+
+  const unknownNames = names.filter((n) => !matched.has(n));
+  return { tasks, unknownNames };
 }
 
 /**
