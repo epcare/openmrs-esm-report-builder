@@ -18,6 +18,10 @@ import {
     Dashboard,
     ArrowRight,
     Folder,
+    DataBase,
+    Task,
+    TableBuilt,
+    Activity,
 } from '@carbon/icons-react';
 
 import styles from './report-builder-shell.scss';
@@ -152,26 +156,44 @@ const ReportBuilderShell: React.FC = () => {
                             >
                                 Age Groups
                             </SideNavMenuItem>
+                        </SideNavMenu>
 
+                        <SideNavMenu
+                            renderIcon={DataBase}
+                            title="ETL"
+                            isActive={isActive('/admin/etl')}
+                            defaultExpanded={false}
+                        >
                             <SideNavMenuItem
+                                renderIcon={DataBase}
                                 isActive={isActive('/admin/etl-sources')}
                                 onClick={() => navigate('/admin/etl-sources')}
                             >
-                                ETL Sources
+                                Sources
                             </SideNavMenuItem>
 
                             <SideNavMenuItem
+                                renderIcon={Task}
                                 isActive={isActive('/admin/etl-tasks')}
                                 onClick={() => navigate('/admin/etl-tasks')}
                             >
-                                ETL Tasks
+                                Tasks
                             </SideNavMenuItem>
 
                             <SideNavMenuItem
+                                renderIcon={TableBuilt}
+                                isActive={isActive('/admin/etl-browser')}
+                                onClick={() => navigate('/admin/etl-browser')}
+                            >
+                                Data Browser
+                            </SideNavMenuItem>
+
+                            <SideNavMenuItem
+                                renderIcon={Activity}
                                 isActive={isActive('/admin/etl-monitors')}
                                 onClick={() => navigate('/admin/etl-monitors')}
                             >
-                                ETL Monitors
+                                Monitoring
                             </SideNavMenuItem>
                         </SideNavMenu>
                     </SideNavItems>

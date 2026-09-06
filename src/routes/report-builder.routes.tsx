@@ -19,6 +19,7 @@ import AgeGroupsPage from '../components/admin/age-groups-page.component';
 import ReportLibraryPage from '../components/admin/report-library-page.component';
 import ETLSourcesPage from '../components/admin/etl-sources-page.component';
 import ETLTasksPage from '../components/admin/etl-tasks-page.component';
+import EtlBrowserPage from '../components/admin/etl-browser/etl-browser-page.component';
 import ETLMonitorsPage from '../components/etl-monitor/etl-monitors-page.component';
 import { EtlMonitorBuilderPage } from '../components/etl-monitor/builder';
 import { DashboardsPage, DashboardRendererPage, EtlDashboardPage } from '../features/dashboards';
@@ -62,6 +63,7 @@ const ReportBuilderRoutes: React.FC = () => {
                 <Route path="/admin/etl-tasks" element={<ETLTasksPage />} />
                 <Route path="/admin/etl-monitors" element={<ETLMonitorsPage />} />
                 <Route path="/admin/etl-monitors/builder" element={<EtlMonitorBuilderPage />} />
+                <Route path="/admin/etl-browser" element={<EtlBrowserPage />} />
                 <Route path="/admin/dashboards" element={<DashboardsAdminPage />} />
                 <Route path="/dashboards" element={<DashboardsPage />} />
                 <Route path="/dashboards/:code" element={<DashboardRendererPage />} />

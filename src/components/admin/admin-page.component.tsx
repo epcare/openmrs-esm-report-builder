@@ -31,6 +31,11 @@ export default function AdminPage() {
           <p>Configure and run scheduled ETL processes for data extraction and transformation.</p>
         </ClickableTile>
 
+        <ClickableTile style={tileStyle} onClick={() => navigate('/admin/etl-browser')}>
+          <h4>ETL Data Browser</h4>
+          <p>Explore ETL schemas, tables, columns, and sample records.</p>
+        </ClickableTile>
+
         <ClickableTile style={tileStyle} onClick={() => navigate('/admin/dashboards')}>
           <h4>Dashboards</h4>
           <p>Configure dashboards composed of sections and widgets (ETL monitors, reports).</p>

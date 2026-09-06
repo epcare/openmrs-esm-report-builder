@@ -1,0 +1,417 @@
+/* ETL Data Browser — three-pane layout + info strip (CSS module) */
+
+.browserGrid {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  /* Bounded height so the side panes scroll internally instead of stretching the page */
+  height: calc(100vh - 16rem);
+  min-height: 30rem;
+}
+
+/* Width-controlled wrapper for the draggable/collapsible panes */
+.paneWrap {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 48px;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--cds-layer, #fff);
+  border: 1px solid var(--cds-border-subtle, #dcdcdc);
+  border-radius: 4px;
+}
+
+/* The detail pane is not wrapped — it takes the remaining width.
+   flex-basis 0 + min-width 0 so wide table content can never inflate it
+   (and with it the whole browser row) */
+.detailPane {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Drag handles between panes (linelist workspace pattern) */
+.resizeHandle {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  width: 6px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: transparent;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &:active::before {
+    background-color: var(--cds-link-primary, #007d79);
+    opacity: 0.35;
+  }
+
+  &:active {
+    background-color: var(--cds-link-primary, #007d79);
+  }
+}
+
+.paneHeader {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #dcdcdc);
+}
+
+.paneTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #161616);
+}
+
+.paneActions {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.paneSearch {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+.paneBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.25rem 0.5rem 0.75rem;
+}
+
+.iconAction {
+  padding: 0.25rem 0.375rem;
+  border: none;
+  background: none;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary, #525252);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--cds-text-primary, #161616);
+  }
+}
+
+/* Sources + tables lists */
+.sourceList,
+.tableList {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sourceRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  font-size: 0.8125rem;
+  color: var(--cds-text-primary, #161616);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--cds-layer-hover, #e8e8e8);
+  }
+}
+
+.sourceRowSelected,
+.sourceRowSelected:hover {
+  background: #e5f6f4;
+  color: var(--cds-link-primary, #007d79);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--cds-link-primary, #007d79);
+}
+
+.sourceRowIcon {
+  flex-shrink: 0;
+  color: var(--cds-text-secondary, #525252);
+}
+
+.sourceRowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeEmpty {
+  margin: 0.5rem 0.25rem;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary, #525252);
+}
+
+/* Tables list */
+.tableRow {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--cds-layer-hover, #e8e8e8);
+  }
+}
+
+.tableRowSelected,
+.tableRowSelected:hover {
+  background: #e5f6f4;
+  box-shadow: inset 3px 0 0 var(--cds-link-primary, #007d79);
+}
+
+.tableRowIcon {
+  flex-shrink: 0;
+  color: var(--cds-text-secondary, #525252);
+}
+
+.tableRowText {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.tableName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #161616);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableMeta {
+  font-size: 0.6875rem;
+  color: var(--cds-text-secondary, #525252);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Detail pane */
+.detailHeader {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #dcdcdc);
+}
+
+.detailIcon {
+  color: var(--cds-link-primary, #007d79);
+}
+
+.detailHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #161616);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailMeta {
+  margin: 0.25rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--cds-text-secondary, #525252);
+  white-space: pre-wrap;
+}
+
+.detailActions {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.detailBody {
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem 1rem 1rem;
+  /* Both axes scroll here so nothing inside can push the page sideways */
+  overflow: auto;
+}
+
+/* Toolbar (preview + tabs) */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.75rem;
+}
+
+.toolbarSpacer {
+  flex: 1;
+}
+
+.rowSearch {
+  width: 240px;
+}
+
+.truncateNote {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-style: italic;
+  color: var(--cds-text-secondary, #525252);
+}
+
+/* Preview grid — the ONLY element that scrolls horizontally */
+.gridScroll {
+  max-width: 100%;
+  max-height: min(60vh, 34rem);
+  overflow: auto;
+  border: 1px solid var(--cds-border-subtle, #dcdcdc);
+
+  /* Keep columns at natural width so wide tables scroll inside this container */
+  table {
+    min-width: max-content;
+    table-layout: auto;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--cds-layer, #fff);
+  }
+}
+
+/* Shared empty state */
+.emptyState {
+  display: grid;
+  justify-items: center;
+  padding: 2.5rem 2rem;
+  margin: 0.5rem 0;
+  text-align: center;
+  gap: 0.5rem;
+
+  h5 {
+    margin: 0.25rem 0 0;
+  }
+
+  p {
+    margin: 0;
+    max-width: 26rem;
+    font-size: 0.8125rem;
+    color: var(--cds-text-secondary, #525252);
+  }
+
+  code {
+    font-family: monospace;
+  }
+}
+
+/* Metadata tab */
+.metadataFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--cds-layer, #fff);
+  border: 1px solid var(--cds-border-subtle, #dcdcdc);
+  border-radius: 4px;
+}
+
+.metadataHeading {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cds-text-primary, #161616);
+}
+
+.metadataTypes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Table information strip (rendered inside the detail pane) */
+.infoStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--cds-layer, #fff);
+  border: 1px solid var(--cds-border-subtle, #dcdcdc);
+  border-radius: 4px;
+}
+
+.infoCell {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.infoLabel {
+  font-size: 0.625rem;
+  color: var(--cds-text-secondary, #525252);
+}
+
+.infoValue {
+  font-size: 0.75rem;
+  color: var(--cds-text-primary, #161616);
+  overflow-wrap: anywhere;
+}
+
+/* Responsive: stack panes on narrow windows; drag handles are meaningless vertically */
+@media (max-width: 67rem) {
+  .browserGrid {
+    flex-direction: column;
+    gap: 1rem;
+    height: auto;
+  }
+
+  .paneWrap {
+    width: 100% !important;
+    max-height: 20rem;
+  }
+
+  .resizeHandle {
+    display: none;
+  }
+
+  .detailPane {
+    min-height: 28rem;
+  }
+}
