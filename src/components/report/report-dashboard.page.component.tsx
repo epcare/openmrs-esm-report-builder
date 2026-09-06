@@ -31,6 +31,8 @@ import { Play, Add, Renew } from '@carbon/react/icons';
 
 import Header from '../shared/header/header.component';
 import { listReports, compileReport, type ReportDto } from '../../resources/report/reports.api';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
 import ExportReportModal from '../import-export/export-report-modal.component';
 
@@ -44,6 +46,8 @@ type ReportWithMetadata = ReportDto & {
 };
 
 const ReportDashboardPage: React.FC = () => {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canCreateReport = hasPrivilege(RB.REPORT_ADD, RB.REPORT_EDIT);
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -362,14 +366,16 @@ const ReportDashboardPage: React.FC = () => {
               Compile Selected ({selectedReports.size})
             </Button>
           )}
-          <Button
-            kind="ghost"
-            size="md"
-            renderIcon={Add}
-            onClick={() => navigate('/new')}
-          >
-            Create Report
-          </Button>
+          {canCreateReport && (
+            <Button
+              kind="ghost"
+              size="md"
+              renderIcon={Add}
+              onClick={() => navigate('/new')}
+            >
+              Create Report
+            </Button>
+          )}
           <Button
             kind="ghost"
             size="md"

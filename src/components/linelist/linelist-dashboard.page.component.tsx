@@ -49,6 +49,8 @@ import {
   parseLinelistConfig,
 } from '../../resources/linelist/linelist-reports.api';
 import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import { listDataThemes, type DataThemeDto } from '../../resources/theme/data-theme.api';
 import type { LinelistRowGrain } from '../../types/linelist-types';
 
@@ -74,6 +76,8 @@ interface ReportWithMetadata extends LinelistReportDefinitionDto {
 }
 
 const LinelistReportsPage: React.FC<Props> = () => {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canCreateLinelist = hasPrivilege(RB.REPORT_ADD, RB.REPORT_EDIT);
   const navigate = useNavigate();
 
   const [reports, setReports] = useState<ReportWithMetadata[]>([]);
@@ -493,14 +497,16 @@ const LinelistReportsPage: React.FC<Props> = () => {
 
               {/* Action buttons */}
               <div className={styles.filterActions}>
-                <Button
-                  kind="ghost"
-                  size="md"
-                  renderIcon={Add}
-                  onClick={() => navigate('/linelist/new')}
-                >
-                  Create linelist report
-                </Button>
+                {canCreateLinelist && (
+                  <Button
+                    kind="ghost"
+                    size="md"
+                    renderIcon={Add}
+                    onClick={() => navigate('/linelist/new')}
+                  >
+                    Create linelist report
+                  </Button>
+                )}
                 {selectedReports.size > 0 && (
                   <Button
                     kind="primary"
@@ -590,11 +596,12 @@ const LinelistReportsPage: React.FC<Props> = () => {
               ? 'No reports match your filters. Try adjusting your search criteria.'
               : 'Get started by creating your first linelist report.'}
           </p>
-          {!(searchQuery || statusFilter !== 'all' || categoryFilter || rowTypeFilter !== 'all') && (
-            <Button kind="primary" renderIcon={Add} onClick={() => navigate('/linelist/new')}>
-              Create Linelist Report
-            </Button>
-          )}
+          {!(searchQuery || statusFilter !== 'all' || categoryFilter || rowTypeFilter !== 'all') &&
+            canCreateLinelist && (
+              <Button kind="primary" renderIcon={Add} onClick={() => navigate('/linelist/new')}>
+                Create Linelist Report
+              </Button>
+            )}
         </Tile>
       ) : (
         <>

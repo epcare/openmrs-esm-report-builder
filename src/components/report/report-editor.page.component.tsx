@@ -34,6 +34,8 @@ import {
 import { listSections } from '../../resources/report-section/report-sections.api';
 import { listReportCategories, type ReportCategoryDto } from '../../resources/report-category/report-category.api';
 import CompileSetupModal, { type CompileSetupResult } from '../shared/compile-setup-modal.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 
 type TabKey = 'details' | 'definition' | 'design';
 type BuilderMode = 'create' | 'edit';
@@ -118,6 +120,7 @@ function safeParseJson(raw?: string | null): any {
 export default function ReportEditorPage() {
   const { t } = useTranslation();
   const { reportId } = useParams();
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
 
   const mode: BuilderMode = reportId ? 'edit' : 'create';
 
@@ -448,7 +451,9 @@ export default function ReportEditorPage() {
   }, []);
 
   const canSave = Boolean(form.name.trim()) && !saving && !loading;
-  const canCompile = Boolean((savedReport?.uuid || reportId || form.name.trim()) && !saving && !compiling && !loading);
+  const canCompile =
+      hasPrivilege(RB.REPORT_COMPILE) &&
+      Boolean((savedReport?.uuid || reportId || form.name.trim()) && !saving && !compiling && !loading);
 
   return (
       <>

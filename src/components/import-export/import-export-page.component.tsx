@@ -23,6 +23,8 @@ import { type PackageInfo, getAvailablePackages } from '../../resources/report-i
 import ExportReportModal from './export-report-modal.component';
 import ImportPackageModal from './import-package-modal.component';
 import Header from '../shared/header/header.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 
 const PackageHeaders = [
   { key: 'name', header: 'Configuration' },
@@ -42,6 +44,10 @@ const TABS: Array<{ value: TabType; label: string }> = [
 ];
 
 const ImportExportPage: React.FC = () => {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canImport = hasPrivilege(RB.PACKAGE_IMPORT);
+  const canExport = hasPrivilege(RB.PACKAGE_EXPORT);
+
   // Modal states
   const [showExportModal, setShowExportModal] = React.useState(false);
   const [showImportModal, setShowImportModal] = React.useState(false);
@@ -179,16 +185,18 @@ const ImportExportPage: React.FC = () => {
                           if (headers[i].key === 'action' && pkg) {
                             return (
                               <TableCell key={cell.id}>
-                                <Button
-                                  kind="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setShowImportModal(true);
-                                  }}
-                                  disabled={pkg.status !== 'valid'}
-                                >
-                                  Import
-                                </Button>
+                                {canImport && (
+                                  <Button
+                                    kind="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setShowImportModal(true);
+                                    }}
+                                    disabled={pkg.status !== 'valid'}
+                                  >
+                                    Import
+                                  </Button>
+                                )}
                               </TableCell>
                             );
                           }
@@ -212,9 +220,11 @@ const ImportExportPage: React.FC = () => {
           <p style={{ color: 'var(--cds-text-02)', marginBottom: '1rem' }}>
             Extract artifacts to backup or distribute reporting configuration.
           </p>
-          <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
-            Extract Artifacts
-          </Button>
+          {canExport && (
+            <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
+              Extract Artifacts
+            </Button>
+          )}
         </Tile>
       )}
     </Stack>
@@ -229,9 +239,11 @@ const ImportExportPage: React.FC = () => {
         <p style={{ color: 'var(--cds-text-02)', marginBottom: '1rem' }}>
           Select individual artifacts to create custom distribution packages.
         </p>
-        <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
-          Export Artifacts
-        </Button>
+        {canExport && (
+          <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
+            Export Artifacts
+          </Button>
+        )}
       </Tile>
     </Stack>
   );
@@ -260,12 +272,16 @@ const ImportExportPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '1rem' }}>
         <div></div>
         <ButtonSet>
-          <Button kind="secondary" renderIcon={Upload} onClick={() => setShowImportModal(true)}>
-            Initialize Report Builder
-          </Button>
-          <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
-            Extract Artifacts
-          </Button>
+          {canImport && (
+            <Button kind="secondary" renderIcon={Upload} onClick={() => setShowImportModal(true)}>
+              Initialize Report Builder
+            </Button>
+          )}
+          {canExport && (
+            <Button kind="primary" renderIcon={Download} onClick={() => setShowExportModal(true)}>
+              Extract Artifacts
+            </Button>
+          )}
         </ButtonSet>
       </div>
 

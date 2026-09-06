@@ -89,7 +89,7 @@ export default function PreviewGrid({ table, data, loading, error, onRefresh }: 
                     </Button>
                 </div>
                 <p className={styles.truncateNote}>
-                    Preview needs the &quot;View Reports&quot; privilege and a valid table name.
+                    Preview needs the &quot;sql.execute&quot; privilege and a valid table name.
                 </p>
             </div>
         );

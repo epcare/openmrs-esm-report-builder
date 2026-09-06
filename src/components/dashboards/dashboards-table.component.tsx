@@ -35,9 +35,12 @@ interface DashboardsTableProps {
     loading?: boolean;
     onEdit: (uuid: string) => void;
     onDelete: (uuid: string) => void;
+    /** Row actions the signed-in user may see (privilege gating). */
+    canEdit?: boolean;
+    canDelete?: boolean;
 }
 
-export default function DashboardsTable({ rows, loading, onEdit, onDelete }: DashboardsTableProps) {
+export default function DashboardsTable({ rows, loading, onEdit, onDelete, canEdit = true, canDelete = true }: DashboardsTableProps) {
     if (loading && rows.length === 0) {
         return <DataTableSkeleton rowCount={4} columnCount={7} showHeader={false} showToolbar={false} />;
     }
@@ -93,22 +96,26 @@ export default function DashboardsTable({ rows, loading, onEdit, onDelete }: Das
                                         <TableCell>{row.cells[5].value}</TableCell>
                                         <TableCell>
                                             <div className={styles['dashboards-table__actions']}>
-                                                <Button
-                                                    kind="ghost"
-                                                    size="sm"
-                                                    renderIcon={Edit}
-                                                    iconDescription="Edit"
-                                                    hasIconOnly
-                                                    onClick={() => original && onEdit(original.uuid)}
-                                                />
-                                                <Button
-                                                    kind="ghost"
-                                                    size="sm"
-                                                    renderIcon={TrashCan}
-                                                    iconDescription="Retire"
-                                                    hasIconOnly
-                                                    onClick={() => original && onDelete(original.uuid)}
-                                                />
+                                                {canEdit && (
+                                                    <Button
+                                                        kind="ghost"
+                                                        size="sm"
+                                                        renderIcon={Edit}
+                                                        iconDescription="Edit"
+                                                        hasIconOnly
+                                                        onClick={() => original && onEdit(original.uuid)}
+                                                    />
+                                                )}
+                                                {canDelete && (
+                                                    <Button
+                                                        kind="ghost"
+                                                        size="sm"
+                                                        renderIcon={TrashCan}
+                                                        iconDescription="Retire"
+                                                        hasIconOnly
+                                                        onClick={() => original && onDelete(original.uuid)}
+                                                    />
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>

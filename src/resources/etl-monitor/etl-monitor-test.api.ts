@@ -221,9 +221,12 @@ export async function testEndpointConnection(
 
     if (error?.response?.status === 403) {
       return {
-        success: false,
-        error: 'Permission denied. You may not have the required privileges to test endpoints.',
+        // PrivilegeError (from the omrs* helpers) already carries a user-friendly message.
+        error:
+          error?.message ??
+          'Permission denied. You may not have the required privileges to test endpoints.',
         errorCode: 'FORBIDDEN',
+        success: false,
         durationMs,
         testedAt: new Date().toISOString(),
       };

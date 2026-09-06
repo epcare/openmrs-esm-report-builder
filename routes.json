@@ -15,7 +15,8 @@
       "slot": "system-admin-page-card-link-slot",
       "component": "reportBuilderAdminLink",
       "online": true,
-      "offline": false
+      "offline": false,
+      "privileges": "Task: reportbuilder.report.view"
     }
   ]
 }

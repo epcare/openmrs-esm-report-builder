@@ -18,6 +18,8 @@ import { useTranslation } from 'react-i18next';
 
 import Header from '../shared/header/header.component';
 import CreateSectionModal from './create-report-section-modal.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import type { CreateSectionPayload, SectionIndicatorRef } from './section-types';
 import SectionPreviewModal from './report-section-preview-modal.component';
 import styles from './sections-page.scss';
@@ -40,6 +42,10 @@ function countIndicatorsFromConfig(section: ReportSectionDto): number {
 
 const SectionsPage: React.FC = () => {
     const { t } = useTranslation();
+
+    const { has: hasPrivilege } = useReportBuilderPrivileges();
+    const canAddSection = hasPrivilege(RB.SECTION_ADD, RB.SECTION_EDIT);
+    const canPreviewSection = hasPrivilege(RB.SQL_EXECUTE);
 
     const [q, setQ] = React.useState('');
     const [openCreate, setOpenCreate] = React.useState(false);
@@ -193,9 +199,11 @@ const SectionsPage: React.FC = () => {
             <div className={styles.sectionsPage}>
                 <div className={styles.headerRow}>
                     <h3 className={styles.title}>{t('sections', 'Sections')}</h3>
-                    <Button size="sm" kind="primary" renderIcon={Add} onClick={() => setOpenCreate(true)}>
-                        {t('createSection', 'Create Section')}
-                    </Button>
+                    {canAddSection && (
+                        <Button size="sm" kind="primary" renderIcon={Add} onClick={() => setOpenCreate(true)}>
+                            {t('createSection', 'Create Section')}
+                        </Button>
+                    )}
                 </div>
 
                 <div className={styles.surface}>
@@ -238,8 +246,12 @@ const SectionsPage: React.FC = () => {
                                                     return (
                                                         <TableCell key={cell.id}>
                                                             <OverflowMenu data-testid={`section-actions-${row.id}`} size="sm" ariaLabel="Actions" flipped>
-                                                                <OverflowMenuItem itemText="Preview" onClick={() => openPreview(row.id)} />
-                                                                <OverflowMenuItem itemText="Edit" onClick={() => openEdit(row.id)} />
+                                                                {canPreviewSection && (
+                                                                    <OverflowMenuItem itemText="Preview" onClick={() => openPreview(row.id)} />
+                                                                )}
+                                                                {canAddSection && (
+                                                                    <OverflowMenuItem itemText="Edit" onClick={() => openEdit(row.id)} />
+                                                                )}
                                                             </OverflowMenu>
                                                         </TableCell>
                                                     );

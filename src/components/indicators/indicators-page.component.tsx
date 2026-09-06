@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 
 import Header from '../shared/header/header.component';
 import IndicatorsTable, { type IndicatorRow } from './indicators-table.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 
 import CreateBaseIndicatorModal from './create-base-indicator-modal.component';
 import type { QAUiState } from './types/condition-ui.types';
@@ -134,6 +136,12 @@ function normalizeAuthoring(ind: IndicatorDto | null | undefined): BaseIndicator
 
 export default function IndicatorsPage() {
     const { t } = useTranslation();
+
+    const { has: hasPrivilege } = useReportBuilderPrivileges();
+    const canAddIndicator = hasPrivilege(RB.INDICATOR_ADD);
+    const canEditIndicator = hasPrivilege(RB.INDICATOR_EDIT);
+    const canRunIndicator = hasPrivilege(RB.SQL_EXECUTE);
+    const canDeleteIndicator = hasPrivilege(RB.INDICATOR_PURGE);
 
     const [tab, setTab] = React.useState<TabKey>('base');
     const [q, setQ] = React.useState('');
@@ -461,7 +469,7 @@ export default function IndicatorsPage() {
                         CSV
                     </Button>
 
-                    {tab === 'base' ? (
+                    {canAddIndicator && (tab === 'base' ? (
                         <>
                             <Button
                                 size="sm"
@@ -484,8 +492,8 @@ export default function IndicatorsPage() {
                         <Button size="sm" kind="primary" renderIcon={Add} onClick={() => setOpenFinal(true)}>
                             Create Final Indicator
                         </Button>
-                    )}
-                    {tab === 'custom' && (
+                    ))}
+                    {canAddIndicator && tab === 'custom' && (
                         <Button size="sm" kind="primary" renderIcon={Add} onClick={() => setOpenCustom(true)}>
                             Create Custom Indicator
                         </Button>
@@ -509,21 +517,48 @@ export default function IndicatorsPage() {
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
+                        <IndicatorsTable
+                            rows={filteredRows}
+                            onEdit={onEdit}
+                            onRun={onRun}
+                            onDelete={onDelete}
+                            onDuplicate={onDuplicate}
+                            canEdit={canEditIndicator}
+                            canRun={canRunIndicator}
+                            canDelete={canDeleteIndicator}
+                        />
                     </TabPanel>
 
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
+                        <IndicatorsTable
+                            rows={filteredRows}
+                            onEdit={onEdit}
+                            onRun={onRun}
+                            onDelete={onDelete}
+                            onDuplicate={onDuplicate}
+                            canEdit={canEditIndicator}
+                            canRun={canRunIndicator}
+                            canDelete={canDeleteIndicator}
+                        />
                     </TabPanel>
 
                     <TabPanel>
                         {loading ? <InlineLoading description="Loading…" /> : null}
                         {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-                        <IndicatorsTable rows={filteredRows} onEdit={onEdit} onRun={onRun} onDelete={onDelete} onDuplicate={onDuplicate} />
+                        <IndicatorsTable
+                            rows={filteredRows}
+                            onEdit={onEdit}
+                            onRun={onRun}
+                            onDelete={onDelete}
+                            onDuplicate={onDuplicate}
+                            canEdit={canEditIndicator}
+                            canRun={canRunIndicator}
+                            canDelete={canDeleteIndicator}
+                        />
                     </TabPanel>
                 </TabPanels>
             </Tabs>

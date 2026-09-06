@@ -31,55 +31,120 @@ import LinelistRunReport from '../components/linelist/linelist-run-report.page.c
 
 import { ImportExportPage } from '../components/import-export';
 
+import PrivilegeRoute from '../components/security/privilege-route.component';
+import { ROUTE_PRIVILEGES } from '../constants/privileges';
+
+/** Wraps a route element with its required privileges (see ROUTE_PRIVILEGES). */
+const guard = (route: keyof typeof ROUTE_PRIVILEGES, element: React.ReactNode) => (
+    <PrivilegeRoute required={ROUTE_PRIVILEGES[route]}>{element}</PrivilegeRoute>
+);
+
 const ReportBuilderRoutes: React.FC = () => {
     return (
         <Routes>
             <Route element={<ReportBuilderShell />}>
                 {/* Home / landing */}
-                <Route path="/" element={<ReportBuilderLandingPage />} />
+                <Route path="/" element={guard('/', <ReportBuilderLandingPage />)} />
 
                 {/* Reports */}
-                <Route path="/reports" element={<ReportDashboardPage />} />
+                <Route path="/reports" element={guard('/reports', <ReportDashboardPage />)} />
 
                 {/* Create / edit report */}
-                <Route path="/new" element={<ReportEditorPage />} />
-                <Route path="/edit/:reportId" element={<ReportEditorPage />} />
+                <Route path="/new" element={guard('/new', <ReportEditorPage />)} />
+                <Route
+                    path="/edit/:reportId"
+                    element={guard('/edit/:reportId', <ReportEditorPage />)}
+                />
 
                 {/* Indicators / sections */}
-                <Route path="/indicators" element={<IndicatorsPage />} />
-                <Route path="/sections" element={<SectionsPage />} />
+                <Route path="/indicators" element={guard('/indicators', <IndicatorsPage />)} />
+                <Route path="/sections" element={guard('/sections', <SectionsPage />)} />
 
                 {/* Run */}
-                <Route path="/run" element={<ReportVisualizerPage />} />
-                <Route path="/run-reports" element={<ReportVisualizerPage />} />
+                <Route path="/run" element={guard('/run', <ReportVisualizerPage />)} />
+                <Route
+                    path="/run-reports"
+                    element={guard('/run-reports', <ReportVisualizerPage />)}
+                />
 
                 {/* Admin */}
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/report-categories" element={<ReportCategoriesPage />} />
-                <Route path="/admin/age-categories" element={<AgeCategoriesPage />} />
-                <Route path="/admin/age-groups" element={<AgeGroupsPage />} />
-                <Route path="/admin/report-library" element={<ReportLibraryPage />} />
-                <Route path="/admin/etl-sources" element={<ETLSourcesPage />} />
-                <Route path="/admin/etl-tasks" element={<ETLTasksPage />} />
-                <Route path="/admin/etl-monitors" element={<ETLMonitorsPage />} />
-                <Route path="/admin/etl-monitors/builder" element={<EtlMonitorBuilderPage />} />
-                <Route path="/admin/etl-browser" element={<EtlBrowserPage />} />
-                <Route path="/admin/dashboards" element={<DashboardsAdminPage />} />
-                <Route path="/dashboards" element={<DashboardsPage />} />
-                <Route path="/dashboards/:code" element={<DashboardRendererPage />} />
-                <Route path="/etl-dashboard" element={<EtlDashboardPage />} />
+                <Route path="/admin" element={guard('/admin', <AdminPage />)} />
+                <Route
+                    path="/admin/report-categories"
+                    element={guard('/admin/report-categories', <ReportCategoriesPage />)}
+                />
+                <Route
+                    path="/admin/age-categories"
+                    element={guard('/admin/age-categories', <AgeCategoriesPage />)}
+                />
+                <Route
+                    path="/admin/age-groups"
+                    element={guard('/admin/age-groups', <AgeGroupsPage />)}
+                />
+                <Route
+                    path="/admin/report-library"
+                    element={guard('/admin/report-library', <ReportLibraryPage />)}
+                />
+                <Route
+                    path="/admin/etl-sources"
+                    element={guard('/admin/etl-sources', <ETLSourcesPage />)}
+                />
+                <Route
+                    path="/admin/etl-tasks"
+                    element={guard('/admin/etl-tasks', <ETLTasksPage />)}
+                />
+                <Route
+                    path="/admin/etl-monitors"
+                    element={guard('/admin/etl-monitors', <ETLMonitorsPage />)}
+                />
+                <Route
+                    path="/admin/etl-monitors/builder"
+                    element={guard('/admin/etl-monitors/builder', <EtlMonitorBuilderPage />)}
+                />
+                <Route
+                    path="/admin/etl-browser"
+                    element={guard('/admin/etl-browser', <EtlBrowserPage />)}
+                />
+                <Route
+                    path="/admin/dashboards"
+                    element={guard('/admin/dashboards', <DashboardsAdminPage />)}
+                />
+                <Route path="/dashboards" element={guard('/dashboards', <DashboardsPage />)} />
+                <Route
+                    path="/dashboards/:code"
+                    element={guard('/dashboards/:code', <DashboardRendererPage />)}
+                />
+                <Route
+                    path="/etl-dashboard"
+                    element={guard('/etl-dashboard', <EtlDashboardPage />)}
+                />
 
                 {/* Data themes now accessed under Admin */}
-                <Route path="/admin/themes" element={<DataThemesPage />} />
+                <Route
+                    path="/admin/themes"
+                    element={guard('/admin/themes', <DataThemesPage />)}
+                />
 
                 {/* Linelist Reports */}
-                <Route path="/linelist" element={<LinelistReportsPage />} />
-                <Route path="/linelist/new" element={<LinelistBuilderWorkspace />} />
-                <Route path="/linelist/edit/:reportId" element={<LinelistBuilderWorkspace />} />
-                <Route path="/linelist/run/:reportId" element={<LinelistRunReport />} />
+                <Route path="/linelist" element={guard('/linelist', <LinelistReportsPage />)} />
+                <Route
+                    path="/linelist/new"
+                    element={guard('/linelist/new', <LinelistBuilderWorkspace />)}
+                />
+                <Route
+                    path="/linelist/edit/:reportId"
+                    element={guard('/linelist/edit/:reportId', <LinelistBuilderWorkspace />)}
+                />
+                <Route
+                    path="/linelist/run/:reportId"
+                    element={guard('/linelist/run/:reportId', <LinelistRunReport />)}
+                />
 
                 {/* Import / Export */}
-                <Route path="/import-export" element={<ImportExportPage />} />
+                <Route
+                    path="/import-export"
+                    element={guard('/import-export', <ImportExportPage />)}
+                />
 
                 {/* Optional backward compatibility */}
                 <Route path="/themes" element={<Navigate to="/admin/themes" replace />} />

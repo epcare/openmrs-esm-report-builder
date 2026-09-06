@@ -14,6 +14,8 @@ import styles from './etl-monitor-builder-page.scss';
 import type { DisplayDensity } from '../../../types/etl-monitor/etl-monitor-v2.types';
 import { MonitorPreviewRenderer } from './monitor-preview';
 import { GeneratedConfigPanel } from './generated-config-panel.component';
+import { RB } from '../../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../../hooks/use-report-builder-privileges';
 
 import {
   GeneralStep,
@@ -53,6 +55,7 @@ interface BuilderContentProps {
 
 function BuilderContent({ onClose, mode }: BuilderContentProps) {
   const { state, saveMonitor, updateState } = useBuilderContext();
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
   const {
     currentStep,
     goToNextStep,
@@ -67,6 +70,7 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
   const errors = getAllValidationErrors(state);
   const hasParseError = !!state.parseError;
 
+  const canSaveMonitor = hasPrivilege(RB.ETLMONITOR_ADD, RB.ETLMONITOR_EDIT);
   const handleSave = async () => {
     if (errors.length > 0) {
       setSaveError('Please fix validation errors before saving');
@@ -165,7 +169,8 @@ function BuilderContent({ onClose, mode }: BuilderContentProps) {
               size="sm"
               renderIcon={Save}
               onClick={handleSave}
-              disabled={isSaving || errors.length > 0}
+              disabled={isSaving || errors.length > 0 || !canSaveMonitor}
+              title={canSaveMonitor ? undefined : 'Requires ETL monitor privileges'}
             >
               {isSaving ? 'Saving…' : 'Save Monitor'}
             </Button>

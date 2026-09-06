@@ -19,8 +19,13 @@ import {
     updateDashboard,
 } from '../../resources/dashboard/dashboard.api';
 import type { DashboardDto } from '../../types/dashboard/dashboard.types';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 
 export default function DashboardsPage() {
+    const { has: hasPrivilege } = useReportBuilderPrivileges();
+    const canEditDashboard = hasPrivilege(RB.DASHBOARD_ADD, RB.DASHBOARD_EDIT);
+    const canDeleteDashboard = hasPrivilege(RB.DASHBOARD_PURGE);
     const [q, setQ] = React.useState('');
     const [rows, setRows] = React.useState<DashboardDto[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -106,11 +111,13 @@ export default function DashboardsPage() {
                 subtitle="Configure dashboards composed of sections and widgets (ETL monitors, reports)."
             />
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 1rem' }}>
-                <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
-                    Create Dashboard
-                </Button>
-            </div>
+            {canEditDashboard && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 1rem' }}>
+                    <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
+                        Create Dashboard
+                    </Button>
+                </div>
+            )}
 
             <div style={{ padding: '0 1rem', display: 'grid', gap: '1rem' }}>
                 <Search
@@ -131,7 +138,7 @@ export default function DashboardsPage() {
                     />
                 )}
 
-                <DashboardsTable rows={rows} loading={loading} onEdit={onEdit} onDelete={onDelete} />
+                <DashboardsTable rows={rows} loading={loading} onEdit={onEdit} onDelete={onDelete} canEdit={canEditDashboard} canDelete={canDeleteDashboard} />
             </div>
 
             <DashboardFormModal

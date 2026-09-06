@@ -21,6 +21,8 @@ import {
 } from '@carbon/react';
 import { Add, Edit, TrashCan } from '@carbon/icons-react';
 import Header from '../shared/header/header.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import {
   createReportCategory,
   deleteReportCategory,
@@ -44,6 +46,9 @@ const headers: DataTableHeader[] = [
 const emptyForm: FormState = { name: '', description: '' };
 
 const ReportCategoriesPage: React.FC = () => {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canAddCategory = hasPrivilege(RB.CATEGORY_ADD, RB.CATEGORY_EDIT);
+  const canDeleteCategory = hasPrivilege(RB.CATEGORY_PURGE);
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState<ReportCategoryDto[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -142,9 +147,11 @@ const ReportCategoriesPage: React.FC = () => {
         title="Report Categories"
         subtitle="Manage shared categories used to classify reports across the builder."
         actions={
-          <Button size="sm" renderIcon={Add} onClick={openCreate}>
-            New Category
-          </Button>
+          canAddCategory ? (
+            <Button size="sm" renderIcon={Add} onClick={openCreate}>
+              New Category
+            </Button>
+          ) : undefined
         }
       />
 
@@ -189,24 +196,28 @@ const ReportCategoriesPage: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={Edit}
-                                iconDescription="Edit"
-                                onClick={() => source && openEdit(source)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={TrashCan}
-                                iconDescription="Retire"
-                                onClick={() => source && onDelete(source)}
-                              >
-                                Retire
-                              </Button>
+                              {canAddCategory && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={Edit}
+                                  iconDescription="Edit"
+                                  onClick={() => source && openEdit(source)}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+                              {canDeleteCategory && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={TrashCan}
+                                  iconDescription="Retire"
+                                  onClick={() => source && onDelete(source)}
+                                >
+                                  Retire
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

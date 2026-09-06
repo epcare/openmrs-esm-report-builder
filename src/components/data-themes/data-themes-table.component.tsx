@@ -20,6 +20,9 @@ type Props = {
   rows: DataThemeRow[];
   onEdit: (uuid: string) => void;
   onDelete: (uuid: string) => Promise<void> | void;
+  /** Row actions the signed-in user may see (privilege gating). */
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 const headers = [
@@ -30,7 +33,7 @@ const headers = [
   { key: 'actions', header: '' },
 ];
 
-export default function DataThemesTable({ rows, onEdit, onDelete }: Props) {
+export default function DataThemesTable({ rows, onEdit, onDelete, canEdit = true, canDelete = true }: Props) {
   const tableRows = React.useMemo(
     () =>
       (rows ?? []).map((r) => ({
@@ -71,8 +74,12 @@ export default function DataThemesTable({ rows, onEdit, onDelete }: Props) {
                       return (
                         <TableCell key={cell.id}>
                           <OverflowMenu size="sm" ariaLabel="Theme actions">
-                            <OverflowMenuItem itemText="Edit" onClick={() => onEdit(row.id)} />
-                            <OverflowMenuItem hasDivider isDelete itemText="Delete" onClick={() => onDelete(row.id)} />
+                            {canEdit && (
+                              <OverflowMenuItem itemText="Edit" onClick={() => onEdit(row.id)} />
+                            )}
+                            {canDelete && (
+                              <OverflowMenuItem hasDivider isDelete itemText="Delete" onClick={() => onDelete(row.id)} />
+                            )}
                           </OverflowMenu>
                         </TableCell>
                       );

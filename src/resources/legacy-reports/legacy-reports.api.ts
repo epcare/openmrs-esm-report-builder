@@ -1,23 +1,9 @@
 import { openmrsFetch, restBaseUrl } from '@openmrs/esm-framework';
 
+import { guardRejection } from '../../utils/api-error.utils';
+import { omrsGet, omrsPost } from '../openmrs-api';
+
 const RESOURCE = '/reportbuilder/legacy';
-
-async function omrsGet<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const url = `${restBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await openmrsFetch<T>(url, { signal });
-  return res.data;
-}
-
-async function omrsPost<T>(path: string, body: any, signal?: AbortSignal): Promise<T> {
-  const url = `${restBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await openmrsFetch<T>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    signal,
-  });
-  return res.data;
-}
 
 export type LegacyReportDto = {
   uuid: string;
@@ -122,11 +108,13 @@ export async function uploadLegacyReport(
 
   const url = `${restBaseUrl}${RESOURCE}/upload`;
 
-  const response = await openmrsFetch(url, {
-    method: 'POST',
-    body: formData,
-    signal,
-  });
+  const response = await guardRejection(
+    openmrsFetch(url, {
+      method: 'POST',
+      body: formData,
+      signal,
+    }),
+  );
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);

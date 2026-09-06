@@ -11,5 +11,8 @@
 }
 
 .main {
-  overflow: auto;
+  /* Vertical scroll only — wide content (e.g. ETL browser tables) must scroll
+     inside its own container (etl-browser gridScroll), never push the shell sideways */
+  overflow-y: auto;
+  overflow-x: hidden;
 }

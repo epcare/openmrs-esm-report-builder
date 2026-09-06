@@ -8,10 +8,15 @@ import DataThemeModal from './data-theme-modal.component';
 import Header from '../shared/header/header.component';
 
 import type { DataTheme, DataThemeRow } from '../../types/theme/data-theme.types';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import { listThemes, createTheme, updateTheme, deleteTheme, getTheme } from '../../resources/theme/data-theme.api';
 
 export default function DataThemesPage() {
     const { t } = useTranslation();
+    const { has: hasPrivilege } = useReportBuilderPrivileges();
+    const canEditTheme = hasPrivilege(RB.THEME_ADD, RB.THEME_EDIT);
+    const canDeleteTheme = hasPrivilege(RB.THEME_PURGE);
     const [q, setQ] = React.useState('');
     const [rows, setRows] = React.useState<DataThemeRow[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -102,9 +107,11 @@ export default function DataThemesPage() {
                 <div>
                 </div>
 
-                <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
-                    Create Theme
-                </Button>
+                {canEditTheme && (
+                    <Button size="sm" kind="primary" renderIcon={Add} onClick={onCreate}>
+                        Create Theme
+                    </Button>
+                )}
             </div>
 
             <Search
@@ -118,7 +125,7 @@ export default function DataThemesPage() {
             {loading ? <div>Loading…</div> : null}
             {!loading && error ? <div style={{ color: 'var(--cds-text-error, #da1e28)' }}>{error}</div> : null}
 
-            <DataThemesTable rows={rows} onEdit={onEdit} onDelete={onDelete} />
+            <DataThemesTable rows={rows} onEdit={onEdit} onDelete={onDelete} canEdit={canEditTheme} canDelete={canDeleteTheme} />
 
             <DataThemeModal
                 open={open}

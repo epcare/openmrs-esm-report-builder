@@ -22,6 +22,8 @@ import {
 } from '@carbon/react';
 import { Add, Edit, TrashCan } from '@carbon/icons-react';
 import Header from '../shared/header/header.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import {
   createETLSource,
   deleteETLSource,
@@ -61,6 +63,9 @@ const emptyForm: FormState = {
 };
 
 export default function ETLSourcesPage() {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canEditSource = hasPrivilege(RB.ETLSOURCE_ADD, RB.ETLSOURCE_EDIT);
+  const canDeleteSource = hasPrivilege(RB.ETLSOURCE_PURGE);
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState<ETLSourceDto[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -176,9 +181,11 @@ export default function ETLSourcesPage() {
         title="ETL Sources"
         subtitle="Manage ETL source definitions used by the report builder."
         actions={
-          <Button data-testid="etl-source-new" size="sm" renderIcon={Add} onClick={openCreate}>
-            New ETL Source
-          </Button>
+          canEditSource ? (
+            <Button data-testid="etl-source-new" size="sm" renderIcon={Add} onClick={openCreate}>
+              New ETL Source
+            </Button>
+          ) : undefined
         }
       />
 
@@ -228,22 +235,26 @@ export default function ETLSourcesPage() {
                           </TableCell>
                           <TableCell>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={Edit}
-                                iconDescription="Edit"
-                                hasIconOnly
-                                onClick={() => original && openEdit(original)}
-                              />
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={TrashCan}
-                                iconDescription="Retire"
-                                hasIconOnly
-                                onClick={() => original && onDelete(original)}
-                              />
+                              {canEditSource && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={Edit}
+                                  iconDescription="Edit"
+                                  hasIconOnly
+                                  onClick={() => original && openEdit(original)}
+                                />
+                              )}
+                              {canDeleteSource && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={TrashCan}
+                                  iconDescription="Retire"
+                                  hasIconOnly
+                                  onClick={() => original && onDelete(original)}
+                                />
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

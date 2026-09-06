@@ -3,6 +3,10 @@ import { openmrsFetch, restBaseUrl } from "@openmrs/esm-framework";
 import { CQIReportingCohort } from "./data-visualizer.component";
 import dayjs from "dayjs";
 import { indicatorIdsWithoutEndPoints } from "./constants";
+import { guardRejection } from "../../utils/api-error.utils";
+
+/** openmrsFetch with 401/403 rejections normalized to friendly errors. */
+const guardedFetch = (url: string) => guardRejection(openmrsFetch(url));
 
 type ReportRequest = {
   uuid: string;
@@ -103,9 +107,11 @@ export async function getReport(params: ReportRequest, signal?: AbortSignal) {
     });
   }
 
-  return openmrsFetch(
-    `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
-    { signal },
+  return guardRejection(
+    openmrsFetch(
+      `${restBaseUrl}/reportbuilder/reportingDefinition?${query.toString()}`,
+      { signal },
+    ),
   );
 }
 
@@ -116,9 +122,11 @@ export function downloadReport(params: ReportDownloadParams) {
     apiUrl += `&cohortList=${params.reportingCohort}`;
   }
 
-  return openmrsFetch(apiUrl, {
-    signal: abortController.signal,
-  });
+  return guardRejection(
+    openmrsFetch(apiUrl, {
+      signal: abortController.signal,
+    }),
+  );
 }
 
 export async function getCategoryIndicator(id: string, type?: string) {
@@ -139,7 +147,7 @@ export async function getCategoryIndicator(id: string, type?: string) {
     }
   }
 
-  const { data } = await openmrsFetch(apiUrl);
+  const { data } = await guardRejection(openmrsFetch(apiUrl));
   return data;
 }
 
@@ -147,7 +155,7 @@ export function useGetEncounterType() {
   const apiUrl = `${restBaseUrl}/encountertype`;
   const { data, error, isLoading } = useSWR<{ data: { results: any } }, Error>(
     apiUrl,
-    openmrsFetch
+    guardedFetch
   );
   return {
     encounterTypes: data ? mapDataElements(data?.data["results"]) : [],
@@ -160,7 +168,7 @@ export function useGetOrderTypes() {
   const apiUrl = `${restBaseUrl}/ordertype?v=custom:(uuid,display,name)`;
   const { data, error, isLoading } = useSWR<{ data: { results: any } }, Error>(
     apiUrl,
-    openmrsFetch
+    guardedFetch
   );
   return {
     orderTypes: data
@@ -175,37 +183,41 @@ export async function saveReport(params: saveReportRequest) {
   const apiUrl = `${restBaseUrl}/dashboardReport`;
   const abortController = new AbortController();
 
-  return openmrsFetch(apiUrl, {
-    method: "POST",
-    signal: abortController.signal,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: {
-      name: params.reportName,
-      description: params?.reportDescription,
-      type: params?.reportType,
-      columns: params?.columns,
-      rows: params?.rows,
-      report_request_object: params.report_request_object,
-    },
-  });
+  return guardRejection(
+    openmrsFetch(apiUrl, {
+      method: "POST",
+      signal: abortController.signal,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        name: params.reportName,
+        description: params?.reportDescription,
+        type: params?.reportType,
+        columns: params?.columns,
+        rows: params?.rows,
+        report_request_object: params.report_request_object,
+      },
+    }),
+  );
 }
 
 export async function sendReportToDHIS2(report, dhis2Json) {
   const apiUrl = `${restBaseUrl}/sendreport?uuid=${report}`;
   const abortController = new AbortController();
 
-  return openmrsFetch(apiUrl, {
-    method: "POST",
-    signal: abortController.signal,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: {
-      ...dhis2Json,
-    },
-  });
+  return guardRejection(
+    openmrsFetch(apiUrl, {
+      method: "POST",
+      signal: abortController.signal,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        ...dhis2Json,
+      },
+    }),
+  );
 }
 
 export async function getCohortCategory(type: string) {
@@ -215,7 +227,7 @@ export async function getCohortCategory(type: string) {
   } else {
     apiUrl = `${restBaseUrl}/${type}?v=custom:(uuid,name)`;
   }
-  const { data } = await openmrsFetch(apiUrl);
+  const { data } = await guardRejection(openmrsFetch(apiUrl));
   return data;
 }
 
@@ -226,7 +238,7 @@ export function useGetReportLibrary() {
 
   const { data, error, isLoading, mutate } = useSWR<ReportLibraryResponse, Error>(
     apiUrl,
-    openmrsFetch
+    guardedFetch
   );
 
   return {
@@ -242,7 +254,7 @@ export function useGetReportCategories() {
 
   const { data, error, isLoading, mutate } = useSWR<ReportCategoryResponse, Error>(
     apiUrl,
-    openmrsFetch
+    guardedFetch
   );
 
   return {

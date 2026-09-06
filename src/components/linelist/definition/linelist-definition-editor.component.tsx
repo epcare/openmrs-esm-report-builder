@@ -84,6 +84,8 @@ import PreviewParameterModal from '../modals/preview-parameter-modal.component';
 import styles from './linelist-definition-editor.scss';
 import type { LinelistReportDefinitionConfig } from '../../../types/linelist-types';
 import CompileSetupModal, { type CompileSetupResult } from '../../shared/compile-setup-modal.component';
+import { RB } from '../../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../../hooks/use-report-builder-privileges';
 
 type Props = {};
 
@@ -555,6 +557,7 @@ function extractParameterReferences(sql: string): string[] {
 const LinelistBuilderWorkspace: React.FC<Props> = () => {
   const navigate = useNavigate();
   const { reportId } = useParams();
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
 
   // Report state
   const [draft, setDraft] = useState<LinelistReportDraft>(createEmptyDraft());
@@ -1398,7 +1401,12 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
               size="sm"
               renderIcon={Send}
               onClick={handleCompile}
-              disabled={compiling || !initialReport?.uuid}
+              disabled={compiling || !initialReport?.uuid || !hasPrivilege(RB.REPORT_COMPILE)}
+              title={
+                hasPrivilege(RB.REPORT_COMPILE)
+                  ? undefined
+                  : 'Requires the report compile privilege'
+              }
             >
               {compiling ? 'Compiling...' : 'Compile'}
             </Button>
@@ -1580,7 +1588,11 @@ function getDefaultOperator(fieldType: FilterFieldType): FilterOperator {
                 kind="primary"
                 size="sm"
                 onClick={handleRunPreview}
-                disabled={previewRunning || !initialReport?.compiledReportDefinitionUuid}
+                disabled={
+                  previewRunning ||
+                  !initialReport?.compiledReportDefinitionUuid ||
+                  !hasPrivilege(RB.SQL_EXECUTE)
+                }
                 tooltipAlignment="end"
                 tooltipPosition="bottom"
               >

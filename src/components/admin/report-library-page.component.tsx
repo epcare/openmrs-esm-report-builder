@@ -24,6 +24,8 @@ import {
 } from '@carbon/react';
 import { Add, Edit, TrashCan } from '@carbon/icons-react';
 import Header from '../shared/header/header.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import {
   createReportLibrary,
   deleteReportLibrary,
@@ -91,6 +93,9 @@ function categoryDisplayOf(value: ReportLibraryDto['category']): string {
 }
 
 export default function ReportLibraryPage() {
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canAddLibrary = hasPrivilege(RB.LIBRARY_ADD, RB.LIBRARY_EDIT);
+  const canDeleteLibrary = hasPrivilege(RB.LIBRARY_PURGE);
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState<ReportLibraryDto[]>([]);
   const [categories, setCategories] = React.useState<ReportCategoryDto[]>([]);
@@ -344,9 +349,11 @@ export default function ReportLibraryPage() {
               Clear
             </Button>
 
-            <Button size="md" renderIcon={Add} onClick={openCreate}>
-              New Library Entry
-            </Button>
+            {canAddLibrary && (
+              <Button size="md" renderIcon={Add} onClick={openCreate}>
+                New Library Entry
+              </Button>
+            )}
           </div>
 
           {error ? <InlineNotification lowContrast kind="error" title="Error" subtitle={error} /> : null}
@@ -396,22 +403,26 @@ export default function ReportLibraryPage() {
                                   </TableCell>
                                   <TableCell>
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                      <Button
-                                          kind="ghost"
-                                          size="sm"
-                                          renderIcon={Edit}
-                                          onClick={() => source && openEdit(source)}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                          kind="ghost"
-                                          size="sm"
-                                          renderIcon={TrashCan}
-                                          onClick={() => source && onDelete(source)}
-                                      >
-                                        Retire
-                                      </Button>
+                                      {canAddLibrary && (
+                                        <Button
+                                            kind="ghost"
+                                            size="sm"
+                                            renderIcon={Edit}
+                                            onClick={() => source && openEdit(source)}
+                                        >
+                                          Edit
+                                        </Button>
+                                      )}
+                                      {canDeleteLibrary && (
+                                        <Button
+                                            kind="ghost"
+                                            size="sm"
+                                            renderIcon={TrashCan}
+                                            onClick={() => source && onDelete(source)}
+                                        >
+                                          Retire
+                                        </Button>
+                                      )}
                                     </div>
                                   </TableCell>
                                 </TableRow>

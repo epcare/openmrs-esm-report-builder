@@ -7,6 +7,10 @@
   /* Bounded height so the side panes scroll internally instead of stretching the page */
   height: calc(100vh - 16rem);
   min-height: 30rem;
+  /* Flex item of the page Stack: without an explicit floor reset, min-content width
+     (driven by wide preview tables) would inflate this row and the shell with it */
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Width-controlled wrapper for the draggable/collapsible panes */
@@ -267,8 +271,9 @@
   flex: 1;
   min-height: 0;
   padding: 0.75rem 1rem 1rem;
-  /* Both axes scroll here so nothing inside can push the page sideways */
-  overflow: auto;
+  /* Vertical scroll only — horizontal overflow belongs to .gridScroll below */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Toolbar (preview + tabs) */
@@ -297,9 +302,11 @@
 
 /* Preview grid — the ONLY element that scrolls horizontally */
 .gridScroll {
+  width: 100%;
   max-width: 100%;
   max-height: min(60vh, 34rem);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid var(--cds-border-subtle, #dcdcdc);
 
   /* Keep columns at natural width so wide tables scroll inside this container */

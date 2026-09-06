@@ -26,6 +26,8 @@ import {
 } from '@carbon/react';
 import { Add, Edit, TrashCan } from '@carbon/icons-react';
 import Header from '../shared/header/header.component';
+import { RB } from '../../constants/privileges';
+import { useReportBuilderPrivileges } from '../../hooks/use-report-builder-privileges';
 import {
   createETLMonitor,
   deleteETLMonitor,
@@ -117,6 +119,9 @@ const authTypeOptions: { value: AuthType; label: string }[] = [
 
 export default function ETLMonitorsPage() {
   const navigate = useNavigate();
+  const { has: hasPrivilege } = useReportBuilderPrivileges();
+  const canEditMonitor = hasPrivilege(RB.ETLMONITOR_ADD, RB.ETLMONITOR_EDIT);
+  const canDeleteMonitor = hasPrivilege(RB.ETLMONITOR_PURGE);
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState<ETLMonitorDto[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -344,14 +349,16 @@ export default function ETLMonitorsPage() {
         title="ETL Monitors"
         subtitle="Configure and monitor external ETL processes. Set up API endpoints and define how to extract and display data."
         actions={
-          <Stack orientation="horizontal" gap={2}>
-            <Button size="sm" renderIcon={Add} onClick={() => navigate('/admin/etl-monitors/builder?mode=create')}>
-              New Monitor
-            </Button>
-            <Button size="sm" kind="ghost" onClick={openCreate}>
-              Advanced (JSON)
-            </Button>
-          </Stack>
+          canEditMonitor ? (
+            <Stack orientation="horizontal" gap={2}>
+              <Button size="sm" renderIcon={Add} onClick={() => navigate('/admin/etl-monitors/builder?mode=create')}>
+                New Monitor
+              </Button>
+              <Button size="sm" kind="ghost" onClick={openCreate}>
+                Advanced (JSON)
+              </Button>
+            </Stack>
+          ) : undefined
         }
       />
 
@@ -401,22 +408,26 @@ export default function ETLMonitorsPage() {
                           </TableCell>
                           <TableCell>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={Edit}
-                                iconDescription="Edit"
-                                hasIconOnly
-                                onClick={() => original && openEditWithBuilder(original)}
-                              />
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                renderIcon={TrashCan}
-                                iconDescription="Retire"
-                                hasIconOnly
-                                onClick={() => original && onDelete(original)}
-                              />
+                              {canEditMonitor && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={Edit}
+                                  iconDescription="Edit"
+                                  hasIconOnly
+                                  onClick={() => original && openEditWithBuilder(original)}
+                                />
+                              )}
+                              {canDeleteMonitor && (
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  renderIcon={TrashCan}
+                                  iconDescription="Retire"
+                                  hasIconOnly
+                                  onClick={() => original && onDelete(original)}
+                                />
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
